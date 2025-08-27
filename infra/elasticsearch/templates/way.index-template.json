@@ -1,0 +1,43 @@
+{
+  "index_patterns": ["way-*"],
+  "priority": 500,
+  "template": {
+    "settings": {
+      "index.number_of_shards": 1,
+      "index.number_of_replicas": 0,
+      "index.refresh_interval": "30s",
+      "index.codec": "best_compression",
+      "index.lifecycle.name": "way-rollover-100m",
+      "index.lifecycle.rollover_alias": "way",
+      "index.default_pipeline": "way-normalize",
+      "index.sort.field": "detected_at",
+      "index.sort.order": "desc",
+      "analysis": {
+        "normalizer": {
+          "lowercase_norm": {
+            "type": "custom",
+            "filter": ["lowercase"]
+          }
+        }
+      }
+    },
+    "mappings": {
+      "dynamic": "strict",
+      "properties": {
+        "device_id":          { "type": "keyword", "normalizer": "lowercase_norm", "ignore_above": 64 },
+        "user_phone_mac":     { "type": "keyword", "normalizer": "lowercase_norm", "ignore_above": 64 },
+        "latitude":           { "type": "float" },
+        "longitude":          { "type": "float" },
+        "location":           { "type": "geo_point", "ignore_malformed": true },
+        "signal_strength":    { "type": "short" },
+        "network_type":       { "type": "keyword", "normalizer": "lowercase_norm", "ignore_above": 32 },
+        "is_ignored":         { "type": "boolean" },
+        "is_alert":           { "type": "boolean" },
+        "user_api":           { "type": "keyword", "ignore_above": 128 },
+        "detected_at":        { "type": "date", "format": "strict_date_optional_time||epoch_millis" },
+        "folder_name":        { "type": "keyword", "ignore_above": 256 },
+        "system_folder_name": { "type": "keyword", "ignore_above": 256 }
+      }
+    }
+  }
+}

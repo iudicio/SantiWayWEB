@@ -1,0 +1,11 @@
+{
+  "policy": {
+    "phases": {
+      "hot": {
+        "actions": {
+          "rollover": { "max_docs": 100000000 }
+        }
+      }
+    }
+  }
+}

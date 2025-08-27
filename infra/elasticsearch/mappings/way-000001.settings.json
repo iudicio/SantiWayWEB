@@ -1,0 +1,1 @@
+{"way-000001":{"settings":{"index":{"sort":{"field":"detected_at","order":"desc"},"lifecycle":{"name":"way-rollover-100m","rollover_alias":"way"},"default_pipeline":"way-normalize"}}}}

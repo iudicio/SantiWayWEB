@@ -1,0 +1,13 @@
+{
+  "description": "Normalize MACs and build geo_point",
+  "processors": [
+    { "gsub": { "field": "device_id", "pattern": "[:\\-\\.]", "replacement": "", "ignore_missing": true } },
+    { "gsub": { "field": "user_phone_mac", "pattern": "[:\\-\\.]", "replacement": "", "ignore_missing": true } },
+    {
+      "script": {
+        "ignore_failure": true,
+        "source": "if (ctx.containsKey('latitude') && ctx.containsKey('longitude')) { ctx.location = [ ctx.longitude, ctx.latitude ]; }"
+      }
+    }
+  ]
+}
