@@ -1,1 +1,4 @@
 Django
+djangorestframework
+elasticsearch
+python-dotenv
