@@ -7,7 +7,7 @@ from users.views import APIKeyViewSet
 router = DefaultRouter()
 
 router.register(r"devices", DeviceViewSet, basename="devices")
-router.register(r"api-keys", APIKeyViewSet, basename="api-keys")
+router.register(r"devices/api-key", APIKeyViewSet, basename="api-keys")
 
 urlpatterns = [
     path('admin/', admin.site.urls),

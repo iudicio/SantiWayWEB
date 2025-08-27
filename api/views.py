@@ -12,7 +12,7 @@ ES_INDEX_PREFIX = getenv("ES_INDEX_PREFIX", None)
 ES_MAX_DOCS_PER_INDEX = getenv("ES_MAX_DOCS_PER_INDEX", None)
 
 es = Elasticsearch(
-            hosts = [ES_HOST], basic_auth=(ES_USER, ES_PASSWORD)
+            hosts = "http://localhost:9200/"
         )
 
 
@@ -52,10 +52,10 @@ class DeviceViewSet(viewsets.ViewSet):
         return Response([hit["_source"] for hit in res["hits"]["hits"]])
     
     def create(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
+        serializer = self.serializer_class(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        es = self.get_es()
+        global es
         doc = serializer.validated_data
 
         # уникальный id: device_id + timestamp, иначе uuid

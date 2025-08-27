@@ -4,11 +4,8 @@ from rest_framework.response import Response
 from .models import APIKey, Device
 from .serializers import DeviceAPIKeySerializer
 
-class DeviceAPIKeyViewSet(viewsets.ViewSet):
-    permission_classes = [permissions.IsAuthenticated]
-
+class APIKeyViewSet(viewsets.ViewSet):
     def create(self, request):
-
         device_name = request.data.get("name")
         if not device_name:
             return Response({"error": "Device name required"}, status=status.HTTP_400_BAD_REQUEST)
