@@ -1,16 +1,17 @@
 from rest_framework import serializers
 from django.utils import timezone
 
-class DeviceSerializer(serializers.ModelSerializer):
-    mac = serializers.CharField(max_length=17)
+# Сериализатор для устройств
+class DeviceSerializer(serializers.Serializer):
+    device_id = serializers.CharField(max_length=17)
     latitude = serializers.DecimalField(max_digits=9, decimal_places=6)
     longitude = serializers.DecimalField(max_digits=9, decimal_places=6)
-    rssi = serializers.IntegerField()
+    signal_strength = serializers.IntegerField()
     network_type = serializers.CharField(max_length=8)
-    ignore_status = serializers.BooleanField(default=False)
-    alert_status = serializers.BooleanField(default=False)
+    is_ignored = serializers.BooleanField(default=False)
+    is_alert = serializers.BooleanField(default=False)
     user_api = serializers.CharField(max_length=100, allow_blank=True)
-    user_mac = serializers.CharField(max_length=17, allow_blank=True)
-    time = serializers.DateTimeField(default_timezone=timezone.now)
+    user_phone_mac = serializers.CharField(max_length=17, allow_blank=True)
+    detected_at = serializers.DateTimeField(default=timezone.now)
     folder_name = serializers.CharField(max_length=100, allow_blank=True)
-    folder_sys_name = serializers.CharField(max_length=100, allow_blank=True)
+    system_folder_name = serializers.CharField(max_length=100, allow_blank=True)
