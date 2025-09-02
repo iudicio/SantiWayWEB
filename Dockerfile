@@ -1,21 +1,31 @@
-FROM python:3.11-slim
+FROM python:3.12-slim
 
-# Устанавливаем рабочую директорию
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
 WORKDIR /app
 
-RUN pip install --upgrade pip
+# Системные зависимости
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential libpq-dev curl netcat-traditional \
+  && rm -rf /var/lib/apt/lists/*
 
-# Копируем зависимости
-COPY requirements.txt .
+# Python зависимости
+COPY requirements.txt /tmp/requirements.txt
+RUN pip install --no-cache-dir -r /tmp/requirements.txt && rm /tmp/requirements.txt
 
-# Устанавливаем зависимости Python
-RUN pip install --no-cache-dir -r requirements.txt
+# Исходники
+COPY . /app
 
-# Копируем проект в контейнер
-COPY . .
+# Нерутовый пользователь
+RUN useradd -ms /bin/bash app && \
+    mkdir -p /static /media && chown -R app:app /static /media
 
-# Экспортируем порт для Django (по умолчанию 8000)
+USER app
+
+# entrypoint копируем в корень контейнера
+COPY docker/entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
 EXPOSE 8000
-
-# Запуск сервера
-CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
+CMD ["/entrypoint.sh"]
