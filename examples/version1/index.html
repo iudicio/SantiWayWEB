@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+    crossorigin=""
+  />
+  <script
+    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+    crossorigin=""
+  ></script>
+  <link rel="stylesheet" href="assets/styles.css">
+  <script src="assets/app.js" defer></script>
+  </head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="logo">LOC</div>
+        <h1>Locator</h1>
+      </div>
+      <nav class="menu">
+        <a href="#" class="active">Дашборд</a>
+        <a href="#">Настройки</a>
+        <a href="#">Мониторинг</a>
+      </nav>
+      <small>© 2025 SantiWay</small>
+    </aside>
+
+    <main class="content">
+      <div class="topbar">
+        <div class="topbar-inner">
+          <div class="title">Панель: Карта и Таблица Устройств</div>
+          <div class="searchbar">
+            <input id="topSearch" class="input" placeholder="Поиск по ID, MAC, типу..."/>
+            <button class="btn" onclick="applyFilters()">Поиск</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="container">
+        <section class="grid">
+          <div class="card" id="mapCard">
+            <div class="header">
+              <h2>Карта Локаций</h2>
+              <div class="muted">Выбрано: <span id="selected-id">—</span></div>
+            </div>
+            <div class="body"><div id="map"></div></div>
+          </div>
+
+          <div class="card">
+            <div class="header"><h2>Фильтры</h2></div>
+            <div class="filters">
+              <div class="row">
+                <label>Тип сети</label>
+                <select id="f-network">
+                  <option value="any">Любой</option>
+                  <option value="WiFi">WiFi</option>
+                  <option value="Bluetooth">Bluetooth</option>
+                </select>
+              </div>
+              <div class="row">
+                <label>Device ID</label>
+                <input id="f-deviceid" class="input" placeholder="Device ID"/>
+              </div>
+              <div class="row">
+                <label>User Phone MAC</label>
+                <input id="f-mac" class="input" placeholder="MAC адрес"/>
+              </div>
+              <div class="checkbox">
+                <input type="checkbox" id="f-alert"/> <label for="f-alert">С тревогой</label>
+              </div>
+              <div class="checkbox">
+                <input type="checkbox" id="f-ignore"/> <label for="f-ignore">Игнорируемое</label>
+              </div>
+              <button class="btn" onclick="applyFilters()">Применить фильтры</button>
+            </div>
+          </div>
+        </section>
+
+        <section class="card table-card">
+          <div class="header"><h2>Данные Устройств</h2></div>
+          <div class="body">
+            <div class="table-controls">
+              <div class="left">
+                <span>Показывать</span>
+                <select id="pageSize">
+                  <option>10</option>
+                  <option>25</option>
+                  <option>50</option>
+                  <option>100</option>
+                </select>
+                <span>записей</span>
+              </div>
+              <div class="right">
+                <span>Быстрый поиск:</span>
+                <input id="tableSearch" class="input" style="height:34px" placeholder="Введите запрос"/>
+              </div>
+            </div>
+
+            <div style="overflow:auto">
+              <table id="devicesTable">
+                <thead>
+                  <tr>
+                    <th>Device ID</th>
+                    <th>User Phone MAC</th>
+                    <th>Latitude</th>
+                    <th>Longitude</th>
+                    <th>Location</th>
+                    <th>Signal Strength</th>
+                    <th>Network Type</th>
+                    <th>Is Ignored</th>
+                    <th>Is Alert</th>
+                    <th>User API</th>
+                    <th>Detected At</th>
+                    <th>Folder Name</th>
+                    <th>System Folder Name</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+            <div class="muted" id="showing"></div>
+            <div class="pagination" id="pagination"></div>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+</body>
+</html>
