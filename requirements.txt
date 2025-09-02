@@ -1,4 +1,12 @@
-Django
-djangorestframework
-elasticsearch
-python-dotenv
+Django>=4.2,<5
+# API
+djangorestframework>=3.15
+# Web‑сервер
+gunicorn>=22.0
+# БД
+psycopg2-binary>=2.9
+# Elasticsearch клиент
+elasticsearch>=8.13,<9
+# Утилиты
+python-dotenv>=1.0
+django-cors-headers>=4.4
