@@ -40,6 +40,8 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'rest_framework',
     'corsheaders',
+    "drf_spectacular",
+    "drf_spectacular_sidecar",  # статические ассеты Swagger UI
 ]
 
 
@@ -66,6 +68,19 @@ REST_FRAMEWORK = {
     "DEFAULT_PERMISSION_CLASSES": [
         "rest_framework.permissions.IsAuthenticatedOrReadOnly",
     ],
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+}
+
+SPECTACULAR_SETTINGS = {
+    "TITLE": "SantiWay API",
+    "DESCRIPTION": "Документация и тестирование API SantiWay.",
+    "VERSION": "1.0.0",
+    # Подставь хост, если нужен другой
+    "SERVERS": [{"url": "http://localhost:8000", "description": "Local"}],
+    # опционально:
+    # "SCHEMA_PATH_PREFIX": r"/api",   # если все эндпоинты под /api
+    # "SWAGGER_UI_DIST": "SIDECAR",    # уже по умолчанию с sidecar
+    # "REDOC_DIST": "SIDECAR",
 }
 
 CORS_ALLOW_ALL_ORIGINS = True  # для разработки
