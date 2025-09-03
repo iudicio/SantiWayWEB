@@ -8,11 +8,9 @@ import uuid
 ES_HOST = getenv("ES_HOST", None)
 ES_USER = getenv("ES_USER", None)
 ES_PASSWORD = getenv("ES_PASSWORD", None)
-ES_INDEX_PREFIX = getenv("ES_INDEX_PREFIX", None)
-ES_MAX_DOCS_PER_INDEX = getenv("ES_MAX_DOCS_PER_INDEX", None)
 
 es = Elasticsearch(
-            hosts = "http://localhost:9200/"
+            hosts = "http://localhost:9200/" # ES_HOST
         )
 
 
@@ -46,8 +44,8 @@ class DeviceViewSet(viewsets.ViewSet):
                 })
 
         query = {"query": {"bool": {"must": must_filters}}} if must_filters else {"query": {"match_all": {}}}
-
-        res = es.search(index=ES_INDEX_PREFIX, body=query, size=100)
+        print(query)
+        res = es.search(index="way", body=query, size=100)
 
         return Response([hit["_source"] for hit in res["hits"]["hits"]])
     
