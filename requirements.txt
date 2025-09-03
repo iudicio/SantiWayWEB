@@ -10,3 +10,5 @@ elasticsearch>=8.13,<9
 # Утилиты
 python-dotenv>=1.0
 django-cors-headers>=4.4
+
+drf-spectacular[sidecar]>=0.27
