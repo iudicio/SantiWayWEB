@@ -21,11 +21,11 @@ COPY . /app
 RUN useradd -ms /bin/bash app && \
     mkdir -p /static /media && chown -R app:app /static /media
 
-USER app
-
 # entrypoint копируем в корень контейнера
 COPY docker/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
+
+USER app
 
 EXPOSE 8000
 CMD ["/entrypoint.sh"]
