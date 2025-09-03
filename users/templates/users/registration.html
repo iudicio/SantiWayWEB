@@ -1,0 +1,70 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Регистрация</title>
+    <link rel="stylesheet" href="{% static 'users/css/registration.css' %}">
+    <script src="{% static 'users/js/registration.js' %}"></script>
+</head>
+
+<body class="bg-dark">
+    <!-- Временное Сообщения об успехе -->
+    {% if messages %}
+        {% for message in messages %}
+            {% if message.tags == 'success' %}
+                <div class="success-message">
+                    {{ message }}
+                    <!-- Можно добавить ссылку -->
+                    <p>Теперь вы можете <a href="#">войти в систему</a></p>
+                </div>
+            {% endif %}
+        {% endfor %}
+    {% endif %}
+    <main class="container">
+        <div class="form-container">
+            <div class="form-header">
+                <div class="icon-wrapper">
+                    <img src="{% static 'users/images/person-add.svg' %}" class="icon">
+                </div>
+                <h2 class="title">Создать аккаунт</h2>
+                <p class="subtitle">Присоединяйтесь к нам</p>
+            </div>
+
+            <form class="form" method="POST">
+                {% csrf_token %}
+
+                <!-- Поле username с ошибками -->
+                {% if form.username.errors %}
+                    <div class="error">{{ form.username.errors }}</div>
+                {% endif %}
+                <input type="text" name="username" id="username" class="input-field" placeholder="Имя пользователя" value="{{ form.username.value|default:'' }}" required>
+                <!-- Поле email с ошибками -->
+                {% if form.email.errors %}
+                    <div class="error">{{ form.email.errors }}</div>
+                {% endif %}
+                <input type="email" name="email" id="email" class="input-field" placeholder="Email" value="{{ form.email.value|default:'' }}" required>
+
+                <!-- Поле password1 с ошибками -->
+                {% if form.password1.errors %}
+                    <div class="error">{{ form.password1.errors }}</div>
+                {% endif %}
+                <input type="password" name="password1" id="password" class="input-field" placeholder="Введите пароль" value="{{ form.password1.value|default:'' }}" required>
+                <!-- Поле password2 с ошибками -->
+                {% if form.password2.errors %}
+                    <div class="error">{{ form.password2.errors }}</div>
+                {% endif %}
+                <input type="password" name="password2" id="repeat-password" class="input-field" placeholder="Повторите пароль" value="{{ form.password2.value|default:'' }}" required>
+
+                <button type="submit" id="submit" class="submit-btn">Зарегистрироваться</button>
+            </form>
+
+            <p class="login-link">
+                Уже есть аккаунт?
+                <a href="#" class="login-link__text">Войти</a>
+            </p>
+        </div>
+    </main>
+</body>
+</html>

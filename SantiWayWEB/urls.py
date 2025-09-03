@@ -12,4 +12,5 @@ router.register(r"devices/api-key", APIKeyViewSet, basename="api-keys")
 urlpatterns = [
     path('admin/', admin.site.urls),
     path("api/", include(router.urls)),
+    path('users/', include('users.urls')),
 ]

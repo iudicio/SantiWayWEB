@@ -1,0 +1,179 @@
+:root {
+  /* Основные цвета */
+  --color-bg-dark: #111827; 
+  --color-text-white: #ffffff; 
+  --color-text-gray-light: #d1d5db; 
+  --color-text-gray-medium: #9ca3af; 
+  
+  /* Акцентные цвета (синяя палитра) */
+  --color-light-blue: #bae6fd;
+  --color-primary-300: #7dd3fc; 
+  --color-blue: #2e9bca; 
+
+  --color-primary-700: #0ea5e9; 
+  --color-primary-800: #0369a1; 
+  
+  /* Цвета формы */
+  --color-input-bg: #233c48; 
+  --color-border: #ffffff1a; 
+  --color-icon-bg: #0369a1; 
+  
+  /* Эффекты */
+  --shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); /* Тень */
+  --backdrop-blur: blur(8px); /* Размытие фона */
+}
+
+body {
+    background-color: var(--color-bg-dark);
+    color: var(--color-text-white);
+    font-family: 'Noto Sans', sans-serif;
+    margin: 0;
+    padding: 0;
+}
+
+.container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    padding: 1rem;
+}
+
+/* Ошибки формы */
+.error {
+    color: rgb(235, 30, 30);
+    margin-top: 0.5rem;
+    font-size: 0.875rem;
+    margin: 0;
+}
+.error .errorlist {
+    margin: 0 0 0.35rem 0;
+    list-style: none;
+    padding-left: 0;
+}
+
+/* Контейнер формы */
+.form-container {
+    background: rgba(17, 24, 39, 0.5);
+    backdrop-filter: var(--backdrop-blur);
+    border: 1px solid var(--color-border);
+    border-radius: 1rem;
+    padding: 2.5rem;
+    width: 100%;
+    max-width: 28rem;
+    box-shadow: var(--shadow);
+}
+
+/* Заголовок формы */
+.form-header {
+    text-align: center;
+    margin-bottom: 2rem;
+}
+
+.icon-wrapper {
+    background: var(--color-icon-bg);
+    border: 1px solid var(--color-primary-700);
+    border-radius: 50%;
+    padding: 1.5rem;
+    display: inline-flex;
+    margin-bottom: 1rem;
+}
+
+.icon {
+    height: 3rem;
+    color: var(--color-primary-300);
+}
+
+.title {
+    font-size: 1.875rem;
+    font-weight: 900;
+    margin: 0 0 0.5rem 0;
+    color: var(--color-text-white);
+}
+
+.subtitle {
+    color: var(--color-text-gray-light);
+    margin: 0;
+    font-size: 0.875rem;
+}
+
+/* Группа полей ввода */
+
+.input-field {
+    width: 100%;
+    background: var(--color-input-bg);
+    margin-bottom: 1.5rem;
+    border: none;
+    border-radius: 0.375rem;
+    padding: 1rem;
+    color: var(--color-text-white);
+    font-size: 0.875rem;
+    height: 3.5rem;
+    box-sizing: border-box;
+}
+
+.input-field:focus {
+    outline: none;
+    border: 2px solid var(--color-blue);
+    box-shadow: 0 0 0 3px rgba(46, 155, 202, 0.3);
+}
+
+.input-field::placeholder {
+    color: var(--color-blue);
+}
+
+.input-label {
+    position: absolute;
+    left: 1rem;
+    top: 1rem;
+    color: var(--color-text-gray-medium);
+    transition: all 0.2s ease;
+    pointer-events: none;
+}
+
+
+/* Кнопка */
+.submit-btn {
+    width: 100%;
+    background: var(--color-primary-300);
+    color: var(--color-bg-dark);
+    border: none;
+    border-radius: 0.375rem;
+    padding: 0.75rem;
+    font-weight: 600;
+    font-size: 0.875rem;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+.submit-btn:hover {
+    background: var(--color-light-blue);
+}
+
+/* Ссылка для входа */
+.login-link {
+    text-align: center;
+    color: var(--color-text-gray-light);
+    margin-top: 2.5rem;
+    font-size: 0.875rem;
+}
+
+.login-link__text {
+    color: var(--color-blue);
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.login-link__text:hover {
+    color: var(--color-primary-300);
+}
+
+/* Для теста */
+.success-message {
+    background: #d4edda;
+    color: #155724;
+    padding: 15px;
+    border: 1px solid #c3e6cb;
+    border-radius: 5px;
+    margin-bottom: 20px;
+}
