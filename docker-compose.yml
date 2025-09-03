@@ -12,8 +12,8 @@ services:
       - postgres
       - elasticsearch
     volumes:
-      - static_data:/static
-      - media_data:/media
+      - static_volume:/app/staticfiles
+      - media_volume:/app/media
     restart: unless-stopped
 
   nginx:
@@ -24,9 +24,9 @@ services:
     depends_on:
       - web
     volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      - static_data:/static:ro
-      - media_data:/media:ro
+      - ./nginx:/etc/nginx/conf.d
+      - static_volume:/var/www/static
+      - media_volume:/var/www/media
     restart: unless-stopped
 
   postgres:
@@ -70,5 +70,5 @@ services:
 volumes:
   pg_data:
   es_data:
-  static_data:
-  media_data:
+  static_volume:
+  media_volume:

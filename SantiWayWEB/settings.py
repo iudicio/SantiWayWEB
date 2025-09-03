@@ -23,8 +23,9 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 SECRET_KEY = os.getenv("SECRET_KEY", "change-me")
-DEBUG = os.getenv("DEBUG", "0") == "1"
+DEBUG = False
 ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "*").split(",")
+CSRF_TRUSTED_ORIGINS = ["http://localhost", "http://127.0.0.1"]
 
 
 # Application definition
@@ -156,9 +157,9 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
 STATIC_URL = "/static/"
-STATIC_ROOT = "/static"
+STATIC_ROOT = BASE_DIR / "staticfiles"
 MEDIA_URL = "/media/"
-MEDIA_ROOT = "/media"
+MEDIA_ROOT = BASE_DIR / "media"
 
 # Подключение к Elasticsearch (python client)
 ELASTICSEARCH_DSN = os.getenv("ES_URL", "http://elasticsearch:9200")
