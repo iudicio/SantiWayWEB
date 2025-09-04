@@ -25,7 +25,5 @@ RUN useradd -ms /bin/bash app && \
 COPY docker/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
-USER app
-
 EXPOSE 8000
 CMD ["/entrypoint.sh"]

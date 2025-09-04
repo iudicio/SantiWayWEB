@@ -21,6 +21,9 @@ fi
 # Миграции и суперпользователь
 python manage.py migrate --noinput
 
+# Статика
+python manage.py collectstatic --noinput
+
 if [ -n "${DJANGO_SUPERUSER_EMAIL}" ] && [ -n "${DJANGO_SUPERUSER_PASSWORD}" ]; then
 python - <<'PY'
 import os
@@ -38,8 +41,7 @@ except Exception as e:
 PY
 fi
 
-# Статика
-python manage.py collectstatic --noinput
+mkdir -p /app/staticfiles /app/media
 
 # Запуск Gunicorn
 exec gunicorn SantiWayWEB.wsgi:application \
