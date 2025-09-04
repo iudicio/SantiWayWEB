@@ -3,12 +3,12 @@ FROM python:3.12-slim
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
 
-WORKDIR /app
-
 # Системные зависимости
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential libpq-dev curl netcat-traditional \
-  && rm -rf /var/lib/apt/lists/*
+      curl netcat-traditional libpq5 \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
 
 # Python зависимости
 COPY requirements.txt /tmp/requirements.txt
