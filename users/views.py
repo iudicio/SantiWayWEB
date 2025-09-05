@@ -1,4 +1,4 @@
-from django.shortcuts import render, redirect
+from django.shortcuts import render, get_object_or_404
 from rest_framework import viewsets, permissions, status
 from rest_framework.response import Response
 from .models import APIKey, Device, User
@@ -50,3 +50,26 @@ def register_view(request):
         form = RegistrationForm()
 
     return render(request, 'users/registration.html', {'form': form})
+
+
+# Профиль пользователя — обзор
+def profile_overview(request):
+    user = request.user
+    api_keys = user.api_keys.all()
+    return render(request, "users/profile_overview.html", {"user": user, "api_keys": api_keys})
+
+# Детали конкретного API ключа
+def api_key_detail(request, key_id):
+    api_key = get_object_or_404(APIKey, id=key_id)
+    devices = api_key.devices.all()
+    return render(request, "users/api_key_detail.html", {"api_key": api_key, "devices": devices})
+
+# Список всех устройств (можно фильтровать по API ключу)
+def devices_list(request):
+    api_key_id = request.GET.get("api_key")
+    if api_key_id:
+        devices = Device.objects.filter(api_key__id=api_key_id)
+    else:
+        devices = Device.objects.all()
+    api_keys = request.user.api_keys.all()
+    return render(request, "users/devices_list.html", {"devices": devices, "api_keys": api_keys})
