@@ -1,0 +1,180 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API Key Details - Stitch Design</title>
+    <link rel="preconnect" href="https://fonts.gstatic.com/" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?display=swap&family=Inter%3Awght%40400%3B500%3B700%3B900&family=Noto+Sans%3Awght%40400%3B500%3B700%3B900">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined">
+    <link rel="stylesheet" href="{% static 'users/css/style.css' %}">
+</head>
+<body>
+    <div class="container">
+        <div class="flex-grow">
+            <div class="flex h-full">
+                <!-- Sidebar -->
+                <div class="sidebar">
+                    <div class="sidebar-content">
+                        <div class="sidebar-header">
+                            <div class="sidebar-logo"></div>
+                            <h1 class="sidebar-title">MIB</h1>
+                        </div>
+                        <nav class="sidebar-nav">
+                            <a class="nav-item" href="#">
+                                <span class="material-symbols-outlined nav-icon">home</span>
+                                <span class="nav-text">Overview</span>
+                            </a>
+                            <a class="nav-item nav-item-active" href="{% url 'users:api_key_detail' key_id=api_key.id %}">
+                                <span class="material-symbols-outlined nav-icon">key</span>
+                                <span class="nav-text">API Keys</span>
+                            </a>
+                            <a class="nav-item" href="{% url 'users:devices_list' %}">
+                                <span class="material-symbols-outlined nav-icon">smartphone</span>
+                                <span class="nav-text">Devices</span>
+                            </a>
+                            <a class="nav-item" href="#">
+                                <span class="material-symbols-outlined nav-icon">group</span>
+                                <span class="nav-text">Users</span>
+                            </a>
+                            <a class="nav-item" href="#">
+                                <span class="material-symbols-outlined nav-icon">settings</span>
+                                <span class="nav-text">Settings</span>
+                            </a>
+                        </nav>
+                    </div>
+                    <div class="user-card">
+                        <img class="user-avatar" src="https://lh3.googleusercontent.com/aida-public/AB6AXuByh6lRd3HFEev7K1UrQmGaKwc62Pr49nnSa-IcA64Sfrz3YUAhAgvSI9vHTMltFfwHdRUC9_xnPi61HT0AHz_hoxLOtt58WUzHxQ058UbbYrFRUgpVUjx1XSlVWQqxOtP3EPd4XXRz0fK6E9WzyBoLz1TuiP0awUDyeM8QDkvK-DS3TUR7Q-ieux6xS_hx1WS85Gb1mTL7q-Z23WVlDIon1DPAAgsUi-fciXt_AlNpKGBzOybFDroAAsbRQsROTfVQQDCQxdFDO_M" alt="User Avatar">
+                        <div class="user-info">
+                            <p class="user-name">{{ user.get_full_name|default:user.username }}</p>
+                            <p class="user-email">{{ user.email }}</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Main content -->
+                <main class="main-content">
+                    <div class="content-container">
+                        <div class="page-header">
+                            <h1 class="page-title">API Key Details</h1>
+                            <p class="page-subtitle">Manage your API key and associated devices.</p>
+                        </div>
+
+                        <div class="grid-cols-2">
+                            <!-- API Key Information -->
+                            <div class="card">
+                                <h2 class="card-title">API Key Information</h2>
+                                <div class="space-y-4">
+                                    <div class="info-row">
+                                        <p class="info-label">Key Name</p>
+                                        <p class="info-value">{{ api_key.name }}</p>
+                                    </div>
+                                    <div class="info-row">
+                                        <p class="info-label">Key Value</p>
+                                        <div class="flex items-center gap-2">
+                                            <p class="info-value info-value-mono">{{ api_key.value }}</p>
+                                            <button class="icon-btn">
+                                                <span class="material-symbols-outlined text-sm">content_copy</span>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="info-row">
+                                        <p class="info-label">Status</p>
+                                        <span class="status-badge status-active">Active</span>
+                                    </div>
+                                    <div class="info-row">
+                                        <p class="info-label">Created At</p>
+                                        <p class="info-value">{{ api_key.created_at|date:"Y-m-d h:i A" }}</p>
+                                    </div>
+                                    <div class="info-row">
+                                        <p class="info-label">Expires At</p>
+                                        <p class="info-value">{{ api_key.expires_at|date:"Y-m-d h:i A" }}</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Usage History -->
+                            <div class="card">
+                                <h2 class="card-title">Usage History</h2>
+                                <div class="usage-stats">
+                                    <p class="usage-count">{{ api_key.usage_count }} <span class="usage-label">requests</span></p>
+                                    <div class="usage-trend">
+                                        <p class="info-label">Last 30 Days</p>
+                                        <p class="trend-text trend-up">
+                                            <span class="material-symbols-outlined trend-icon">arrow_upward</span>
+                                            10%
+                                        </p>
+                                    </div>
+                                    <div class="chart-container">
+                                        <svg fill="none" height="100%" preserveAspectRatio="none" viewBox="0 0 472 150" width="100%" xmlns="http://www.w3.org/2000/svg">
+                                            <path d="M0 109C18.1538 109 18.1538 21 36.3077 21C54.4615 21 54.4615 41 72.6154 41C90.7692 41 90.7692 93 108.923 93C127.077 93 127.077 33 145.231 33C163.385 33 163.385 101 181.538 101C199.692 101 199.692 61 217.846 61C236 61 236 45 254.154 45C272.308 45 272.308 121 290.462 121C308.615 121 308.615 149 326.769 149C344.923 149 344.923 1 363.077 1C381.231 1 381.231 81 399.385 81C417.538 81 417.538 129 435.692 129C453.846 129 453.846 25 472 25" stroke="#46a9e7" stroke-linecap="round" stroke-width="3"></path>
+                                            <defs>
+                                                <linearGradient gradientUnits="userSpaceOnUse" id="paint0_linear_1131_5935" x1="236" x2="236" y1="1" y2="149">
+                                                    <stop stop-color="#46a9e7" stop-opacity="0.3"></stop>
+                                                    <stop offset="1" stop-color="#46a9e7" stop-opacity="0"></stop>
+                                                </linearGradient>
+                                            </defs>
+                                            <path d="M0 109C18.1538 109 18.1538 21 36.3077 21C54.4615 21 54.4615 41 72.6154 41C90.7692 41 90.7692 93 108.923 93C127.077 93 127.077 33 145.231 33C163.385 33 163.385 101 181.538 101C199.692 101 199.692 61 217.846 61C236 61 236 45 254.154 45C272.308 45 272.308 121 290.462 121C308.615 121 308.615 149 326.769 149C344.923 149 344.923 1 363.077 1C381.231 1 381.231 81 399.385 81C417.538 81 417.538 129 435.692 129C453.846 129 453.846 25 472 25V149H0V109Z" fill="url(#paint0_linear_1131_5935)"></path>
+                                        </svg>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Associated Devices -->
+                        <div class="card mt-8">
+                            <h2 class="card-title">Associated Devices</h2>
+                            <div class="table-container">
+                                <table class="data-table">
+                                    <thead class="table-header">
+                                        <tr>
+                                            <th class="table-header-cell">Device ID</th>
+                                            <th class="table-header-cell">Device Name</th>
+                                            <th class="table-header-cell">Last Used</th>
+                                            <th class="table-header-cell">Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for device in api_key.devices.all %}
+                                        <tr class="table-row">
+                                            <td class="table-cell table-cell-mono">{{ device.id }}</td>
+                                            <td class="table-cell">{{ device.name }}</td>
+                                            <td class="table-cell">{{ device.last_used|date:"Y-m-d h:i A" }}</td>
+                                            <td class="table-cell">
+                                                <span class="status-badge {% if device.is_active %}status-active{% else %}status-inactive{% endif %}">
+                                                    {% if device.is_active %}Active{% else %}Inactive{% endif %}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                        {% empty %}
+                                        <tr class="table-row">
+                                            <td colspan="4" class="table-cell text-center">No devices associated with this API key</td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- Actions -->
+                        <div class="card mt-8">
+                            <h2 class="card-title">Actions</h2>
+                            <div class="actions-panel">
+                                <button class="action-btn btn-primary">
+                                    <span class="material-symbols-outlined btn-icon">download</span>
+                                    <span>Download APK</span>
+                                </button>
+                                <button class="action-btn btn-danger">
+                                    <span class="material-symbols-outlined btn-icon">block</span>
+                                    <span>Revoke Key</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </main>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
