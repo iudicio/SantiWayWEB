@@ -9,7 +9,11 @@ https://docs.djangoproject.com/en/5.2/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
+import os
 from pathlib import Path
+from dotenv import load_dotenv
+
+load_dotenv() # опционально, для .env
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -18,13 +22,10 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-qv=oqy5q6-7)kxp5u2qs_3q%9^afcts&q+o)nle&$_utc#=007'
-
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
-
-ALLOWED_HOSTS = []
+SECRET_KEY = os.getenv("SECRET_KEY", "change-me")
+DEBUG = False
+ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "*").split(",")
+CSRF_TRUSTED_ORIGINS = ["http://localhost", "http://127.0.0.1"]
 
 
 # Application definition
@@ -39,6 +40,9 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'rest_framework',
+    'corsheaders',
+    "drf_spectacular",
+    "drf_spectacular_sidecar",  # статические ассеты Swagger UI
 ]
 
 
@@ -54,6 +58,33 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
+
+MIDDLEWARE.insert(0, "corsheaders.middleware.CorsMiddleware")
+
+REST_FRAMEWORK = {
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        "rest_framework.authentication.SessionAuthentication",
+        "rest_framework.authentication.BasicAuthentication",
+    ],
+    "DEFAULT_PERMISSION_CLASSES": [
+        "rest_framework.permissions.IsAuthenticatedOrReadOnly",
+    ],
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+}
+
+SPECTACULAR_SETTINGS = {
+    "TITLE": "SantiWay API",
+    "DESCRIPTION": "Документация и тестирование API SantiWay.",
+    "VERSION": "1.0.0",
+    # Подставь хост, если нужен другой
+    "SERVERS": [{"url": "http://localhost:8000", "description": "Local"}],
+    # опционально:
+    # "SCHEMA_PATH_PREFIX": r"/api",   # если все эндпоинты под /api
+    # "SWAGGER_UI_DIST": "SIDECAR",    # уже по умолчанию с sidecar
+    # "REDOC_DIST": "SIDECAR",
+}
+
+CORS_ALLOW_ALL_ORIGINS = True  # для разработки
 
 ROOT_URLCONF = 'SantiWayWEB.urls'
 
@@ -81,8 +112,12 @@ WSGI_APPLICATION = 'SantiWayWEB.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': os.getenv('POSTGRES_DB', 'santi'),
+        'USER': os.getenv('POSTGRES_USER', 'santi'),
+        'PASSWORD': os.getenv('POSTGRES_PASSWORD', 'santi'),
+        'HOST': os.getenv('POSTGRES_HOST', 'postgres'),
+        'PORT': int(os.getenv('POSTGRES_PORT', 5432)),
     }
 }
 
@@ -121,7 +156,13 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
-STATIC_URL = 'static/'
+STATIC_URL = "/static/"
+STATIC_ROOT = BASE_DIR / "staticfiles"
+MEDIA_URL = "/media/"
+MEDIA_ROOT = BASE_DIR / "media"
+
+# Подключение к Elasticsearch (python client)
+ELASTICSEARCH_DSN = os.getenv("ES_URL", "http://elasticsearch:9200")
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
