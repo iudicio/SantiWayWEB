@@ -1,0 +1,38 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Регистрация</title>
+    <link rel="stylesheet" href="{% static 'users/css/registration.css' %}">
+    <script src=""></script>
+</head>
+
+<body class="bg-dark">
+    <main class="container">
+        <div class="form-container">
+            <div class="form-header">
+                <h2 class="title">Войти в аккаунт</h2>
+            </div>
+
+            <form class="form" method="POST">
+                {% csrf_token %}
+
+                <!-- Вывод ошибок -->
+                {% if form.non_field_errors %}
+                    <div class="error">{{ form.non_field_errors }}</div>
+                {% endif %}
+                <input type="email" name="username" id="email" class="input-field" placeholder="Email" value="{{ form.username.value|default:'' }}" required>
+                <input type="password" name="password" id="password" class="input-field" placeholder="Введите пароль" value="{{ form.password.value|default:'' }}" required>
+                <button type="submit" id="submit" class="submit-btn">Войти</button>
+            </form>
+
+            <p class="login-link">
+                Нет аккаунта?
+                <a href="/users/registration/" class="login-link__text">Зарегистрироваться</a>
+            </p>
+        </div>
+    </main>
+</body>
+</html>

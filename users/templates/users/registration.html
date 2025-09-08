@@ -10,18 +10,6 @@
 </head>
 
 <body class="bg-dark">
-    <!-- Временное Сообщения об успехе -->
-    {% if messages %}
-        {% for message in messages %}
-            {% if message.tags == 'success' %}
-                <div class="success-message">
-                    {{ message }}
-                    <!-- Можно добавить ссылку -->
-                    <p>Теперь вы можете <a href="#">войти в систему</a></p>
-                </div>
-            {% endif %}
-        {% endfor %}
-    {% endif %}
     <main class="container">
         <div class="form-container">
             <div class="form-header">
@@ -62,7 +50,7 @@
 
             <p class="login-link">
                 Уже есть аккаунт?
-                <a href="#" class="login-link__text">Войти</a>
+                <a href="/users/login" class="login-link__text">Войти</a>
             </p>
         </div>
     </main>
