@@ -1,5 +1,6 @@
-from django.urls import path
-from . import DeviceViewSet
+from django.urls import path, include
+from rest_framework.routers import DefaultRouter
+from .views import DeviceViewSet
 from users.views import APIKeyViewSet
 from drf_spectacular.views import (
     SpectacularAPIView,
@@ -7,11 +8,14 @@ from drf_spectacular.views import (
     SpectacularRedocView,
 )
 
+router = DefaultRouter()
+router.register(r"devices", DeviceViewSet, basename="devices")
+router.register(r"api-key", APIKeyViewSet, basename="api-key")
+
 app_name = "api"
 
 urlpatterns = [
-    path("devices", DeviceViewSet, name="devices"),
-    path("api-key", APIKeyViewSet, name="api-keys"),
+    path("", include(router.urls)),
     # JSON-схема OpenAPI (генерится на лету)
     path("schema/", SpectacularAPIView.as_view(), name="schema"),
     # Swagger UI
