@@ -5,7 +5,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 # Системные зависимости
 RUN apt-get update && apt-get install -y --no-install-recommends \
-      curl netcat-traditional libpq5 \
+      curl netcat-traditional libpq5 dos2unix \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -23,7 +23,7 @@ RUN useradd -ms /bin/bash app && \
 
 # entrypoint копируем в корень контейнера
 COPY docker/entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
+RUN dos2unix /entrypoint.sh && chmod +x /entrypoint.sh
 
 EXPOSE 8000
 CMD ["/entrypoint.sh"]
