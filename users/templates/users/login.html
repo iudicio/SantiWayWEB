@@ -4,16 +4,20 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Регистрация</title>
-    <link rel="stylesheet" href="{% static 'users/css/registration.css' %}">
-    <script src=""></script>
-</head>
+    <title>Вход в аккаунт</title>
+    <link rel="stylesheet" href="{% static 'users/css/auth.css' %}">
+    <script src="{% static 'users/js/toggle-password.js' %}"></script>
 
-<body class="bg-dark">
+</head>
+<body>
     <main class="container">
         <div class="form-container">
             <div class="form-header">
-                <h2 class="title">Войти в аккаунт</h2>
+                 <div class="icon-wrapper">
+                    <img src="{% static 'users/images/person-login.svg' %}" class="icon">
+                </div>
+                <h2 class="title">Войдите в свой аккаунт</h2>
+                <p class="subtitle">Добро пожаловать обратно!</p>
             </div>
 
             <form class="form" method="POST">
@@ -24,13 +28,16 @@
                     <div class="error">{{ form.non_field_errors }}</div>
                 {% endif %}
                 <input type="email" name="username" id="email" class="input-field" placeholder="Email" value="{{ form.username.value|default:'' }}" required>
-                <input type="password" name="password" id="password" class="input-field" placeholder="Введите пароль" value="{{ form.password.value|default:'' }}" required>
+                <div class="password-container">
+                    <input type="password" name="password" id="password" class="input-field" placeholder="Введите пароль" required>
+                    <button type="button" id="togglePassword" class="password-toggle"></button>
+                </div>
                 <button type="submit" id="submit" class="submit-btn">Войти</button>
             </form>
 
-            <p class="login-link">
+            <p class="registration-link">
                 Нет аккаунта?
-                <a href="/users/registration/" class="login-link__text">Зарегистрироваться</a>
+                <a href="/users/registration/" class="registration-link__text">Зарегистрироваться</a>
             </p>
         </div>
     </main>

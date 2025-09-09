@@ -5,8 +5,9 @@
 <head>
     <meta charset="UTF-8">
     <title>Регистрация</title>
-    <link rel="stylesheet" href="{% static 'users/css/registration.css' %}">
-    <script src="{% static 'users/js/registration.js' %}"></script>
+    <link rel="stylesheet" href="{% static 'users/css/auth.css' %}">
+    <script src="{% static 'users/js/password-validation.js' %}"></script>
+    <script src="{% static 'users/js/toggle-password.js' %}"></script>
 </head>
 
 <body class="bg-dark">
@@ -38,7 +39,10 @@
                 {% if form.password1.errors %}
                     <div class="error">{{ form.password1.errors }}</div>
                 {% endif %}
-                <input type="password" name="password1" id="password" class="input-field" placeholder="Введите пароль" value="{{ form.password1.value|default:'' }}" required>
+                <div class="password-container">
+                    <input type="password" name="password1" id="password" class="input-field" placeholder="Введите пароль" value="{{ form.password1.value|default:'' }}" required>
+                    <button type="button" id="togglePassword" class="password-toggle"></button>
+                </div>
                 <!-- Поле password2 с ошибками -->
                 {% if form.password2.errors %}
                     <div class="error">{{ form.password2.errors }}</div>
