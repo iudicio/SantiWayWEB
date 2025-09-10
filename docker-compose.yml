@@ -12,6 +12,7 @@ services:
     volumes:
       - static_volume:/app/staticfiles
       - media_volume:/app/media
+      - ./users/migrations:/app/users/migrations
     restart: unless-stopped
 
   nginx:
