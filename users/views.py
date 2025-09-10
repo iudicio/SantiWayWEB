@@ -9,32 +9,30 @@ from .serializers import DeviceAPIKeySerializer
 from .forms import RegistrationForm, LoginForm
 from django.contrib.auth import login
 from django.contrib import messages
+
 class APIKeyViewSet(viewsets.ViewSet):
     def create(self, request):
         device_name = request.data.get("name")
         if not device_name:
             return Response({"error": "Device name required"}, status=status.HTTP_400_BAD_REQUEST)
-
-        device = create_device_with_token(request.user, device_name)
+        
+        try:
+            # Создаём или получаем устройство
+            device, created = Device.objects.get(
+                name=device_name,
+                defaults={"user": request.user}  # привязываем к пользователю
+            )
+            device.api_key = APIKey.objects.create()
+            device.save()
+        except Exception as e: 
+            return Response({"error": {e}}, status=status.HTTP_500_INTERNAL_SERVER_ERROR) # если не получилось создать API ключ отправляем ошибку
 
         return Response({
             "device_name": device.name,
             "api_key": device.api_key.key  # отдаём токен пользователю
         }, status=status.HTTP_201_CREATED)
 
-def create_device_with_token(user, device_name):
-    # Создаём или получаем устройство
-    device, created = Device.objects.get_or_create(
-        name=device_name,
-        defaults={"user": user}  # привязываем к пользователю
-    )
 
-    # Если у устройства нет токена — создаём
-    if not device.api_key:
-        device.api_key = APIKey.objects.create()
-        device.save()
-
-    return device
 
 def register_view(request):
     """
