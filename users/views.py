@@ -8,27 +8,6 @@ from .serializers import DeviceAPIKeySerializer
 from .forms import RegistrationForm
 from django.contrib.auth import login
 from django.contrib import messages
-
-class DeviceAPIKeyAuthentication(BaseAuthentication):
-    def authenticate(self, request):
-        auth_header = request.headers.get('Authorization')
-        if not auth_header:
-            return None  # DRF считает это как отсутствие токена
-
-        try:
-            prefix, key = auth_header.split()
-            if prefix.lower() != 'token':
-                return None
-        except ValueError:
-            raise AuthenticationFailed('Invalid token header.')
-
-        try:
-            api_key = APIKey.objects.get(key=key)
-        except APIKey.DoesNotExist:
-            raise AuthenticationFailed('Invalid API key.')
-
-        # Возвращаем кортеж (пользователь, токен)
-        return (api_key.device.user, api_key)
     
 class APIKeyViewSet(viewsets.ViewSet):
     def create(self, request):
