@@ -5,23 +5,12 @@
 <head>
     <meta charset="UTF-8">
     <title>Регистрация</title>
-    <link rel="stylesheet" href="{% static 'users/css/registration.css' %}">
-    <script src="{% static 'users/js/registration.js' %}"></script>
+    <link rel="stylesheet" href="{% static 'users/css/auth.css' %}">
+    <script src="{% static 'users/js/password-validation.js' %}"></script>
+    <script src="{% static 'users/js/toggle-password.js' %}"></script>
 </head>
 
 <body class="bg-dark">
-    <!-- Временное Сообщения об успехе -->
-    {% if messages %}
-        {% for message in messages %}
-            {% if message.tags == 'success' %}
-                <div class="success-message">
-                    {{ message }}
-                    <!-- Можно добавить ссылку -->
-                    <p>Теперь вы можете <a href="#">войти в систему</a></p>
-                </div>
-            {% endif %}
-        {% endfor %}
-    {% endif %}
     <main class="container">
         <div class="form-container">
             <div class="form-header">
@@ -50,7 +39,10 @@
                 {% if form.password1.errors %}
                     <div class="error">{{ form.password1.errors }}</div>
                 {% endif %}
-                <input type="password" name="password1" id="password" class="input-field" placeholder="Введите пароль" value="{{ form.password1.value|default:'' }}" required>
+                <div class="password-container">
+                    <input type="password" name="password1" id="password" class="input-field" placeholder="Введите пароль" value="{{ form.password1.value|default:'' }}" required>
+                    <button type="button" id="togglePassword" class="password-toggle"></button>
+                </div>
                 <!-- Поле password2 с ошибками -->
                 {% if form.password2.errors %}
                     <div class="error">{{ form.password2.errors }}</div>
@@ -62,7 +54,7 @@
 
             <p class="login-link">
                 Уже есть аккаунт?
-                <a href="#" class="login-link__text">Войти</a>
+                <a href="/users/login" class="login-link__text">Войти</a>
             </p>
         </div>
     </main>

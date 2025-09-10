@@ -1,14 +1,14 @@
-from django.shortcuts import render, get_object_or_404
+from django.shortcuts import render, get_object_or_404, redirect
+from django.utils.http import url_has_allowed_host_and_scheme
 from rest_framework import viewsets, permissions, status
 from rest_framework.response import Response
 from rest_framework.authentication import BaseAuthentication
 from rest_framework.exceptions import AuthenticationFailed
 from .models import APIKey, Device, User
 from .serializers import DeviceAPIKeySerializer
-from .forms import RegistrationForm
+from .forms import RegistrationForm, LoginForm
 from django.contrib.auth import login
 from django.contrib import messages
-    
 class APIKeyViewSet(viewsets.ViewSet):
     def create(self, request):
         device_name = request.data.get("name")
@@ -40,6 +40,8 @@ def register_view(request):
     """
     Обработчик страницы регистрации
     """
+    if request.user.is_authenticated:
+        return redirect("users:profile_overview")
     if request.method == 'POST':
         form = RegistrationForm(request.POST)
         if form.is_valid():
@@ -47,16 +49,41 @@ def register_view(request):
             # Проверяем что пользователь действительно сохранился в БД
             user_in_db = User.objects.filter(username=user.username).first()
             login(request, user)
-            messages.success(request, 'Регистрация прошла успешно! Добро пожаловать!')
+            next_url = request.POST.get("next") or request.GET.get("next")
+            if next_url and url_has_allowed_host_and_scheme(next_url, allowed_hosts={request.get_host()}):
+                return redirect(next_url)
             # Переход на другую следующую страницу при успешной регистрации
-            # return redirect('home')
+            return redirect("users:profile_overview")
         else:
             for error in form.errors.values():
                 messages.error(request, error)
     else:
         form = RegistrationForm()
 
-    return render(request, 'users/registration.html', {'form': form})
+    return render(request, "users/registration.html", {"form": form})
+
+
+def login_view(request):
+    # Обработчик страницы входа
+    if request.user.is_authenticated:
+        return redirect("users:profile_overview")
+
+    if request.method == "POST":
+        form = LoginForm(request, data=request.POST)
+        if form.is_valid():
+            user = form.get_user()
+            login(request, user)
+
+            next_url = request.POST.get("next") or request.GET.get("next")
+            if next_url and url_has_allowed_host_and_scheme(next_url, allowed_hosts={request.get_host()}):
+                return redirect(next_url)
+            return redirect("users:profile_overview")
+        else:
+            for error in form.errors.values():
+                messages.error(request, error)
+    else:
+        form = LoginForm()
+    return render(request, "users/login.html", {"form": form})
 
 
 # Профиль пользователя — обзор

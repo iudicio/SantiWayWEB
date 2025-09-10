@@ -36,7 +36,7 @@ body {
     justify-content: center;
     align-items: center;
     min-height: 100vh;
-    padding: 1rem;
+    padding: 0;
 }
 
 /* Ошибки формы */
@@ -106,6 +106,7 @@ body {
     border: none;
     border-radius: 0.375rem;
     padding: 1rem;
+    margin-bottom: 1.5rem;
     color: var(--color-text-white);
     font-size: 0.875rem;
     height: 3.5rem;
@@ -131,6 +132,57 @@ body {
     pointer-events: none;
 }
 
+/* Исправление стилей при автозаполнении браузером */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active {
+    -webkit-box-shadow: 0 0 0 1000px var(--color-input-bg) inset;
+    -webkit-text-fill-color: var(--color-text-white);
+    caret-color: var(--color-text-white);
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(46, 155, 202, 0.3);
+    transition: background-color 5000s ease-in-out 0s;
+}
+
+/* Показать/скрыть пароль */
+.password-container {
+    position: relative;
+    width: 100%;
+    margin-bottom: 1.5rem;
+}
+
+.password-container .input-field {
+    padding-right: 50px;
+    width: 100%;
+    margin-bottom: 0;
+}
+
+/* Кнопка показа/скрытия пароля */
+.password-toggle {
+    position: absolute;
+    right: 16px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    width: 24px;
+    height: 24px;
+    background-image: url("../images/eye-close.svg");
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+}
+
+.password-toggle:hover {
+    opacity: 0.7;
+}
+
+.password-toggle.showing {
+    background-image: url("../images/eye-open.svg");
+}
 
 /* Кнопка */
 .submit-btn {
@@ -150,21 +202,24 @@ body {
     background: var(--color-light-blue);
 }
 
-/* Ссылка для входа */
-.login-link {
+/* Ссылка для входа/регистрации */
+.login-link,
+.registration-link {
     text-align: center;
     color: var(--color-text-gray-light);
     margin-top: 2.5rem;
     font-size: 0.875rem;
 }
 
-.login-link__text {
+.login-link__text,
+.registration-link__text {
     color: var(--color-blue);
     text-decoration: none;
     font-weight: 500;
 }
 
-.login-link__text:hover {
+.login-link__text:hover,
+.registration-link__text:hover {
     color: var(--color-primary-300);
 }
 

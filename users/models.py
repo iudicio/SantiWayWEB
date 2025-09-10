@@ -26,6 +26,28 @@ class SearchQuery(models.Model):
         return self.query_text
 
 class User(AbstractUser):
+    # Делаем email обязательным и уникальным
+    email = models.EmailField(
+        unique=True,
+        blank=False,
+        null=False,
+        verbose_name='Email'
+    )
+
+    # username теперь не уникальный
+    username = models.CharField(
+        max_length=150,
+        unique=False,
+        blank=False,
+        null=False,
+        verbose_name='username'
+    )
+
+    # Изменение поля для аутентификации на email
+    USERNAME_FIELD = 'email'
+    REQUIRED_FIELDS = []
+
+
     registration_date = models.DateTimeField(auto_now_add=True)
     api_keys = models.ManyToManyField(APIKey, blank=True)
     last_login_date = models.DateTimeField(null=True, blank=True)
