@@ -1,0 +1,12 @@
+services:
+  vendor-resolver:
+    build: .
+    container_name: vendor-resolver
+    env_file:
+      - .env
+    volumes:
+      - vendor-cache:/root/.cache  # volume для кэша mac-vendor-lookup
+    restart: always
+
+volumes:
+  vendor-cache:
