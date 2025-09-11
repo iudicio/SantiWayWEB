@@ -13,4 +13,4 @@ app.conf.update(
 )
 
 # Явно импортируем tasks (или используем автодискав)
-app.autodiscover_tasks(['consumers'])
+app.autodiscover_tasks(['tasks'])
