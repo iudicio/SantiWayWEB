@@ -1,3 +1,4 @@
+from celery import Celery
 from rest_framework import viewsets, status
 from rest_framework.response import Response
 from elasticsearch import Elasticsearch
@@ -8,7 +9,9 @@ import uuid
 ES_HOST = getenv("ES_HOST", None)
 ES_USER = getenv("ES_USER", None)
 ES_PASSWORD = getenv("ES_PASSWORD", None)
+BROKER_URL = getenv('CELERY_BROKER_URL', 'amqp://guest:guest@rabbitmq:5672//')
 
+celery_client = Celery('producer', broker=BROKER_URL)
 es = Elasticsearch(
             hosts = "http://localhost:9200/" # ES_HOST
         )
@@ -49,23 +52,30 @@ class DeviceViewSet(viewsets.ViewSet):
 
         return Response([hit["_source"] for hit in res["hits"]["hits"]])
     
+    # Прямая запись из API в ES
+    # def create(self, request, *args, **kwargs):
+    #     serializer = self.serializer_class(data=request.data)
+    #     serializer.is_valid(raise_exception=True)
+
+    #     global es
+    #     doc = serializer.validated_data
+
+    #     # уникальный id: device_id + timestamp, иначе uuid
+    #     if "detected_at" in doc and doc["detected_at"]:
+    #         doc_id = f"{doc['device_id']}_{int(doc['detected_at'].timestamp())}"
+    #     else:
+    #         doc_id = str(uuid.uuid4())
+
+    #     # всегда пишем в alias "way"
+    #     es.index(index="way", id=doc_id, document=doc)
+
+    #     return Response({"id": doc_id, **doc}, status=status.HTTP_201_CREATED)
+
     def create(self, request, *args, **kwargs):
-        serializer = self.serializer_class(data=request.data)
-        serializer.is_valid(raise_exception=True)
-
-        global es
-        doc = serializer.validated_data
-
-        # уникальный id: device_id + timestamp, иначе uuid
-        if "detected_at" in doc and doc["detected_at"]:
-            doc_id = f"{doc['device_id']}_{int(doc['detected_at'].timestamp())}"
-        else:
-            doc_id = str(uuid.uuid4())
-
-        # всегда пишем в alias "way"
-        es.index(index="way", id=doc_id, document=doc)
-
-        return Response({"id": doc_id, **doc}, status=status.HTTP_201_CREATED)
-
+        data = request.data
+        celery_client.send_task('device_preprocessing.vendor', args=[data], queue='proces_queue')
+        return Response({'status': 'queued'}, status=status.HTTP_202_ACCEPTED) 
         
+
+
     
