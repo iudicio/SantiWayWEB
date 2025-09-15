@@ -8,9 +8,7 @@ app.conf.update(
     task_serializer='json',
     accept_content=['json'],
     result_serializer='json',
+    imports=("tasks",),
     task_acks_late=True,       # ack после успешного выполнения
     worker_prefetch_multiplier=1,
 )
-
-# Явно импортируем tasks (или используем автодискав)
-app.autodiscover_tasks(['tasks'])

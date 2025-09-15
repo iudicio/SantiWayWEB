@@ -2,7 +2,7 @@
   "users": [
     {
       "name": "celery",
-      "password_hash": "celerypassword",
+      "password": "celerypassword",
       "tags": "administrator"
     }
   ],
