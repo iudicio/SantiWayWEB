@@ -9,28 +9,6 @@ from .serializers import DeviceAPIKeySerializer
 from .forms import RegistrationForm, LoginForm
 from django.contrib.auth import login
 from django.contrib import messages
-
-
-class DeviceAPIKeyAuthentication(BaseAuthentication):
-    def authenticate(self, request):
-        auth_header = request.headers.get('Authorization')
-        if not auth_header:
-            return None  # DRF считает это как отсутствие токена
-
-        try:
-            prefix, key = auth_header.split()
-            if prefix.lower() != 'token':
-                return None
-        except ValueError:
-            raise AuthenticationFailed('Invalid token header.')
-
-        try:
-            api_key = APIKey.objects.get(key=key)
-        except APIKey.DoesNotExist:
-            raise AuthenticationFailed('Invalid API key.')
-
-        # Возвращаем кортеж (пользователь, токен)
-        return (api_key.device.user, api_key)
     
 class APIKeyViewSet(viewsets.ViewSet):
     def create(self, request):
@@ -38,26 +16,18 @@ class APIKeyViewSet(viewsets.ViewSet):
         if not device_name:
             return Response({"error": "Device name required"}, status=status.HTTP_400_BAD_REQUEST)
 
-        device = create_device_with_token(request.user, device_name)
+        try:
+            device = Device.objects.create(
+                name=device_name,
+                api_key=APIKey.objects.create()
+            )
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
         return Response({
             "device_name": device.name,
             "api_key": device.api_key.key  # отдаём токен пользователю
         }, status=status.HTTP_201_CREATED)
-
-def create_device_with_token(user, device_name):
-    # Создаём или получаем устройство
-    device, created = Device.objects.get_or_create(
-        name=device_name,
-        defaults={"user": user}  # привязываем к пользователю
-    )
-
-    # Если у устройства нет токена — создаём
-    if not device.api_key:
-        device.api_key = APIKey.objects.create()
-        device.save()
-
-    return device
 
 def register_view(request):
     """
