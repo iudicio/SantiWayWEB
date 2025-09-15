@@ -15,14 +15,14 @@ class APIKeyViewSet(viewsets.ViewSet):
         device_name = request.data.get("name")
         if not device_name:
             return Response({"error": "Device name required"}, status=status.HTTP_400_BAD_REQUEST)
-
-        if Device.objects.filter(name=device_name).exists():
-            return Response({"error": "Device name already exists"}, status=status.HTTP_400_BAD_REQUEST)
         
+        api_key=APIKey.objects.create()
+
         device = Device.objects.create(
             name=device_name,
-            api_key=APIKey.objects.create()
+            api_key=api_key
         )
+        request.user.api_keys.add(api_key)
 
         return Response({
             "device_name": device.name,
