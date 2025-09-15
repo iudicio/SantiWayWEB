@@ -16,13 +16,13 @@ class APIKeyViewSet(viewsets.ViewSet):
         if not device_name:
             return Response({"error": "Device name required"}, status=status.HTTP_400_BAD_REQUEST)
 
-        try:
-            device = Device.objects.create(
-                name=device_name,
-                api_key=APIKey.objects.create()
-            )
-        except Exception as e:
-            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        if Device.objects.filter(name=device_name).exists():
+            return Response({"error": "Device name already exists"}, status=status.HTTP_400_BAD_REQUEST)
+        
+        device = Device.objects.create(
+            name=device_name,
+            api_key=APIKey.objects.create()
+        )
 
         return Response({
             "device_name": device.name,
