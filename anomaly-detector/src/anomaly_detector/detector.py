@@ -13,6 +13,12 @@ import time
 from functools import wraps
 import warnings
 import threading
+from sklearn.pipeline import Pipeline
+from skl2onnx import to_onnx
+from skl2onnx.common.data_types import FloatTensorType
+from onnx import helper
+import json
+import gzip
 
 def log_execution_time(func):
     """Декоратор для замера времени выполнения методов"""
@@ -710,6 +716,55 @@ class BackendAnomalyDetector:
         except Exception as e:
             self.logger.error(f"Ошибка при загрузке модели: {str(e)}", exc_info=True)
             raise
+    
+    def export_to_onnx(self, onnx_path: str, meta_path: str):
+        """Экспорт полного пайплайна в ONNX + метаданные"""
+        if not self.is_fitted:
+            raise ValueError("Модель должна быть обучена перед экспортом")
+        
+        
+        # Собираем полный пайплайн
+        pipeline = Pipeline([
+            ('imputer', self.imputer),
+            ('scaler', self.scaler), 
+            ('iforest', self.model)
+        ])
+        
+        # Экспорт в ONNX
+        initial_types = [("input", FloatTensorType([None, self.n_features_]))]
+        onnx_model = to_onnx(pipeline, initial_types=initial_types)
+        
+        # Логируем имена выходов для отладки
+        out_names = [o.name for o in onnx_model.graph.output]
+        self.logger.info(f"ONNX outputs: {out_names}")
+        
+        with open(onnx_path, "wb") as f:
+            f.write(onnx_model.SerializeToString())
+        
+        # Сохраняем метаданные для совместимости
+        metadata = {
+            "n_features": int(self.n_features_),
+            "feature_names": self.feature_names,
+            "severity_thresholds": self.severity_thresholds or {
+                "CRITICAL": -0.65, "HIGH": -0.45, "MEDIUM": -0.2
+            },
+            "severity_quantiles": self.severity_quantiles,
+            "score_bounds": self.score_bounds or {
+                "mean": 0.0, "std": 1.0, "min": -1.0, "max": 1.0, "range": 2.0
+            },
+            "class_version": self.class_version,
+            "export_timestamp": datetime.now().isoformat(),
+            "contamination": float(self.model.contamination),
+            "n_estimators": int(self.model.n_estimators),
+            "onnx_outputs": out_names
+        }
+        
+        with gzip.open(meta_path, "wt", encoding="utf-8") as f:
+            json.dump(metadata, f, ensure_ascii=False)
+        
+        self.logger.info(f"Модель экспортирована в {onnx_path} + {meta_path}")
+
+    
 
     def get_model_info(self) -> Dict[str, Any]:
         """Получение полной информации о состоянии модели"""

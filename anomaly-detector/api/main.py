@@ -2,6 +2,7 @@ from fastapi import FastAPI, HTTPException, UploadFile, File, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field, validator
+from fastapi.responses import FileResponse
 from typing import List, Dict, Any, Optional, Union
 import pandas as pd
 import numpy as np
@@ -11,9 +12,11 @@ import time
 from datetime import datetime
 from threading import Lock
 import io
+import os
 import csv
-
 from anomaly_detector import BackendAnomalyDetector
+
+os.makedirs("./models", exist_ok=True)
 
 # Логирование
 logging.basicConfig(
@@ -471,6 +474,106 @@ async def global_exception_handler(request, exc):
         status_code=500,
         content={"success": False, "error": str(exc), "timestamp": datetime.now().isoformat()}
     )
+
+@app.post("/export/onnx")
+async def export_onnx_model(
+    onnx_filename: str = Query("anomaly.onnx"),
+    meta_filename: str = Query("metadata.json.gz")
+):
+    if not detector.is_fitted:
+        raise HTTPException(status_code=400, detail="Модель не обучена")
+    
+    try:
+        onnx_path = f"./models/{onnx_filename}"
+        meta_path = f"./models/{meta_filename}"
+        
+        with detector_lock:
+            detector.export_to_onnx(onnx_path, meta_path)
+        
+        return {
+            "success": True,
+            "message": f"Модель экспортирована: {onnx_filename} + {meta_filename}",
+            "onnx_path": onnx_path,
+            "meta_path": meta_path,
+            "download_urls": {
+                "onnx": f"/download/onnx/{onnx_filename}",
+                "metadata": f"/download/meta/{meta_filename}"
+            }
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/download/onnx/{filename}")
+async def download_onnx(filename: str):
+    file_path = f"./models/{filename}"
+    if not os.path.exists(file_path):
+        raise HTTPException(status_code=404, detail="Файл не найден")
+    return FileResponse(file_path, filename=filename)
+
+@app.get("/download/meta/{filename}")
+async def download_metadata(filename: str):
+    file_path = f"./models/{filename}"
+    if not os.path.exists(file_path):
+        raise HTTPException(status_code=404, detail="Файл не найден")
+    return FileResponse(file_path, filename=filename)
+
+# Тест для подбора допуска
+@app.post("/test/onnx_accuracy")
+async def test_onnx_accuracy(n_samples: int = Query(100)):
+    """Тест точности ONNX vs sklearn для подбора допуска"""
+    if not detector.is_fitted:
+        raise HTTPException(status_code=400, detail="Модель не обучена")
+    
+    try:
+        import onnxruntime as ort
+        
+        # Генерируем случайные данные
+        np.random.seed(42)
+        test_data = np.random.randn(n_samples, detector.n_features_)
+        
+        # Предсказания sklearn
+        sklearn_scores = detector.anomaly_scores(test_data)
+        
+        # Экспортируем временную ONNX модель
+        temp_onnx = "./models/temp_test.onnx"
+        temp_meta = "./models/temp_test.json.gz"
+        detector.export_to_onnx(temp_onnx, temp_meta)
+        
+        # Предсказания ONNX
+        session = ort.InferenceSession(temp_onnx)
+        input_name = session.get_inputs()[0].name
+        onnx_result = session.run(None, {input_name: test_data.astype(np.float32)})
+        
+        # Извлекаем scores (может быть разный индекс/тип)
+        onnx_scores = None
+        for i, output in enumerate(onnx_result):
+            if hasattr(output, 'shape') and output.shape == (n_samples,):
+                if output.dtype in [np.float32, np.float64]:
+                    onnx_scores = output.astype(np.float32)
+                    break
+        
+        if onnx_scores is None:
+            return {"error": "Не удалось извлечь scores из ONNX"}
+        
+        # Сравнение
+        diff = np.abs(sklearn_scores.astype(np.float32) - onnx_scores)
+        max_diff = float(np.max(diff))
+        mean_diff = float(np.mean(diff))
+        
+        # Удаляем временные файлы
+        os.remove(temp_onnx)
+        os.remove(temp_meta)
+        
+        return {
+            "max_difference": max_diff,
+            "mean_difference": mean_diff,
+            "recommended_tolerance": max_diff * 1.5,  # с запасом
+            "samples_tested": n_samples
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
