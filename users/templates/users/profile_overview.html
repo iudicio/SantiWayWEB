@@ -46,7 +46,7 @@
                     </div>
                     <div class="table-header">
                         <h2 class="section-title">API Keys</h2>
-                        <button class="btn">
+                        <button class="btn" id="openModalBtn">
                             <span class="material-symbols-outlined">add</span>
                             New Key
                         </button>
@@ -62,19 +62,19 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                {% for key in api_keys %}
+                                {% for device in devices %}
                                 <tr>
-                                    <td class="font-medium">{{ key.name }}</td>
+                                    <td class="font-medium">{{ device.name }}</td>
                                     <td class="text-muted">
-                                        <span class="mono">{{ key.prefix }}...</span>
+                                        <span class="mono">{{ device.api_key.key|slice:":8" }}...</span>
                                     </td>
-                                    <td class="text-muted">{{ key.created_at|date:"Y-m-d" }}</td>
+                                    <td class="text-muted">{{ device.api_key.created_at|date:"Y-m-d" }}</td>
                                     <td class="text-right text-muted">
                                         <div class="action-buttons">
-                                            <button class="icon-btn">
+                                            <button class="icon-btn" onclick="copyApiKey('{{ device.api_key.key }}')">
                                                 <span class="material-symbols-outlined text-base">content_copy</span>
                                             </button>
-                                            <button class="icon-btn delete-btn">
+                                            <button class="icon-btn delete-btn" onclick="deleteDevice('{{ device.id }}', '{{ device.name }}')">
                                                 <span class="material-symbols-outlined text-base">delete</span>
                                             </button>
                                         </div>
@@ -92,5 +92,114 @@
             </main>
         </div>
     </div>
+
+    <script>
+        // Функция для копирования API ключа
+        function copyApiKey(key) {
+            navigator.clipboard.writeText(key)
+                .then(() => {
+                    alert('API key copied to clipboard!');
+                })
+                .catch(err => {
+                    console.error('Failed to copy: ', err);
+                    alert('Failed to copy API key');
+                });
+        }
+
+        // Функция для удаления устройства
+        function deleteDevice(deviceId, deviceName) {
+            if (confirm(`Are you sure you want to delete the device "${deviceName}"?`)) {
+                fetch(`/api/api-key/${deviceId}/`, {
+                    method: 'DELETE',
+                    headers: {
+                        'X-CSRFToken': getCookie('csrftoken')
+                    }
+                })
+                .then(response => {
+                    if (response.ok) {
+                        alert('Device deleted successfully!');
+                        location.reload();
+                    } else {
+                        throw new Error('Failed to delete device');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Error deleting device');
+                });
+            }
+        }
+
+        // Вспомогательная функция для получения CSRF токена
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            // Обработчик для кнопки "New Key"
+            const openModalBtn = document.getElementById('openModalBtn');
+
+            if (openModalBtn) {
+                openModalBtn.addEventListener('click', function() {
+                    // Используем prompt для ввода названия ключа
+                    const keyName = prompt('Enter a name for your new API key:', 'My API Key');
+
+                    // Если пользователь не отменил ввод и ввел не пустую строку
+                    if (keyName !== null && keyName.trim() !== '') {
+                        // Здесь можно отправить запрос на сервер для создания ключа
+                        createApiKey(keyName.trim());
+                    } else if (keyName !== null) {
+                        // Если введена пустая строка
+                        alert('Please enter a valid name for the API key.');
+                    }
+                });
+            }
+
+            // Функция для создания API ключа
+            function createApiKey(name) {
+                console.log('Creating API key with name:', name);
+
+                // Отправляем POST запрос на сервер
+                fetch('/api/api-key/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': getCookie('csrftoken')
+                    },
+                    body: JSON.stringify({ name: name })
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        return response.json().then(errorData => {
+                            throw new Error(errorData.error || 'Network response was not ok');
+                        });
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    // Показываем пользователю созданный API ключ
+                    alert(`API key created successfully!\n\nDevice: ${data.device_name}\nAPI Key: ${data.api_key}\n\nPlease save this key - it won't be shown again!`);
+
+                    // Перезагружаем страницу для обновления списка ключей
+                    location.reload();
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Error: ' + error.message);
+                });
+            }
+        });
+    </script>
 </body>
 </html>

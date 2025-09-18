@@ -29,6 +29,16 @@ class APIKeyViewSet(viewsets.ViewSet):
             "api_key": device.api_key.key  # отдаём токен пользователю
         }, status=status.HTTP_201_CREATED)
 
+    # Удаление устройства
+    def destroy(self, request, pk=None):
+        device = get_object_or_404(Device, pk=pk)
+        # проверить, что девайс принадлежит юзеру
+        if not request.user.api_keys.filter(id=device.api_key.id).exists():
+            return Response({"error": "Not allowed"}, status=status.HTTP_403_FORBIDDEN)
+        device.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
 def register_view(request):
     """
     Обработчик страницы регистрации
@@ -83,7 +93,16 @@ def login_view(request):
 def profile_overview(request):
     user = request.user
     api_keys = user.api_keys.all()
-    return render(request, "users/profile_overview.html", {"user": user, "api_keys": api_keys})
+    devices = Device.objects.filter(api_key__in=api_keys)
+    return render(
+        request,
+        "users/profile_overview.html",
+        {
+            "user": user,
+            "api_keys": api_keys,
+            "devices": devices,
+        },
+    )
 
 # Детали конкретного API ключа
 def api_key_detail(request, key_id):
