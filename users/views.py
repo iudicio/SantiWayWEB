@@ -3,7 +3,7 @@ from django.utils.http import url_has_allowed_host_and_scheme
 from rest_framework import viewsets, status
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
-from rest_framework.authentication import SessionAuthentication
+from rest_framework.authentication import SessionAuthentication, BaseAuthentication
 from .models import APIKey, Device, User
 from .serializers import DeviceAPIKeySerializer
 from .forms import RegistrationForm, LoginForm

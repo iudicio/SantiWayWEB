@@ -1,3 +1,4 @@
+from celery import Celery
 from rest_framework import viewsets, status
 from rest_framework.response import Response
 from elasticsearch import Elasticsearch
@@ -57,10 +58,29 @@ class DeviceViewSet(viewsets.ViewSet):
 
         return Response([hit["_source"] for hit in res["hits"]["hits"]])
     
+    # Прямая запись из API в ES
+    # def create(self, request, *args, **kwargs):
+    #     serializer = self.serializer_class(data=request.data)
+    #     serializer.is_valid(raise_exception=True)
+
+    #     global es
+    #     doc = serializer.validated_data
+
+    #     # уникальный id: device_id + timestamp, иначе uuid
+    #     if "detected_at" in doc and doc["detected_at"]:
+    #         doc_id = f"{doc['device_id']}_{int(doc['detected_at'].timestamp())}"
+    #     else:
+    #         doc_id = str(uuid.uuid4())
+
+    #     # всегда пишем в alias "way"
+    #     es.index(index="way", id=doc_id, document=doc)
+
+    #     return Response({"id": doc_id, **doc}, status=status.HTTP_201_CREATED)
+
     def create(self, request, *args, **kwargs):
         data = request.data
         celery_client.send_task('device_preprocessing.vendor', args=[data], queue='vendor_queue')
         return Response({'status': 'queued'}, status=status.HTTP_202_ACCEPTED)
 
-        
+
     

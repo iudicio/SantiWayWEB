@@ -173,5 +173,3 @@ ELASTICSEARCH_DSN = os.getenv("ES_URL", "http://elasticsearch:9200")
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
-
-API_BASE_URL = os.getenv('API_BASE_URL', '/api')
