@@ -1,9 +1,9 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from django.utils.http import url_has_allowed_host_and_scheme
-from rest_framework import viewsets, permissions, status
+from rest_framework import viewsets, status
 from rest_framework.response import Response
-from rest_framework.authentication import BaseAuthentication
-from rest_framework.exceptions import AuthenticationFailed
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.authentication import SessionAuthentication
 from .models import APIKey, Device, User
 from .serializers import DeviceAPIKeySerializer
 from .forms import RegistrationForm, LoginForm
@@ -11,7 +11,10 @@ from django.contrib.auth import login
 from django.contrib import messages
     
 class APIKeyViewSet(viewsets.ViewSet):
+    authentication_classes = [SessionAuthentication]
+    permission_classes = [IsAuthenticated]
     def create(self, request):
+        print("Генерация API ключа")
         device_name = request.data.get("name")
         if not device_name:
             return Response({"error": "Device name required"}, status=status.HTTP_400_BAD_REQUEST)
@@ -19,11 +22,11 @@ class APIKeyViewSet(viewsets.ViewSet):
         api_key=APIKey.objects.create()
 
         device = Device.objects.create(
-            name=device_name,
-            api_key=api_key
+                name=device_name,
+                api_key=api_key
         )
-        request.user.api_keys.add(api_key)
 
+        request.user.api_keys.add(api_key)
         return Response({
             "device_name": device.name,
             "api_key": device.api_key.key  # отдаём токен пользователю
