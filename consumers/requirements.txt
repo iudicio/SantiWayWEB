@@ -1,2 +1,0 @@
-Celery
-mac_vendor_lookup

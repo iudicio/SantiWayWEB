@@ -13,7 +13,6 @@ services:
     depends_on:
       - postgres
       - elasticsearch
-      - rabbitmq
     volumes:
       - static_volume:/app/staticfiles
       - media_volume:/app/media
@@ -76,82 +75,12 @@ services:
       retries: 20
     restart: unless-stopped
   
-  rabbitmq:
-    build:
-      context: ./rabbitmq
-    container_name: santi_rabbitmq
-    networks: [appnet]
-    environment:
-      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-celery}
-      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-celerypassword}
-    ports:
-      - "5672:5672"    # AMQP
-      - "15672:15672"  # RabbitMQ Management UI
-    volumes:
-      - rabbitmq_data:/var/lib/rabbitmq
-      - ./rabbitmq/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
-    healthcheck:
-      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
-    restart: unless-stopped
 
-  celery-worker:
-    build:
-      context: ./consumers
-    container_name: santi_celery_worker
-    networks: [appnet]
-    depends_on:
-      rabbitmq:
-        condition: service_healthy
-    environment:
-      # глушим фиксы Celery для Django
-      DJANGO_SETTINGS_MODULE:
-      CELERY_BROKER_URL: amqp://${RABBITMQ_USER:-celery}:${RABBITMQ_PASSWORD:-celerypassword}@rabbitmq:5672//
-      # путь к файлу кэша внутри каталога
-      MAC_VENDOR_CACHE: /app/cache/mac-vendors.txt
-      MAC_VENDOR_UPDATE_ON_START: "true"
-    volumes:
-      - mac_cache:/app/cache 
-    working_dir: /app
-    command: >
-      celery -A celery_app worker -l INFO -Q process_queue,es_queue
-    restart: unless-stopped
-
-  celery-beat: # опционально, если будут периодические задачи.
-    build:
-      context: ./consumers
-    container_name: santi_celery_beat
-    networks: [appnet]
-    depends_on:
-      rabbitmq:
-        condition: service_healthy
-    env_file: .env
-    environment:
-      CELERY_BROKER_URL: amqp://${RABBITMQ_USER:-celery}:${RABBITMQ_PASSWORD:-celerypassword}@rabbitmq:5672//
-    command: >
-      celery -A celery_app.app beat -l INFO
-    restart: unless-stopped
-
-  flower: # удобный UI для мониторинга задач (опционально).
-    image: mher/flower:2.0
-    container_name: santi_flower
-    networks: [appnet]
-    depends_on:
-      rabbitmq:
-        condition: service_healthy
-    environment:
-      FLOWER_BROKER_URL: amqp://${RABBITMQ_USER:-celery}:${RABBITMQ_PASSWORD:-celerypassword}@rabbitmq:5672//
-    ports:
-      - "5555:5555"
-    restart: unless-stopped
 
 volumes:
   pg_data:
   es_data:
   static_volume:
   media_volume:
-  rabbitmq_data:
-  mac_cache:
+
   
