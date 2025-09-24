@@ -1,0 +1,10 @@
+services:
+  es-writer:
+    build: .
+    container_name: es-writer
+    env_file:
+      - .env
+    restart: unless-stopped
+    # на всякий — явно фиксируем единственную реплику (compose всё равно поднимет одну)
+    deploy:
+      replicas: 1

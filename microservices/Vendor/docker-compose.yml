@@ -1,0 +1,11 @@
+services:
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file:
+      - .env
+    restart: unless-stopped
+    # Для локалки можно раскомментировать hot-reload кода:
+    # volumes:
+    #   - ./:/app:cached
