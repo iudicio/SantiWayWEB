@@ -38,7 +38,7 @@ class APIKeyViewSet(viewsets.ViewSet):
         # проверить, что девайс принадлежит юзеру
         if not request.user.api_keys.filter(id=device.api_key.id).exists():
             return Response({"error": "Not allowed"}, status=status.HTTP_403_FORBIDDEN)
-        device.delete()
+        device.api_key.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 

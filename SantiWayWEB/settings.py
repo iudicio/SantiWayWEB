@@ -59,7 +59,7 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 
-    #'users.middleware.RedirectToLoginMiddleware'
+    'users.middleware.RedirectToLoginMiddleware'
 ]
 
 MIDDLEWARE.insert(0, "corsheaders.middleware.CorsMiddleware")
