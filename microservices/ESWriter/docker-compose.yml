@@ -1,7 +1,12 @@
+networks:
+  appnet:
+    external: true
+    name: app-network
 services:
   es-writer:
     build: .
     container_name: es-writer
+    networks: [appnet]
     env_file:
       - .env
     restart: unless-stopped

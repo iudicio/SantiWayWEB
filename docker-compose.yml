@@ -1,5 +1,7 @@
 networks:
-  appnet: {}
+  appnet:
+    external: true
+    name: app-network
 
 services:
   web:
