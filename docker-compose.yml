@@ -13,6 +13,7 @@ services:
       - static_volume:/app/staticfiles
       - media_volume:/app/media
       - ./users/migrations:/app/users/migrations
+      - ./apkbuilder/migrations:/app/apkbuilder/migrations
     restart: unless-stopped
 
   nginx:
