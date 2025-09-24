@@ -83,7 +83,7 @@ Password: admin
 ### Получение данных из ElasticSearch
 Отправляем GET запрос на эндпоинт ```http://localhost/api/devices/```:
 В Headers прописываем:
-```Authorization: Api-Key 0028e040-db1f-4144-b711-7011d71fbbcf``` <- Ваш Api-Key, который Вы создали
+```Authorization: Api-Key 0028e040-db1f-4144-b711-7011d71fbbcf``` <- Ваш Api-Key, который Вы создали  
 Получаем в ответ список устройств, которые есть в Elasticsearch
 
 Если хотим получить список устройств с фильтрами прописываем их прямо в эндпоинт, например  
