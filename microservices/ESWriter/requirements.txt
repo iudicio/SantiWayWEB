@@ -1,0 +1,2 @@
+Celery
+elasticsearch>=8.13,<9

@@ -1,0 +1,24 @@
+services:
+  rabbitmq:
+    build:
+      context: .           # рядом лежит твой Dockerfile, rabbitmq.conf и definitions.json
+      dockerfile: Dockerfile
+    container_name: rabbitmq
+    env_file:
+      - .env         # все секреты/переменные тут
+    volumes:
+      - ./rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
+      - ./definitions.json:/etc/rabbitmq/definitions.json:ro
+      - rabbitmq_data:/var/lib/rabbitmq
+    ports:
+      - "5672:5672"        # AMQP наружу
+      - "15672:15672"      # UI наружу
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  rabbitmq_data:

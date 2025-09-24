@@ -19,7 +19,8 @@ class RedirectToLoginMiddleware(MiddlewareMixin):
         self.exempt_path_prefixes = getattr(settings, 'AUTH_EXEMPT_PATH_PREFIXES', [
             '/static/',
             '/media/',
-            '/admin/'
+            '/admin/',
+            '/api/'
         ])
 
     def __call__(self, request):
