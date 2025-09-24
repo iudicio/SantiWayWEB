@@ -10,14 +10,14 @@ from os import getenv
 import uuid
 
 
-ES_HOST = getenv("ES_HOST", None)
+ES_HOST = getenv("ES_URL", None)
 ES_USER = getenv("ES_USER", None)
 ES_PASSWORD = getenv("ES_PASSWORD", None)
 BROKER_URL = getenv('CELERY_BROKER_URL', None)
 
 celery_client = Celery('producer', broker=BROKER_URL)
 es = Elasticsearch(
-            hosts = "http://localhost:9200/" # ES_HOST
+            hosts = ES_HOST
         )
 
 
