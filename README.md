@@ -41,7 +41,8 @@ Password: admin
 ```Content-Type: application/json```  
 ```Authorization: Api-Key 0028e040-db1f-4144-b711-7011d71fbbcf``` <- Ваш Api-Key, который Вы создали  
 В Body прописываем список обнаруженных устройств, например:
-```[
+```
+[
   {
     "device_id": "00:1A:2B:3C:4D:5E",
     "latitude": 55.755826,
