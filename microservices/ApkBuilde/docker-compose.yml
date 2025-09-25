@@ -1,0 +1,20 @@
+# docker-compose.yml
+version: '3.8'
+
+networks:
+  appnet:
+    external: true
+    name: app-network
+
+services:
+  apkbuild_worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: apkbuild
+    networks: [appnet]
+    env_file:
+      - .env
+    restart: unless-stopped
+    volumes:
+      - ./logs:/app/logs:cached

@@ -1,7 +1,7 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 
-from apkbuilder.views import APKBuildCreateView, APKBuildStatusView, APKBuildDownloadView
+from apkbuilder.views import APKBuildCreateView
 from .views import DeviceViewSet
 from users.views import APIKeyViewSet
 from drf_spectacular.views import (
@@ -26,8 +26,4 @@ urlpatterns = [
     path("schema/redoc/", SpectacularRedocView.as_view(url_name="schema"), name="redoc"),
     # Создание сборки APK
     path('apk/build/', APKBuildCreateView.as_view(), name='apk-build-create'),
-    # Проверка статуса сборки
-    path('apk/build/<uuid:build_id>/status/', APKBuildStatusView.as_view(), name='apk-build-status'),
-    # Скачивание готового APK
-    path('apk/build/<uuid:build_id>/download/', APKBuildDownloadView.as_view(), name='apk-build-download'),
 ]
