@@ -1,0 +1,17 @@
+networks:
+  appnet:
+    external: true
+    name: app-network
+services:
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: vendor
+    networks: [appnet]
+    env_file:
+      - .env
+    restart: unless-stopped
+    # Для локалки можно раскомментировать hot-reload кода:
+    # volumes:
+    #   - ./:/app:cached

@@ -1,11 +1,17 @@
+networks:
+  appnet:
+    external: true
+    name: app-network
+
 services:
   web:
     build: .
     container_name: santi_web
+    networks: [appnet]
     env_file: .env
     command: /entrypoint.sh
     ports:
-      - "8000:8000"   # локальный доступ, Nginx будет проксировать 80→web:8000
+      - "8000:8000"
     depends_on:
       - postgres
       - elasticsearch
@@ -19,10 +25,12 @@ services:
   nginx:
     image: nginx:1.27-alpine
     container_name: santi_nginx
+    networks: [appnet]
     ports:
       - "80:80"
     depends_on:
-      - web
+      web:
+        condition: service_started
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./nginx/conf.d-empty:/etc/nginx/conf.d:ro
@@ -33,6 +41,7 @@ services:
   postgres:
     image: postgres:16-alpine
     container_name: santi_postgres
+    networks: [appnet]
     environment:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
@@ -49,6 +58,7 @@ services:
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.18.1
     container_name: santi_elasticsearch
+    networks: [appnet]
     environment:
       - discovery.type=single-node
       - xpack.security.enabled=false   # для разработки
@@ -67,9 +77,13 @@ services:
       timeout: 5s
       retries: 20
     restart: unless-stopped
+  
+
 
 volumes:
   pg_data:
   es_data:
   static_volume:
   media_volume:
+
+  
