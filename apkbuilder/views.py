@@ -3,7 +3,6 @@ from rest_framework.authentication import get_authorization_header
 from rest_framework.response import Response
 from rest_framework.parsers import MultiPartParser, JSONParser
 from .models import APKBuild
-from users.models import APIKey
 from api.auth import APIKeyAuthentication
 from api.permissions import HasAPIKey
 from .serializers import APKBuildCreateSerializer
