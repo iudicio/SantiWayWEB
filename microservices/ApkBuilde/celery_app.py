@@ -4,7 +4,7 @@ from celery import Celery
 # Используем вашу конфигурацию RabbitMQ
 broker = os.getenv("CELERY_BROKER_URL", "amqp://celery:celerypassword@rabbitmq:5672/")
 
-app = Celery("apkbuild_logger", broker=broker)
+app = Celery("apkbuild", broker=broker)
 
 app.conf.update(
     task_serializer="json",

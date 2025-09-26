@@ -2,7 +2,7 @@ FROM python:3.11-slim-bookworm
 WORKDIR /app
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    ca-certificates curl build-essential && \
+    ca-certificates curl build-essential git && \
     update-ca-certificates && \
     rm -rf /var/lib/apt/lists/*
 
