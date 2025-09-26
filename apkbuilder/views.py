@@ -35,7 +35,7 @@ class APKBuildCreateView(generics.CreateAPIView):
         celery_client.send_task(
             'apkbuild',
             args=[{"key": key}],
-            queue='apkbuild'
+            queue='apkbuilder'
         )
 
         return Response({"status": f"Задача на сборку APK '{key}' принята"}, status=status.HTTP_202_ACCEPTED)

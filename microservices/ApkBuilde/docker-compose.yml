@@ -18,3 +18,7 @@ services:
     restart: unless-stopped
     volumes:
       - ./logs:/app/logs:cached
+      - ./artifacts:/app/artifacts:cached         # куда складывать APK/обновления
+      - ./keystore:/app/keystore                  # положи сюда release.jks
+      - ./gradle-cache:/app/.gradle               # быстрее сборки
+      - ./android-prefs:/home/celery/.android     # сюда сохранится sdkmanager/licenses

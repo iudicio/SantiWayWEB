@@ -1,30 +1,168 @@
 import os
 import shutil
 import subprocess
+from pathlib import Path
 from celery.utils.log import get_task_logger
 
 
 log = get_task_logger(__name__)
 
 
+def run_cmd(cmd, cwd=None, env=None, log_prefix=""):
+    log.info("%s$ %s", log_prefix, " ".join(cmd))
+    proc = subprocess.run(cmd, cwd=cwd, env=env, text=True,
+                          capture_output=True)
+    if proc.returncode != 0:
+        log.error("%sSTDOUT:\n%s", log_prefix, proc.stdout)
+        log.error("%sSTDERR:\n%s", log_prefix, proc.stderr)
+        raise RuntimeError(f"Command failed: {' '.join(cmd)}")
+    if proc.stdout:
+        log.info("%s%s", log_prefix, proc.stdout)
+    if proc.stderr:
+        log.info("%s%s", log_prefix, proc.stderr)
+    return proc
+
+
+def have_keystore_env():
+    return all(os.getenv(k) for k in (
+        "KEYSTORE_PATH", "KEYSTORE_PASSWORD", "KEY_ALIAS", "KEY_PASSWORD"
+    ))
+
+
+def find_apk(app_dir: Path, variant: str) -> Path:
+    # Ищем стандартные артефакты Gradle
+    # release: app-release.apk / app-release-unsigned.apk
+    # debug:   app-debug.apk
+    out = app_dir / "build" / "outputs" / "apk" / variant
+    candidates = sorted(out.glob("*.apk"), key=lambda p: p.stat().st_mtime, reverse=True)
+    if not candidates:
+        raise FileNotFoundError(f"APK не найден в {out}")
+    return candidates[0]
+
+
+def sign_with_apksigner(apk_path: Path) -> Path:
+    """
+    Подпись APK через apksigner из ANDROID_SDK_ROOT/build-tools/<ver>/apksigner
+    Требуются переменные окружения:
+      ANDROID_SDK_ROOT, KEYSTORE_PATH, KEYSTORE_PASSWORD, KEY_ALIAS, KEY_PASSWORD
+    """
+    sdk = os.getenv("ANDROID_SDK_ROOT") or os.getenv("ANDROID_HOME")
+    if not sdk:
+        raise RuntimeError("ANDROID_SDK_ROOT/ANDROID_HOME не задан")
+
+    # выбираем самую новую версию build-tools, где есть apksigner
+    build_tools_dir = Path(sdk) / "build-tools"
+    bt_versions = [p for p in build_tools_dir.iterdir() if (p / "apksigner").exists() or (p / "apksigner.bat").exists()]
+    if not bt_versions:
+        raise RuntimeError("apksigner не найден в build-tools")
+    bt = sorted(bt_versions, key=lambda p: p.name)[-1]
+
+    apksigner = str((bt / "apksigner").with_suffix(".bat" if os.name == "nt" else ""))
+    ks = os.getenv("KEYSTORE_PATH")
+    ks_pass = os.getenv("KEYSTORE_PASSWORD")
+    alias = os.getenv("KEY_ALIAS")
+    key_pass = os.getenv("KEY_PASSWORD")
+
+    # (опционально) zipalign — современные пайплайны зачастую уже выровнены, пропустим для краткости
+
+    # подписываем на месте -> итоговый файл получит суффикс -signed.apk
+    signed_apk = apk_path.with_name(apk_path.stem + "-signed.apk")
+    shutil.copy2(apk_path, signed_apk)
+
+    cmd = [
+        apksigner, "sign",
+        "--ks", ks,
+        "--ks-pass", f"pass:{ks_pass}",
+        "--key-pass", f"pass:{key_pass}",
+        "--ks-key-alias", alias,
+        str(signed_apk)
+    ]
+    run_cmd(cmd, log_prefix="[apksigner] ")
+    # проверка подписи
+    run_cmd([apksigner, "verify", "--print-certs", str(signed_apk)], log_prefix="[apksigner] ")
+    return signed_apk
+
+
 def process_apk_build(key: str, target_dir: str, android_url: str) -> str:
-    """Основная логика сборки APK"""
-    api_key = key
+    """
+    1) Подготавливаем окружение (права на gradlew, JAVA_HOME/JDK)
+    2) Собираем release, если есть keystore; иначе debug
+    3) Если release собрался неудалённо (unsigned) — подписываем apksigner'ом
+    4) Возвращаем путь к итоговому APK
+    """
+    repo_dir = Path(target_dir).resolve()
+    app_dir = repo_dir / "app"
 
-    # Перед каждой сборкой проверяем актуальность репозитория
-    if should_clone_repository(android_url, target_dir):
-        log.warning("Репозиторий устарел во время обработки, требуется пересборка")
-        # Можно либо перезапустить задачу, либо продолжить со старым репо
-        # В зависимости от требований к актуальности
+    # gradlew исполняемый
+    gradlew = repo_dir / ("gradlew.bat" if os.name == "nt" else "gradlew")
+    if not gradlew.exists():
+        raise FileNotFoundError("gradlew не найден в корне репозитория")
+    try:
+        os.chmod(gradlew, 0o755)
+    except Exception:
+        pass
 
-    log.info(f"Обрабатываем сборку APK для ключа: {api_key}")
+    # TODO Вшить Api-key в приложение в secret.properties, когда будет
 
-    # TODO: Добавить логику сборки APK
-    # 1. Обновление API ключа в репозитории
-    # 2. Сборка APK
-    # 3. Возврат результата
+    env = os.environ.copy()
 
-    return f"APK build completed for key: {api_key}"
+    env.setdefault("HOME", "/home/celery")
+    env.setdefault("ANDROID_USER_HOME", "/home/celery/.android")
+    env.setdefault("GRADLE_USER_HOME", str(Path(target_dir) / ".gradle"))
+
+    # ВАЖНО: убрать возможный ANDROID_PREFS_ROOT, если пришёл из контейнера
+    env.pop("ANDROID_PREFS_ROOT", None)
+
+    if key:
+        env["API_KEY"] = key
+
+    # базовые флаги gradle для CI
+    base = [str(gradlew), "--no-daemon", "--stacktrace", "--console=plain"]
+
+    # Быстрый прогрев: ./gradlew help (не обязательно)
+    try:
+        run_cmd(base + ["help"], cwd=str(repo_dir), env=env, log_prefix="[gradle] ")
+    except Exception:
+        # не критично
+        pass
+
+    # Выбор варианта: если есть keystore — собираем release; иначе debug
+    aim_release = have_keystore_env()
+
+    # Сначала clean, потом сборка
+    tasks = [":app:clean"]
+    if aim_release:
+        # попытка собрать релиз
+        tasks += [":app:assembleRelease", f"-PapiKey={key}" if key else ""]
+    else:
+        # отладочный APK всегда подпишется debug-сертификатом автоматически
+        tasks += [":app:assembleDebug", f"-PapiKey={key}" if key else ""]
+
+    tasks = [t for t in tasks if t]  # убираем пустые
+
+    run_cmd(base + tasks, cwd=str(repo_dir), env=env, log_prefix="[gradle] ")
+
+    # Находим артефакт
+    variant = "release" if aim_release else "debug"
+    apk = find_apk(app_dir, variant)
+
+    # Если релиз и файл неподписанный — подпишем
+    final_apk = apk
+    if aim_release and ("unsigned" in apk.name.lower() or "-unsigned" in apk.name.lower()):
+        final_apk = sign_with_apksigner(apk)
+
+    # Сохраним/скопируем в понятное место (например ./artifacts/)
+    artifacts = repo_dir / "artifacts"
+    artifacts.mkdir(exist_ok=True)
+
+    safe_key = (key or "no-key").replace("/", "_").replace("\\", "_")
+    dst = artifacts / f"{safe_key}.apk"
+
+    shutil.copy2(final_apk, dst)
+
+    msg = f"APK готов: {dst}"
+    log.info(msg)
+    return msg
 
 
 def clone_public_repo(repo_url, target_dir):

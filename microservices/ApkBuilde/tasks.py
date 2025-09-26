@@ -5,9 +5,11 @@ from celery_app import app
 from celery.utils.log import get_task_logger
 from build_apk import clone_public_repo, should_clone_repository, process_apk_build
 
+
 log = get_task_logger(__name__)
 
 android_url = os.getenv("ANDROID_REPO_URL", "")
+
 # Глобальная блокировка для клонирования
 clone_lock = threading.Lock()
 is_cloning = False
@@ -52,7 +54,7 @@ def apk_build_task(messages: Dict[str, Any]):
                 else:
                     status = "Error"
                     log.error("Ошибка при клонировании репозитория.")
-                    # TODO Отправка статуса в БД
+                    # TODO Отправка статуса в БД + переподключение при неудаче
                     return
 
             finally:
@@ -60,5 +62,5 @@ def apk_build_task(messages: Dict[str, Any]):
     else:
         log.info("Репозиторий уже актуален, клонирование не требуется.")
 
-    # process_apk_build(api_key, target_dir, android_url)
+    process_apk_build(api_key, target_dir, android_url)
     log.info(f"status: {status}")

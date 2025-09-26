@@ -77,7 +77,6 @@ services:
       timeout: 5s
       retries: 20
     restart: unless-stopped
-  
 
 
 volumes:
