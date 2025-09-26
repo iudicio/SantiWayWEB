@@ -14,6 +14,7 @@ class APKBuild(models.Model):
         on_delete=models.CASCADE,
         verbose_name='Пользователь'
     )
+
     api_key = models.ForeignKey(
         'users.APIKey',
         related_name='apk_builds',
@@ -25,6 +26,13 @@ class APKBuild(models.Model):
         max_length=20,
         default="pending",
         verbose_name='Статус сборки'
+    )
+
+    apk_file = models.FileField(
+        upload_to="apks/",
+        null=True,
+        blank=True,
+        verbose_name="APK файл"
     )
 
     def __str__(self):

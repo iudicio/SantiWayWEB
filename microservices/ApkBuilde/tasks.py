@@ -1,6 +1,7 @@
 import os
 import threading
 from typing import Dict, Any
+from celery import Celery
 from celery_app import app
 from celery.utils.log import get_task_logger
 from build_apk import clone_public_repo, should_clone_repository, process_apk_build
@@ -10,9 +11,21 @@ log = get_task_logger(__name__)
 
 android_url = os.getenv("ANDROID_REPO_URL", "")
 
+BROKER_URL = os.getenv('CELERY_BROKER_URL', 'amqp://celery:celerypassword@rabbitmq:5672/')
+celery_client = Celery('apkget_producer', broker=BROKER_URL)
+
 # Глобальная блокировка для клонирования
 clone_lock = threading.Lock()
 is_cloning = False
+
+
+def send_to_queue(task_name: str, message: Dict[str, Any], queue_name: str):
+    """Отправка сообщения в очередь RabbitMQ"""
+    celery_client.send_task(
+        task_name,
+        args=[message],
+        queue=queue_name
+    )
 
 
 @app.task(name='apkbuild', queue='apkbuilder')
@@ -20,7 +33,8 @@ def apk_build_task(messages: Dict[str, Any]):
     global is_cloning
 
     api_key = messages.get("key")
-    status = "Ready"
+    apk_build_id = messages.get("apk_build_id")
+    status = "success"
 
     if api_key:
         try:
@@ -50,17 +64,21 @@ def apk_build_task(messages: Dict[str, Any]):
 
                 if clone:
                     log.info("Репозиторий успешно клонирован/обновлен.")
-                    status = "Ready"
                 else:
-                    status = "Error"
+                    status = "failed"
                     log.error("Ошибка при клонировании репозитория.")
-                    # TODO Отправка статуса в БД + переподключение при неудаче
-                    return
+                    send_to_queue("apkget", {"status":status, "apk_build_id": apk_build_id}, "apkget")
+                    return "ERROR"
 
             finally:
                 is_cloning = False
-    else:
-        log.info("Репозиторий уже актуален, клонирование не требуется.")
 
     process_apk_build(api_key, target_dir, android_url)
-    log.info(f"status: {status}")
+
+    send_to_queue(
+        "apkget",
+        {"status":status,
+         "apk_build_id": apk_build_id},
+        "apkget"
+    )
+    return status

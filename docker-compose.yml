@@ -22,6 +22,24 @@ services:
       - ./apkbuilder/migrations:/app/apkbuilder/migrations
     restart: unless-stopped
 
+  celery-worker:
+    build: .
+    container_name: santi_celery_worker
+    networks: [ appnet ]
+    env_file: .env
+    command: >
+      celery -A SantiWayWEB.celery_app worker
+      --loglevel=info
+      -Q apkget
+      -n apkget@%h
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./users/migrations:/app/users/migrations
+      - ./apkbuilder/migrations:/app/apkbuilder/migrations
+    restart: unless-stopped
+
   nginx:
     image: nginx:1.27-alpine
     container_name: santi_nginx
