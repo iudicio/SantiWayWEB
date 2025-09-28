@@ -1,5 +1,7 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
+
+from apkbuilder.views import APKBuildCreateView
 from .views import DeviceViewSet
 from users.views import APIKeyViewSet
 from drf_spectacular.views import (
@@ -21,5 +23,7 @@ urlpatterns = [
     # Swagger UI
     path("schema/swagger-ui/", SpectacularSwaggerView.as_view(url_name="schema"), name="swagger-ui"),
     # ReDoc (альтернативная документация)
-    path("schema/redoc/", SpectacularRedocView.as_view(url_name="schema"), name="redoc")
+    path("schema/redoc/", SpectacularRedocView.as_view(url_name="schema"), name="redoc"),
+    # Создание сборки APK
+    path('apk/build/', APKBuildCreateView.as_view(), name='apk-build-create'),
 ]
