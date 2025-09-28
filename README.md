@@ -101,4 +101,8 @@ GET ```http://localhost/api/devices/?is_alert=true```
 
 Для того, чтобы скачать собранный файл, отправляем GET запрос на эндпоинт ```http://localhost/api/apk/build/?action=download```
 
+Чтобы проверить скачается ли он, можно отправить такой запрос в cmd:
+
+```curl -H "Authorization: Api-Key <Твой Api-Key>" -L "http://localhost/api/apk/build/?action=download" -o app.apk```
+
 Ключ всегда подтягивается из Api-Key, который вы используете в Headers
