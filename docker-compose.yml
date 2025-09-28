@@ -20,6 +20,7 @@ services:
       - media_volume:/app/media
       - ./users/migrations:/app/users/migrations
       - ./apkbuilder/migrations:/app/apkbuilder/migrations
+      - ./media:/app/media
     restart: unless-stopped
 
   celery-worker:
@@ -38,6 +39,7 @@ services:
     volumes:
       - ./users/migrations:/app/users/migrations
       - ./apkbuilder/migrations:/app/apkbuilder/migrations
+      - ./media:/app/media
     restart: unless-stopped
 
   nginx:
