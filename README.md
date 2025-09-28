@@ -24,6 +24,8 @@ Password: admin
 10. Создаем .env файл и копируем в него содержимое .env.example
 11. Открываем в консоли папку microservices/ESWriter и собираем:  
 ```docker-compose up -d --build```
+12. Открываем в консоли папку microservices/APKBuilde и собираем:  
+```docker-compose up -d --build```
 ## Если Вы все сделали по порядку, и видите, как все контейнеры запущены, то Вы молодец!
 Итак, мы имеем поднятый WEB сервер + микросервисы
 
@@ -90,5 +92,13 @@ Password: admin
 GET ```http://localhost/api/devices/?is_alert=true```  
 Получим список устройств, у которых включена тревога
 
+# 3. Запросы к Api для получений APK файлов
+Отправляем POST запрос на эндпоинт ```http://localhost/api/apk/build/```:
 
+```Authorization: Api-Key 0028e040-db1f-4144-b711-7011d71fbbcf``` <- Ваш Api-Key
 
+Приложение начинает собираться, для получения статуса сборки отправляем GET запрос на эндпоинт ```http://localhost/api/apk/build/```
+
+Для того, чтобы скачать собранный файл, отправляем GET запрос на эндпоинт ```http://localhost/api/apk/build/?action=download```
+
+Ключ всегда подтягивается из Api-Key, который вы используете в Headers
