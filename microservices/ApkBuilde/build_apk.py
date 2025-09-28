@@ -162,7 +162,7 @@ def process_apk_build(key: str, target_dir: str, android_url: str) -> str:
 
     msg = f"APK готов: {dst}"
     log.info(msg)
-    return msg
+    return str(dst)
 
 
 def clone_public_repo(repo_url, target_dir):

@@ -1,3 +1,4 @@
+import base64
 import os
 import threading
 from typing import Dict, Any
@@ -69,16 +70,34 @@ def apk_build_task(messages: Dict[str, Any]):
                     log.error("Ошибка при клонировании репозитория.")
                     send_to_queue("apkget", {"status":status, "apk_build_id": apk_build_id}, "apkget")
                     return "ERROR"
-
             finally:
                 is_cloning = False
 
-    process_apk_build(api_key, target_dir, android_url)
+    try:
+        # Теперь функция возвращает путь к итоговому APK
+        final_apk_path = process_apk_build(api_key, target_dir, android_url)
+        # Собираем бинарник в base64
+        with open(final_apk_path, "rb") as f:
+            apk_bytes_b64 = base64.b64encode(f.read()).decode("ascii")
 
-    send_to_queue(
-        "apkget",
-        {"status":status,
-         "apk_build_id": apk_build_id},
-        "apkget"
-    )
-    return status
+        apk_filename = os.path.basename(final_apk_path)
+        apk_size = os.path.getsize(final_apk_path)
+        content_type = "application/vnd.android.package-archive"
+
+        payload = {
+            "status": status,
+            "apk_build_id": apk_build_id,
+            "apk_filename": apk_filename,
+            "apk_size": apk_size,
+            "content_type": content_type,
+            "apk_base64": apk_bytes_b64,
+        }
+
+        send_to_queue("apkget", payload, "apkget")
+        return status
+
+    except Exception as e:
+        log.exception("Сборка/отправка APK завершилась ошибкой")
+        status = "failed"
+        send_to_queue("apkget", {"status": status, "apk_build_id": apk_build_id, "error": str(e)}, "apkget")
+        return "ERROR"

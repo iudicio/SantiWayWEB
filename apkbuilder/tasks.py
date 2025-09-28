@@ -1,9 +1,11 @@
+import base64
 import os
 from datetime import datetime, timezone
 from typing import Dict, Any
 
 from celery.utils.log import get_task_logger
 from django.apps import apps
+from django.core.files.base import ContentFile
 from django.db import transaction
 from django.utils import timezone
 
@@ -29,13 +31,34 @@ def apk_get_task(messages: Dict[str, Any]):
         log.error("apkget: нет apk_build_id в message")
         return {"ok": False, "error": "missing apk_build_id"}
 
-    log.info(f"Получен статус: {status}")
+    log.info(f"apkget: получен статус={status} для build_id={build_id}")
 
     try:
         with transaction.atomic():
             build = APKBuild.objects.select_for_update().get(id=build_id)
 
             update_fields = []
+
+            if status == "success":
+                b64 = messages.get("apk_base64")
+                filename = messages.get("apk_filename") or "app.apk"
+                content_type = messages.get("content_type") or "application/vnd.android.package-archive"
+
+                if not b64:
+                    log.error("apkget: status=success, но apk_base64 отсутствует")
+                    # помечаем как failed, чтобы не зависло в ожидании файла
+                    status = "failed"
+
+                else:
+                    try:
+                        data = base64.b64decode(b64)
+                        # сохраняем файл в FileField (upload_to='apks/')
+                        build.apk_file.save(filename, ContentFile(data), save=False)
+                        update_fields.append("apk_file")
+                        log.info(f"apkget: APK сохранён в build {build_id} как {filename} ({len(data)} байт)")
+                    except Exception as e:
+                        log.exception("apkget: ошибка сохранения APK")
+                        status = "failed"
 
             if status and status != build.status:
                 build.status = status
@@ -49,8 +72,11 @@ def apk_get_task(messages: Dict[str, Any]):
             if update_fields:
                 build.save(update_fields=update_fields)
 
-            log.info(f"apkget: обновлён build {build_id}: "
-                     f"status={status}")
+            log.info(
+                f"apkget: обновлён build {build_id}: "
+                f"status={build.status}, "
+                f"updated={update_fields}"
+            )
             return {"ok": True, "apk_build_id": build_id, "updated": update_fields}
 
     except APKBuild.DoesNotExist:
