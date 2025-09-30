@@ -12,10 +12,13 @@
           integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 
   <link rel="stylesheet" href="{% static 'interface/styles.css' %}"/>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css" />
+  <script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
 
   <script>
     window.APP_CONFIG = {
-      API_BASE: "{{ API_BASE|default:'/api' }}"
+      API_BASE: "{{ API_BASE|default:'/api' }}",
+      API_KEY: "{{ API_KEY|default:'' }}"
     };
   </script>
   <script defer src="{% static 'interface/app.js' %}"></script>
@@ -43,6 +46,7 @@
         <div class="searchbar">
           <input id="topSearch" class="input" placeholder="Поиск по ID, MAC, типу..."/>
           <button class="btn" id="btnTopSearch">Поиск</button>
+          
         </div>
       </div>
     </div>
@@ -138,5 +142,9 @@
     </div>
   </main>
 </div>
+
+<!-- Контейнер для уведомлений -->
+<div class="notification-container" id="notificationContainer"></div>
+
 </body>
 </html>
