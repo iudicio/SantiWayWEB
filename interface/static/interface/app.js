@@ -1,5 +1,62 @@
 const API_BASE = (window.APP_CONFIG && window.APP_CONFIG.API_BASE) || '/api';
-const API_DEVICES_URL = `${API_BASE}/devices/`; 
+const API_DEVICES_URL = `${API_BASE}/devices/`;
+const API_POLYGONS_URL = `${API_BASE}/polygons/`;
+
+class NotificationSystem {
+  constructor() {
+    this.container = document.getElementById('notificationContainer');
+  }
+
+  show(message, type = 'info', title = '', duration = 5000) {
+    const notification = document.createElement('div');
+    notification.className = `notification ${type}`;
+    
+    const icons = {
+      success: '✓',
+      error: '✕',
+      warning: '⚠',
+      info: 'ℹ'
+    };
+
+    notification.innerHTML = `
+      <div class="notification-icon">${icons[type] || icons.info}</div>
+      <div class="notification-content">
+        ${title ? `<div class="notification-title">${title}</div>` : ''}
+        <div class="notification-message">${message}</div>
+      </div>
+      <button class="notification-close" onclick="this.parentElement.remove()">×</button>
+    `;
+
+    this.container.appendChild(notification);
+    
+    setTimeout(() => notification.classList.add('show'), 100);
+    
+    if (duration > 0) {
+      setTimeout(() => {
+        notification.classList.remove('show');
+        setTimeout(() => notification.remove(), 300);
+      }, duration);
+    }
+  }
+
+  success(message, title = 'Успешно') {
+    this.show(message, 'success', title);
+  }
+
+  error(message, title = 'Ошибка') {
+    this.show(message, 'error', title);
+  }
+
+  warning(message, title = 'Предупреждение') {
+    this.show(message, 'warning', title);
+  }
+
+  info(message, title = 'Информация') {
+    this.show(message, 'info', title);
+  }
+}
+
+const notifications = new NotificationSystem();
 
 const state = {
   rows: [],
@@ -9,6 +66,7 @@ const state = {
   search: '',
   filters: { network: 'any', deviceid: '', mac: '', alert: false, ignore: false },
   selectedId: null,
+  apiKey: (window.APP_CONFIG && window.APP_CONFIG.API_KEY) || ''
 };
 
 function normalize(v){ return String(v ?? '').trim(); }
@@ -41,6 +99,155 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
 }).addTo(map);
 
 const markersLayer = L.layerGroup().addTo(map);
+const polygonsLayer = L.featureGroup().addTo(map);
+
+// Рисование полигонов (Leaflet.draw)
+let drawControl;
+let drawnItems = polygonsLayer;
+
+function ensureDrawTools(){
+  
+  if (drawControl) {
+    console.log('drawControl already exists, returning');
+    return;
+  }
+  
+  drawControl = new L.Control.Draw({
+    edit: {
+      featureGroup: polygonsLayer,
+      poly: { allowIntersection: false },
+      edit: true,
+      remove: true
+    },
+    draw: {
+      polygon: {
+        allowIntersection: false,
+        showArea: true,
+        shapeOptions: { color: '#ef4444', weight: 2, fillOpacity: 0.15 }
+      },
+      rectangle: {
+        showArea: true,
+        shapeOptions: { color: '#ef4444', weight: 2, fillOpacity: 0.15 }
+      },
+      circle: false,
+      circlemarker: false,
+      marker: false,
+      polyline: false
+    }
+  });
+  map.addControl(drawControl);
+
+  // События Leaflet.draw
+
+  // Используем события на уровне карты
+  map.on('draw:created', async (e) => {
+    const layer = e.layer;
+
+    let ring = [];
+    
+    const latlngs = (layer.getLatLngs?.()[0]) || [];
+
+    if (latlngs.length >= 3) {
+      ring = latlngs.map(ll => [Number(ll.lng), Number(ll.lat)]);
+      if (ring[0][0] !== ring[ring.length-1][0] || ring[0][1] !== ring[ring.length-1][1]) {
+        ring.push([ring[0][0], ring[0][1]]);
+      }
+      
+    } else {
+      
+      return;
+    }
+
+    const payload = {
+      name: `Area ${Date.now()}`,
+      description: '',
+      geometry: { type: 'Polygon', coordinates: [ ring ] },
+      is_active: true
+    };
+
+    try{
+      const res = await fetch(API_POLYGONS_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': `Api-Key ${state.apiKey}`
+        },
+        body: JSON.stringify(payload)
+      });
+      if(!res.ok) throw new Error(`API ${res.status}`);
+      await reload();
+    } catch(err){ console.error('Polygon create failed', err); }
+  });
+
+  // Используем события на уровне карты для редактирования
+  map.on('draw:edited', async (e) => {
+    const layers = e.layers;
+    const updates = [];
+    layers.eachLayer(l => {
+      let ring = [];
+      
+      const latlngs = (l.getLatLngs?.()[0]) || [];
+      
+      if (latlngs.length >= 3) {
+        ring = latlngs.map(ll => [Number(ll.lng), Number(ll.lat)]);
+        if (ring[0][0] !== ring[ring.length-1][0] || ring[0][1] !== ring[ring.length-1][1]) {
+          ring.push([ring[0][0], ring[0][1]]);
+        }
+        
+      } else {
+        
+        return;
+      }
+      
+      const pid = l.options && l.options._pid;
+      if(pid){
+        updates.push({ id: pid, geometry: { type: 'Polygon', coordinates: [ ring ] } });
+        
+      }
+    });
+
+    for(const u of updates){
+      try{
+        const res = await fetch(`${API_POLYGONS_URL}${u.id}/`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'Authorization': `Api-Key ${state.apiKey}`
+          },
+          body: JSON.stringify({ geometry: u.geometry })
+        });
+        if(!res.ok) throw new Error(`API ${res.status}`);
+      } catch(err){ console.error('Polygon update failed', err); }
+    }
+    await reload();
+  });
+
+  map.on('draw:deleted', async (e) => {
+    
+    const layers = e.layers;
+    const ids = [];
+    layers.eachLayer(l => {
+      const pid = l.options && l.options._pid;
+      if(pid) ids.push(pid);
+    });
+    for(const id of ids){
+      try{
+        const res = await fetch(`${API_POLYGONS_URL}${id}/`, {
+          method: 'DELETE',
+          headers: {
+            'Accept': 'application/json',
+            'Authorization': `Api-Key ${state.apiKey}`
+          }
+        });
+        if(!res.ok) throw new Error(`API ${res.status}`);
+      } catch(err){ console.error('Polygon delete failed', err); }
+    }
+    await reload();
+  });
+}
+
 const markerById = new Map();
 
 function renderMarkers(rows){
@@ -170,7 +377,12 @@ function buildQuery(){
 
 async function fetchDevices(){
   const url = `${API_DEVICES_URL}?${buildQuery()}`;
-  const res = await fetch(url, { headers: { 'Accept': 'application/json' }});
+  const res = await fetch(url, { 
+    headers: { 
+      'Accept': 'application/json',
+      'Authorization': `Api-Key ${state.apiKey}`
+    }
+  });
   if(!res.ok) throw new Error(`API ${res.status}`);
 
   const data = await res.json();
@@ -190,9 +402,11 @@ async function fetchDevices(){
 async function reload(){
   try{
     const { rows, total } = await fetchDevices();
+    const polygons = await fetchPolygons();
     state.rows = rows;
     state.total = total;
     renderMarkers(rows);
+    renderPolygons(polygons);
     renderTable();
     if(rows.length){ selectRow(rows[0].device_id); }
     else { selectRow(null); }
@@ -234,8 +448,268 @@ document.getElementById('pageSize').addEventListener('change', (e)=>{
   reload();
 });
 
+async function fetchPolygons(){
+  const res = await fetch(API_POLYGONS_URL, {
+    headers: {
+      'Accept': 'application/json',
+      'Authorization': `Api-Key ${state.apiKey}`
+    }
+  });
+  if(!res.ok) throw new Error(`API ${res.status}`);
+  return await res.json();
+}
+
+function renderPolygons(rows){
+  polygonsLayer.clearLayers();
+  if(!Array.isArray(rows)) return;
+  rows.forEach(p => {
+    try{
+      console.log('Rendering polygon:', p);
+      console.log('Polygon ID:', p.id, 'Type:', typeof p.id);
+      if(!p.geometry || p.geometry.type !== 'Polygon') return;
+      const ring = p.geometry.coordinates?.[0] || [];
+      if(ring.length < 4) return;
+      const latlngs = ring.map(([lon,lat]) => [lat,lon]);
+          const poly = L.polygon(latlngs, {
+            color: '#ef4444',
+            weight: 2,
+            fillColor: '#ef4444',
+            fillOpacity: 0.15,
+            _pid: p.id
+          }).bindPopup(`
+            <div class="popup-title">${p.name || 'Polygon'}</div>
+            <div class="popup-info">
+              <strong>Площадь:</strong> ${p.area ? p.area.toFixed(2) + ' км²' : 'N/A'}<br/>
+              <strong>Создан:</strong> ${new Date(p.created_at).toLocaleString('ru-RU')}<br/>
+              <strong>Статус:</strong> ${p.is_active ? 'Активен' : 'Неактивен'}
+            </div>
+            <div class="action-buttons" data-pid="${String(p.id)}">
+              <button class="action-btn search js-action-search">🔍 Поиск устройств</button>
+              <button class="action-btn monitor js-action-start">📊 Запустить мониторинг</button>
+              <button class="action-btn stop js-action-stop">⏹️ Остановить мониторинг</button>
+              <button class="action-btn status js-action-status">📈 Статус мониторинга</button>
+            </div>
+          `);
+      poly.on('popupopen', (ev) => {
+        try{
+          const container = ev.popup.getElement();
+          const actions = container && container.querySelector('.action-buttons');
+          if(!actions) return;
+          const pid = String(actions.getAttribute('data-pid'));
+          
+          const on = (sel, fn) => { const el = actions.querySelector(sel); if(el) el.onclick = () => fn(pid); };
+          on('.js-action-search', (id) => window.searchDevicesInPolygon && window.searchDevicesInPolygon(String(id)));
+          on('.js-action-start',  (id) => window.startMonitoring && window.startMonitoring(String(id)));
+          on('.js-action-stop',   (id) => window.stopMonitoring && window.stopMonitoring(String(id)));
+          on('.js-action-status', (id) => window.checkMonitoringStatus && window.checkMonitoringStatus(String(id)));
+        } catch(e){ console.warn('popupopen binding error', e); }
+      });
+      poly.addTo(polygonsLayer);
+    } catch(e){ console.warn('polygon render error', e); }
+  });
+}
+
+window.searchDevicesInPolygon = async function searchDevicesInPolygon(polygonId) {
+  try {
+    const response = await fetch(`${API_POLYGONS_URL}${polygonId}/search/`, {
+      method: 'POST',
+      headers: {
+        'Accept': 'application/json',
+        'Authorization': `Api-Key ${state.apiKey}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    if (!response.ok) {
+      throw new Error(`API ${response.status}`);
+    }
+    
+    const result = await response.json();
+    
+    if (result.devices && result.devices.length > 0) {
+      markersLayer.clearLayers();
+      
+      result.devices.forEach(device => {
+        if (device.location && device.location.lat && device.location.lon) {
+          const marker = L.marker([device.location.lat, device.location.lon], {
+            icon: L.divIcon({
+              className: 'search-result-marker',
+              html: '🔍',
+              iconSize: [20, 20]
+            })
+          }).bindPopup(`
+            <div class="popup-title">Найденное устройство</div>
+            <div class="popup-info">
+              <strong>Device ID:</strong> ${device.device_id || 'N/A'}<br/>
+              <strong>MAC:</strong> ${device.mac || 'N/A'}<br/>
+              <strong>Время:</strong> ${device.timestamp || 'N/A'}
+            </div>
+          `);
+          marker.addTo(markersLayer);
+        }
+      });
+      
+      notifications.success(`Найдено устройств: ${result.devices_found}`, 'Поиск завершен');
+    } else {
+      notifications.warning('Устройства в полигоне не найдены', 'Поиск завершен');
+    }
+    
+  } catch (error) {
+    console.error('Ошибка поиска устройств:', error);
+    notifications.error(`Ошибка поиска: ${error.message}`);
+  }
+}
+
+window.startMonitoring = async function startMonitoring(polygonId) {
+  try {
+    const response = await fetch(`${API_POLYGONS_URL}${polygonId}/start_monitoring/`, {
+      method: 'POST',
+      headers: {
+        'Accept': 'application/json',
+        'Authorization': `Api-Key ${state.apiKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        monitoring_interval: 300 // 5 минут
+      })
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || `API ${response.status}`);
+    }
+    
+    const result = await response.json();
+    
+    notifications.success(`Мониторинг запущен!<br/>Интервал: ${result.monitoring_interval} сек<br/>Task ID: ${result.task_id}`, 'Мониторинг активен');
+    
+  } catch (error) {
+    console.error('Ошибка запуска мониторинга:', error);
+    notifications.error(`Ошибка запуска мониторинга: ${error.message}`);
+  }
+}
+
+window.stopMonitoring = async function stopMonitoring(polygonId) {
+  try {
+    const response = await fetch(`${API_POLYGONS_URL}${polygonId}/stop_monitoring/`, {
+      method: 'POST',
+      headers: {
+        'Accept': 'application/json',
+        'Authorization': `Api-Key ${state.apiKey}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    if (!response.ok) {
+      throw new Error(`API ${response.status}`);
+    }
+    
+    const result = await response.json();
+    
+    notifications.success(`Мониторинг остановлен для полигона: ${result.polygon_name}`);
+    
+  } catch (error) {
+    console.error('Ошибка остановки мониторинга:', error);
+    notifications.error(`Ошибка остановки мониторинга: ${error.message}`);
+  }
+}
+
+window.checkMonitoringStatus = async function checkMonitoringStatus(polygonId) {
+  try {
+    const response = await fetch(`${API_POLYGONS_URL}${polygonId}/monitoring_status/`, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+        'Authorization': `Api-Key ${state.apiKey}`
+      }
+    });
+    
+    if (!response.ok) {
+      throw new Error(`API ${response.status}`);
+    }
+    
+    const result = await response.json();
+    
+    let statusText = '';
+    switch(result.monitoring_status) {
+      case 'not_started':
+        statusText = 'Мониторинг не запущен';
+        break;
+      case 'running':
+        statusText = 'Мониторинг активен';
+        break;
+      case 'stopped':
+        statusText = 'Мониторинг остановлен';
+        break;
+      case 'completed':
+        statusText = 'Мониторинг завершен';
+        break;
+      default:
+        statusText = 'Неизвестный статус';
+    }
+
+    let actionsInfo = '';
+    if (result.actions && result.actions.length > 0) {
+      const lastAction = result.actions[0];
+      actionsInfo = `
+        <div style="margin-top: 12px; padding: 12px; background: #f8fafc; border-radius: 8px;">
+          <strong>Последнее действие:</strong><br/>
+          Статус: <span class="status-indicator ${lastAction.status === 'running' ? 'running' : 'stopped'}">
+            <span class="status-dot"></span>
+            ${lastAction.status === 'running' ? 'Активен' : 'Остановлен'}
+          </span><br/>
+          Создано: ${new Date(lastAction.created_at).toLocaleString('ru-RU')}
+          ${lastAction.parameters && lastAction.parameters.last_mac_count !== undefined ? 
+            `<br/>Найдено MAC адресов: <strong>${lastAction.parameters.last_mac_count}</strong>` : ''}
+        </div>
+      `;
+    }
+
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay show';
+    modal.innerHTML = `
+      <div class="modal">
+        <div class="modal-header">
+          <h3 class="modal-title">📊 Статус мониторинга</h3>
+          <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">×</button>
+        </div>
+        <div class="modal-body">
+          <div style="text-align: center; margin-bottom: 20px;">
+            <div style="font-size: 20px; font-weight: 700; margin-bottom: 8px; color: #1f2937;">${statusText}</div>
+            <div style="color: #6b7280; font-size: 14px; background: #f3f4f6; padding: 8px 12px; border-radius: 6px; display: inline-block;">
+              🗺️ Полигон: ${result.polygon_name || 'N/A'}
+            </div>
+          </div>
+          ${actionsInfo}
+        </div>
+        <div class="modal-footer">
+          <button class="action-btn status" onclick="this.closest('.modal-overlay').remove()" style="background: #6b7280; color: white; padding: 10px 20px; border-radius: 8px; border: none; cursor: pointer; font-weight: 600;">
+            ✕ Закрыть
+          </button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+    
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) {
+        modal.remove();
+      }
+    });
+    
+  } catch (error) {
+    console.error('Ошибка проверки статуса мониторинга:', error);
+    notifications.error(`Ошибка проверки статуса: ${error.message}`);
+  }
+}
+
 // Инициализация
-(function init(){
+;(function init(){
+  console.log('Initializing app...');
   document.getElementById('pageSize').value = String(state.pageSize);
+  console.log('Calling ensureDrawTools...');
+  ensureDrawTools();
+  console.log('Calling reload...');
   reload();
+  console.log('App initialized');
 })();

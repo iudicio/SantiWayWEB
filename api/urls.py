@@ -9,10 +9,12 @@ from drf_spectacular.views import (
     SpectacularSwaggerView,
     SpectacularRedocView,
 )
+from polygons.views import PolygonViewSet
 
 router = DefaultRouter()
 router.register(r"devices", DeviceViewSet, basename="devices")
 router.register(r"api-key", APIKeyViewSet, basename="api-key")
+router.register(r"polygons", PolygonViewSet, basename="polygons")
 
 app_name = "api"
 
