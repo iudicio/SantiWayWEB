@@ -106,12 +106,12 @@ let drawControl;
 let drawnItems = polygonsLayer;
 
 function ensureDrawTools(){
-  console.log('ensureDrawTools called');
+  
   if (drawControl) {
     console.log('drawControl already exists, returning');
     return;
   }
-  console.log('Creating new drawControl');
+  
   drawControl = new L.Control.Draw({
     edit: {
       featureGroup: polygonsLayer,
@@ -135,48 +135,26 @@ function ensureDrawTools(){
       polyline: false
     }
   });
-  console.log('drawControl created, adding to map');
   map.addControl(drawControl);
-  console.log('drawControl added to map');
 
-  // Отладка всех событий Leaflet.draw
-  map.on('draw:created', (e) => console.log('draw:created event', e));
-  map.on('draw:edited', (e) => console.log('draw:edited event', e));
-  map.on('draw:deleted', (e) => console.log('draw:deleted event', e));
-  map.on('draw:editstart', (e) => console.log('draw:editstart event', e));
-  map.on('draw:editstop', (e) => console.log('draw:editstop event', e));
-  map.on('draw:drawstart', (e) => console.log('draw:drawstart event', e));
-  map.on('draw:drawstop', (e) => console.log('draw:drawstop event', e));
-  
-  // Попробуем старый API
-  map.on(L.Draw.Event.CREATED, (e) => console.log('L.Draw.Event.CREATED', e));
-  map.on(L.Draw.Event.EDITED, (e) => console.log('L.Draw.Event.EDITED', e));
-  map.on(L.Draw.Event.DELETED, (e) => console.log('L.Draw.Event.DELETED', e));
-  
-  // Попробуем события на уровне слоя
-  polygonsLayer.on('layeradd', (e) => console.log('polygonsLayer layeradd', e));
-  polygonsLayer.on('layerremove', (e) => console.log('polygonsLayer layerremove', e));
+  // События Leaflet.draw
 
   // Используем события на уровне карты
   map.on('draw:created', async (e) => {
-    console.log('draw:created event fired', e);
     const layer = e.layer;
 
     let ring = [];
     
     const latlngs = (layer.getLatLngs?.()[0]) || [];
-    console.log('CREATED - latlngs count:', latlngs.length);
-    console.log('CREATED - layer type:', layer.constructor.name);
-    console.log('CREATED - has getBounds:', !!layer.getBounds);
 
     if (latlngs.length >= 3) {
       ring = latlngs.map(ll => [Number(ll.lng), Number(ll.lat)]);
       if (ring[0][0] !== ring[ring.length-1][0] || ring[0][1] !== ring[ring.length-1][1]) {
         ring.push([ring[0][0], ring[0][1]]);
       }
-      console.log('CREATED - processed as polygon with', ring.length, 'points');
+      
     } else {
-      console.log('CREATED - insufficient points, skipping');
+      
       return;
     }
 
@@ -204,35 +182,28 @@ function ensureDrawTools(){
 
   // Используем события на уровне карты для редактирования
   map.on('draw:edited', async (e) => {
-    console.log('draw:edited event fired', e);
     const layers = e.layers;
     const updates = [];
     layers.eachLayer(l => {
       let ring = [];
       
       const latlngs = (l.getLatLngs?.()[0]) || [];
-      console.log('EDITED - latlngs count:', latlngs.length);
-      console.log('EDITED - layer type:', l.constructor.name);
-      console.log('EDITED - has getBounds:', !!l.getBounds);
-      console.log('EDITED - latlngs:', latlngs);
-      console.log('EDITED - layer options:', l.options);
-      console.log('EDITED - layer _latlngs:', l._latlngs);
       
       if (latlngs.length >= 3) {
         ring = latlngs.map(ll => [Number(ll.lng), Number(ll.lat)]);
         if (ring[0][0] !== ring[ring.length-1][0] || ring[0][1] !== ring[ring.length-1][1]) {
           ring.push([ring[0][0], ring[0][1]]);
         }
-        console.log('EDITED - processed as polygon with', ring.length, 'points');
+        
       } else {
-        console.log('EDITED - insufficient points, skipping');
+        
         return;
       }
       
       const pid = l.options && l.options._pid;
       if(pid){
         updates.push({ id: pid, geometry: { type: 'Polygon', coordinates: [ ring ] } });
-        console.log('EDITED - updating polygon with ring:', ring);
+        
       }
     });
 
@@ -254,7 +225,7 @@ function ensureDrawTools(){
   });
 
   map.on('draw:deleted', async (e) => {
-    console.log('L.Draw.Event.DELETED fired', e);
+    
     const layers = e.layers;
     const ids = [];
     layers.eachLayer(l => {
@@ -524,7 +495,8 @@ function renderPolygons(rows){
           const container = ev.popup.getElement();
           const actions = container && container.querySelector('.action-buttons');
           if(!actions) return;
-          const pid = actions.getAttribute('data-pid');
+          const pid = String(actions.getAttribute('data-pid'));
+          
           const on = (sel, fn) => { const el = actions.querySelector(sel); if(el) el.onclick = () => fn(pid); };
           on('.js-action-search', (id) => window.searchDevicesInPolygon && window.searchDevicesInPolygon(String(id)));
           on('.js-action-start',  (id) => window.startMonitoring && window.startMonitoring(String(id)));
@@ -732,7 +704,7 @@ window.checkMonitoringStatus = async function checkMonitoringStatus(polygonId) {
 }
 
 // Инициализация
-(function init(){
+;(function init(){
   console.log('Initializing app...');
   document.getElementById('pageSize').value = String(state.pageSize);
   console.log('Calling ensureDrawTools...');
