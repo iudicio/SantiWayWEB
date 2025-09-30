@@ -1,0 +1,24 @@
+# docker-compose.yml
+version: '3.8'
+
+networks:
+  appnet:
+    external: true
+    name: app-network
+
+services:
+  apkbuild_worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: apkbuild
+    networks: [appnet]
+    env_file:
+      - .env
+    restart: unless-stopped
+    volumes:
+      - ./logs:/app/logs:cached
+      - ./artifacts:/app/artifacts:cached         # куда складывать APK/обновления
+      - ./keystore:/app/keystore                  # положи сюда release.jks
+      - ./gradle-cache:/app/.gradle               # быстрее сборки
+      - ./android-prefs:/home/celery/.android     # сюда сохранится sdkmanager/licenses

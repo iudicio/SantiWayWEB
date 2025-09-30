@@ -19,6 +19,27 @@ services:
       - static_volume:/app/staticfiles
       - media_volume:/app/media
       - ./users/migrations:/app/users/migrations
+      - ./apkbuilder/migrations:/app/apkbuilder/migrations
+      - ./media:/app/media
+    restart: unless-stopped
+
+  celery-worker:
+    build: .
+    container_name: santi_celery_worker
+    networks: [ appnet ]
+    env_file: .env
+    command: >
+      celery -A SantiWayWEB.celery_app worker
+      --loglevel=info
+      -Q apkget
+      -n apkget@%h
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./users/migrations:/app/users/migrations
+      - ./apkbuilder/migrations:/app/apkbuilder/migrations
+      - ./media:/app/media
     restart: unless-stopped
 
   nginx:
@@ -77,20 +98,6 @@ services:
       retries: 20
     restart: unless-stopped
 
-  celery:
-    build: .
-    container_name: santi_celery
-    networks: [appnet]
-    env_file: .env
-    command: celery -A SantiWayWEB worker -l info
-    depends_on:
-      - postgres
-      - elasticsearch
-    volumes:
-      - ./users/migrations:/app/users/migrations
-    restart: unless-stopped
-
-  
 
 
 volumes:
