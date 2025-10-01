@@ -104,43 +104,63 @@ class PolygonViewSet(viewsets.ModelViewSet):
     def start_monitoring(self, request, pk=None):
         """Запуск мониторинга MAC адресов в полигоне"""
         polygon = self.get_object()
-        
+
+        from django.db import transaction, IntegrityError
+        from django.utils import timezone as dj_tz
+
         try:
             api_key_str = None
             if hasattr(request, 'auth') and request.auth:
                 api_key_str = str(request.auth.key)
-            
+
             monitoring_interval = request.data.get('monitoring_interval', 300)
-            
-            existing_action = PolygonAction.objects.filter(
-                polygon=polygon,
-                action_type='mac_monitoring',
-                status='running'
-            ).first()
-            
-            if existing_action:
-                return Response({
-                    'error': 'Мониторинг уже запущен для этого полигона',
-                    'action_id': str(existing_action.id)
-                }, status=status.HTTP_400_BAD_REQUEST)
-            
+            notify_targets = request.data.get('notify_targets', [])
+
+            with transaction.atomic():
+                existing_action = (
+                    PolygonAction.objects.select_for_update()
+                    .filter(polygon=polygon, action_type='mac_monitoring', status__in=['running', 'pending'])
+                    .order_by('-created_at')
+                    .first()
+                )
+                if existing_action:
+                    return Response({
+                        'error': 'Мониторинг уже запущен для этого полигона',
+                        'action_id': str(existing_action.id)
+                    }, status=status.HTTP_400_BAD_REQUEST)
+
+                action = PolygonAction.objects.create(
+                    polygon=polygon,
+                    action_type='mac_monitoring',
+                    parameters={
+                        'monitoring_interval': monitoring_interval,
+                        'user_api_key': api_key_str,
+                        'notify_targets': notify_targets,
+                    },
+                    status='running',
+                    started_at=dj_tz.now()
+                )
+
             task = monitor_mac_addresses.delay(
                 str(polygon.id),
                 api_key_str,
                 monitoring_interval
             )
-            
+            action.task_id = task.id
+            action.save(update_fields=['task_id'])
+
             return Response({
                 'message': 'Мониторинг MAC адресов запущен',
                 'polygon_id': str(polygon.id),
                 'polygon_name': polygon.name,
                 'task_id': task.id,
-                'monitoring_interval': monitoring_interval
+                'monitoring_interval': monitoring_interval,
+                'action_id': str(action.id)
             })
-            
+
         except Exception as e:
             return Response(
-                {'error': f'Ошибка запуска мониторинга: {str(e)}'}, 
+                {'error': f'Ошибка запуска мониторинга: {str(e)}'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
@@ -148,21 +168,38 @@ class PolygonViewSet(viewsets.ModelViewSet):
     def stop_monitoring(self, request, pk=None):
         """Остановка мониторинга MAC адресов в полигоне"""
         polygon = self.get_object()
-        
+        from django.utils import timezone as dj_tz
+
         try:
+            active_actions = PolygonAction.objects.filter(
+                polygon=polygon,
+                action_type='mac_monitoring',
+                status__in=['running', 'pending']
+            )
+
+            if not active_actions.exists():
+                return Response({
+                    'message': 'Мониторинг не запущен для этого полигона',
+                    'polygon_id': str(polygon.id),
+                    'polygon_name': polygon.name
+                }, status=status.HTTP_400_BAD_REQUEST)
+
             stop_polygon_monitoring.delay(str(polygon.id))
-            
+
+            active_actions.update(status='stopped', completed_at=dj_tz.now())
+
             return Response({
                 'message': 'Мониторинг MAC адресов остановлен',
                 'polygon_id': str(polygon.id),
                 'polygon_name': polygon.name
             })
-            
+
         except Exception as e:
             return Response(
-                {'error': f'Ошибка остановки мониторинга: {str(e)}'}, 
+                {'error': f'Ошибка остановки мониторинга: {str(e)}'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
 
     @action(detail=True, methods=['get'])
     def monitoring_status(self, request, pk=None):

@@ -2,7 +2,7 @@ from django.db import models
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 import uuid
-from django.db.models import Index
+from django.db.models import Index, Q
 
 User = get_user_model()
 
@@ -68,6 +68,13 @@ class PolygonAction(models.Model):
         verbose_name = 'Действие полигона'
         verbose_name_plural = 'Действия полигонов'
         ordering = ['-created_at']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['polygon', 'action_type'],
+                condition=Q(status__in=['running', 'pending']),
+                name='uniq_active_action_per_polygon_type'
+            )
+        ]
     
     def __str__(self):
         return f"{self.get_action_type_display()} для {self.polygon.name}"
