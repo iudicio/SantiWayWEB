@@ -80,7 +80,6 @@ class PolygonViewSet(viewsets.ModelViewSet):
         polygon = self.get_object()
         
         try:
-            # Получаем API ключ из аутентификации
             api_key_str = None
             if hasattr(request, 'auth') and request.auth:
                 api_key_str = str(request.auth.key)

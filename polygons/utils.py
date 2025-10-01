@@ -32,19 +32,48 @@ def calculate_polygon_area(coordinates: List[List[float]]) -> float:
         if not poly.is_valid or poly.is_empty:
             return 0.0
 
-        centroid = poly.centroid
-        lon0, lat0 = float(centroid.x), float(centroid.y)
+        try:
+            centroid = poly.centroid
+            lon0, lat0 = float(centroid.x), float(centroid.y)
+            aeqd = pyproj.CRS.from_proj4(
+                f"+proj=aeqd +lat_0={lat0} +lon_0={lon0} +x_0=0 +y_0=0 +units=m +no_defs"
+            )
+            wgs84 = pyproj.CRS.from_epsg(4326)
+            project = pyproj.Transformer.from_crs(wgs84, aeqd, always_xy=True).transform
+            poly_m = transform(project, poly)
+            area_m2 = float(poly_m.area)
+            if area_m2 > 0:
+                return round(area_m2 / 1_000_000.0, 6)
+        except Exception:
+            pass
 
-        aeqd = pyproj.CRS.from_proj4(
-            f"+proj=aeqd +lat_0={lat0} +lon_0={lon0} +x_0=0 +y_0=0 +units=m +no_defs"
-        )
-        wgs84 = pyproj.CRS.from_epsg(4326)
+        try:
+            web_merc = pyproj.CRS.from_epsg(3857)
+            wgs84 = pyproj.CRS.from_epsg(4326)
+            project = pyproj.Transformer.from_crs(wgs84, web_merc, always_xy=True).transform
+            poly_m = transform(project, poly)
+            area_m2 = float(poly_m.area)
+            if area_m2 > 0:
+                return round(area_m2 / 1_000_000.0, 6)
+        except Exception:
+            pass
 
-        project = pyproj.Transformer.from_crs(wgs84, aeqd, always_xy=True).transform
-        poly_m = transform(project, poly)
+        try:
+            minx, miny, maxx, maxy = poly.bounds
+            R = 6371000.0
+            import math
+            deg_to_rad = math.pi / 180.0
+            d_lon = (maxx - minx) * deg_to_rad
+            d_lat = (maxy - miny) * deg_to_rad
+            mean_lat = ((miny + maxy) / 2.0) * deg_to_rad
+            width_m = R * math.cos(mean_lat) * abs(d_lon)
+            height_m = R * abs(d_lat)
+            area_km2 = (width_m * height_m) / 1_000_000.0
+            return round(max(area_km2, 0.0), 6)
+        except Exception:
+            pass
 
-        area_km2 = float(poly_m.area) / 1_000_000.0
-        return round(area_km2, 6)
+        return 0.0
     except Exception:
         return 0.0
 
