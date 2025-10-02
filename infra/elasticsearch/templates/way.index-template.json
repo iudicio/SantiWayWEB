@@ -36,7 +36,8 @@
         "user_api":           { "type": "keyword", "ignore_above": 128 },
         "detected_at":        { "type": "date", "format": "strict_date_optional_time||epoch_millis" },
         "folder_name":        { "type": "keyword", "ignore_above": 256 },
-        "system_folder_name": { "type": "keyword", "ignore_above": 256 }
+        "system_folder_name": { "type": "keyword", "ignore_above": 256 },
+        "vendor":             { "type": "keyword", "ignore_above": 256 }
       }
     }
   }

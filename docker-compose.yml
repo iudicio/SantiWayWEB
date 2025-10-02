@@ -98,6 +98,17 @@ services:
       retries: 20
     restart: unless-stopped
 
+  es-bootstrap:
+    build:
+      context: .
+      dockerfile: infra/elasticsearch/bootstrap.Dockerfile
+    container_name: santi_es_bootstrap
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    networks: [appnet]
+    restart: "no"
+
 
 
 volumes:

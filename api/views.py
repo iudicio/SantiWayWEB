@@ -63,7 +63,7 @@ class DeviceViewSet(viewsets.ViewSet):
                     "term": {field: value}
                 })
 
-        query = {"query": {"bool": {"must": must_filters}}} if must_filters else {"query": {"match_all": {}}}
+        query = {"query": {"bool": {"filter": must_filters}}} if must_filters else {"query": {"match_all": {}}}
         try:
             if es is None:
                 return Response({"error": "Elasticsearch is not configured"}, status=status.HTTP_503_SERVICE_UNAVAILABLE)

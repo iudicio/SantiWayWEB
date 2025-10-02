@@ -1,6 +1,6 @@
-#!/usr/bin/env bash
+#!/usr/bin/bash
 set -euo pipefail
-ES_URL="${ES_URL:-http://localhost:9200}"
+ES_URL="${ES_URL:-http://elasticsearch:9200}"
 
 echo "→ wait for ES at $ES_URL ..."
 until curl -fsS "$ES_URL" >/dev/null; do sleep 1; done
@@ -27,4 +27,4 @@ if ! curl -fsS "$ES_URL/way-000001" >/dev/null; then
     -d '{"aliases":{"way":{"is_write_index":true}}}'
 fi
 
-echo "✓ done. Write to alias '\''way'\'''
+echo "✓ done. Write to alias '\''way'\''"
