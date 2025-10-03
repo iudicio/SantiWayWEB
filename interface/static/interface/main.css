@@ -7,7 +7,10 @@
   --color-table-border: #33435a;
   --color-primary: #0ea5e9;
   --color-primary-light: #38bdf8;
+
   --color-danger: #ef4444;
+  --color-warning: #f59e0b;
+  --color-success: #10b981;
 }
 
 * {
@@ -154,6 +157,8 @@ body {
   font-size: 0.9rem;
   transition: border 0.2s, box-shadow 0.2s;
 }
+
+.form-group input[type="checkbox"] {padding: 0;}
 
 .form-group input:focus {
   outline: none;

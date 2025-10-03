@@ -104,8 +104,7 @@
 
 .apk-btn {
   color: #fff;
-  min-width: 120px;
-  /* под максимальный текст */
+  min-width: 120px; /* под максимальный текст */
   border: none;
   border-radius: 0.5rem;
   padding: 0.35rem 0.75rem;
@@ -116,11 +115,11 @@
 }
 
 .apk-btn[data-status="ready"] {
-  background-color: #10b981;
+  background-color: var(--color-success);
 }
 
 .apk-btn[data-status="ready"] {
-  background-color: #10b981;
+  background-color: var(--color-success);
   box-shadow: 0 0 8px rgba(16, 185, 129, 0.6);
 }
 
@@ -166,7 +165,6 @@
   border-radius: 0.3rem;
   transition: background 0.2s;
 }
-
 
 .mono:hover {
   background: rgba(59, 130, 246, 0.08);

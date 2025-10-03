@@ -482,6 +482,7 @@ function renderPolygons(rows){
               <button class="action-btn monitor js-action-start">📊 Запустить мониторинг</button>
               <button class="action-btn stop js-action-stop">⏹️ Остановить мониторинг</button>
               <button class="action-btn status js-action-status">📈 Статус мониторинга</button>
+              <button class="action-btn delete js-delete-polygon">❌ Удалить полигон</button>
             </div>
           `);
       poly.on('popupopen', (ev) => {

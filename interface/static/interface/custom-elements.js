@@ -3,16 +3,14 @@
    - логика «кастомных select» (создание обёртки и списка опций)
    - логика меню столбцов таблицы (создание чекбоксов, скрыть/показать столбцы)
    - выделение строки таблицы и отображение выбранного Device ID
+   - логика раскрывающегося списка API
 */
 
 document.addEventListener("DOMContentLoaded", ()=>{
-  /**
-   * Инициализация кастомных селектов: оборачивает каждый <select class="custom-select">
-   * в видимую кастомную реализацию. Не оборачивает, если уже обёрнут.
-   */
   initCustomSelects();
   initColumnsMenu();
   initRowSelection();
+  initCollapsibleApiList();
 
   function initCustomSelects() {
     document.querySelectorAll("select.custom-select").forEach(select => {
@@ -77,10 +75,7 @@ document.addEventListener("DOMContentLoaded", ()=>{
     });
   }
 
-  /**
-   * Создание меню управления столбцами таблицы.
-   * Работает с таблицей, имеющей id="devicesTable" и кнопкой id="columnsToggle" и контейнер id="columnsMenu".
-   */
+//   Создание меню управления столбцами таблицы.
   function initColumnsMenu() {
     const table = document.getElementById("devicesTable");
     const toggleBtn = document.getElementById("columnsToggle");
@@ -98,32 +93,32 @@ document.addEventListener("DOMContentLoaded", ()=>{
     ths.forEach(th => {
       const labelText = th.textContent.trim();
       const key = th.dataset.col;
-
+      // Создание чекбокса и его label
       const wrapper = document.createElement("label");
       wrapper.classList.add("custom-checkbox");
 
-      const cb = document.createElement("input");
-      cb.type = "checkbox";
-      cb.checked = th.style.display !== "none";
-      cb.dataset.col = key;
-
-      cb.addEventListener("change", () => {
-        const colKey = cb.dataset.col;
-        const thEl = table.querySelector(`thead th[data-col="${colKey}"]`);
+      const checkbox = document.createElement("input");
+      checkbox.type = "checkbox";
+      checkbox.checked = th.style.display !== "none";
+      checkbox.dataset.col = key;
+      //    Обработка нажатие (скрыть/показать столбец)
+      checkbox.addEventListener("change", () => {
+        const colKey = checkbox.dataset.col;
+        const thElement = table.querySelector(`thead th[data-col="${colKey}"]`);
         const tds = table.querySelectorAll(`tbody td[data-col="${colKey}"]`);
 
-        if (!thEl) return;
+        if (!thElement) return;
 
-        if (cb.checked) {
-          thEl.style.display = "";
+        if (checkbox.checked) {
+          thElement.style.display = "";
           tds.forEach(td => td.style.display = "");
         } else {
-          thEl.style.display = "none";
+          thElement.style.display = "none";
           tds.forEach(td => td.style.display = "none");
         }
       });
 
-      wrapper.appendChild(cb);
+      wrapper.appendChild(checkbox);
       wrapper.append(" " + labelText);
       menu.appendChild(wrapper);
     });
@@ -155,21 +150,9 @@ document.addEventListener("DOMContentLoaded", ()=>{
         toggleBtn.setAttribute("aria-expanded", "false");
       }
     });
-
-    // если строки будут добавляться позже (динамически), попытка синхронизировать data-col
-    // Запускаем периодически в первые секунды — минимальная попытка без вмешательства в app.js
-    let attempts = 0;
-    const syncInterval = setInterval(() => {
-      attempts++;
-      syncRowTdDataCols();
-      if (attempts > 20) clearInterval(syncInterval);
-    }, 200);
   }
 
-  /**
-   * Обработчик клика по строке таблицы: выделить строку, показать Device ID в selected-id.
-   * Используется делегирование — работает и для динамических строк.
-   */
+//    Обработчик клика по строке таблицы: выделить строку, показать Device ID в selected-id.
   function initRowSelection() {
     const table = document.getElementById("devicesTable");
     const selectedDisplay = document.getElementById("selected-id");
@@ -191,6 +174,39 @@ document.addEventListener("DOMContentLoaded", ()=>{
       // убрать выделение у всех и добавить к текущей
       tbody.querySelectorAll("tr").forEach(r => r.classList.remove("highlighted"));
       tr.classList.add("highlighted");
+    });
+  }
+
+//   Создание раскрывающегося списка apiList.
+  function initCollapsibleApiList() {
+    const container = document.getElementById("apiList");
+    const wrapper = container.parentElement;
+    const header = wrapper.querySelector(".collapsible-header");
+    const selectAll = document.getElementById("__all__");
+    const status = header.querySelector(".selection-status");
+    const total = container.querySelectorAll("input[type='checkbox']:not([value='__all__'])").length;
+
+    // обновление статуса при нажатии на selectAll-чекбокс
+    function updateStatus() {
+      const count = container.querySelectorAll("input[type='checkbox']:not([value='__all__']):checked").length;
+      status.textContent = `Выбрано: ${count}`;
+      selectAll.checked = (count === total);
+      selectAll.indeterminate = (count > 0 && count < total);
+    }
+
+    // обработка кликов по чекбоксам
+    container.addEventListener("change", (e) => {
+      if (e.target.value === "__all__") {
+        const allChecked = e.target.checked;
+        container.querySelectorAll("input[type='checkbox']:not([value='__all__'])")
+          .forEach(checkbox => checkbox.checked = allChecked);
+      }
+      updateStatus();
+    });
+
+    // Переключение по клику на header
+    header.addEventListener("click", () => {
+      wrapper.classList.toggle("open");
     });
   }
 });
