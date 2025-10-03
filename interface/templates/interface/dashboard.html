@@ -13,7 +13,7 @@
 
   <link rel="stylesheet" href="{% static 'interface/main.css' %}">
   <link rel="stylesheet" href="{% static 'interface/dashboard.css' %}">
-  <link rel="stylesheet" href="{% static 'interface/styles.css' %}"/>
+  <link rel="stylesheet" href="{% static 'interface/notifications_and_map.css' %}"/>
   <link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css" />
   <script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
 
@@ -24,7 +24,7 @@
     };
   </script>
   <script defer src="{% static 'interface/app.js' %}?v=3"></script>
-  <script src="{% static 'interface/scripts.js' %}"></script>
+  <script src="{% static 'interface/custom-elements.js' %}"></script>
   <script src="{% static 'interface/background.js' %}"></script>
   <title>Locator</title>
 </head>
@@ -47,9 +47,18 @@
 
       <form class="form" id="filtersForm" autocomplete="off">
         <div class="form-group">
-          <label for="f-network">Тип сети</label>
+          <label for="time-start">Время от</label>
+          <input id="time-start" type="datetime-local" name="time_start" />
+        </div>
+        <div class="form-group">
+          <label for="time-end">Время до</label>
+          <input id="time-end" type="datetime-local" name="time_start" />
+        </div>
+
+        <div class="form-group">
+          <label for="f-network">Тип устройства</label>
           <!-- custom-select в js прописан  -->
-          <select id="f-network" class="custom-select filter-select">
+          <select id="f-network" class="custom-select">
             <option value="any">Любой</option>
             <option value="WiFi">WiFi</option>
             <option value="Bluetooth">Bluetooth</option>
@@ -58,18 +67,18 @@
         </div>
 
         <div class="form-group">
-          <label for="f-deviceid">Device ID</label>
-          <input id="f-deviceid" name="deviceId" placeholder="Device ID" />
+          <label for="f-mac">MAC</label>
+          <input id="f-mac" name="mac" placeholder="id" />
         </div>
 
         <div class="form-group">
-          <label for="f-mac">User Phone MAC</label>
-          <input id="f-mac" name="mac" placeholder="MAC адрес" />
+          <label for="f-name">Имя</label>
+          <input id="f-name" name="mac" placeholder="Name" />
         </div>
 
         <label class="custom-checkbox">
           <input type="checkbox" id="f-alert" />
-          <span>С тревогой</span>
+          <span>Тревожное</span>
         </label>
 
         <label class="custom-checkbox">

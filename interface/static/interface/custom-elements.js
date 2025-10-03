@@ -3,8 +3,6 @@
    - логика «кастомных select» (создание обёртки и списка опций)
    - логика меню столбцов таблицы (создание чекбоксов, скрыть/показать столбцы)
    - выделение строки таблицы и отображение выбранного Device ID
-   ---
-   Важно: если у тебя есть app.js / generatedata.js, они подключаются ДО этого скрипта.
 */
 
 document.addEventListener("DOMContentLoaded", ()=>{
@@ -102,7 +100,7 @@ document.addEventListener("DOMContentLoaded", ()=>{
       const key = th.dataset.col;
 
       const wrapper = document.createElement("label");
-      wrapper.style.display = "block";
+      wrapper.classList.add("custom-checkbox");
 
       const cb = document.createElement("input");
       cb.type = "checkbox";
