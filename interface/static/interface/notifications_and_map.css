@@ -424,6 +424,8 @@
   }
 }
 
+/* ===== ПАНЕЛЬ УВЕДОМЛЕНИЙ ===== */
+
 /* Стили для панели уведомлений */
 .notifications-panel {
   position: fixed;
@@ -438,6 +440,7 @@
   z-index: 1001;
   display: flex;
   flex-direction: column;
+  backdrop-filter: blur(8px);
 }
 
 .notifications-panel.open {
@@ -466,6 +469,7 @@
   cursor: pointer;
   color: var(--color-text-muted);
   padding: 4px;
+  transition: color 0.2s ease;
 }
 
 .notifications-close:hover {
@@ -486,11 +490,11 @@
 }
 
 .notification-item:hover {
-  background: var(--color-bg);
+  background: rgba(255, 255, 255, 0.05);
 }
 
 .notification-item.unread {
-  background: rgba(37, 99, 235, 0.05);
+  background: rgba(37, 99, 235, 0.08);
   border-left: 3px solid var(--color-primary);
 }
 
@@ -538,28 +542,28 @@
 }
 
 .notification-badge.severity-low {
-  background: rgba(16, 185, 129, 0.1);
+  background: rgba(16, 185, 129, 0.15);
   color: var(--color-success);
 }
 
 .notification-badge.severity-medium {
-  background: rgba(245, 158, 11, 0.1);
+  background: rgba(245, 158, 11, 0.15);
   color: var(--color-warning);
 }
 
 .notification-badge.severity-high {
-  background: rgba(239, 68, 68, 0.1);
+  background: rgba(239, 68, 68, 0.15);
   color: var(--color-danger);
 }
 
 .notification-badge.severity-critical {
-  background: rgba(239, 68, 68, 0.2);
+  background: rgba(239, 68, 68, 0.25);
   color: var(--color-danger);
   font-weight: 600;
 }
 
 .notification-badge.type {
-  background: rgba(99, 102, 241, 0.1);
+  background: rgba(99, 102, 241, 0.15);
   color: var(--color-primary);
 }
 
@@ -589,7 +593,7 @@
 }
 
 .notifications-btn:hover {
-  background: rgba(0, 0, 0, 0.05);
+  background: rgba(255, 255, 255, 0.1);
   color: var(--color-text);
 }
 
@@ -628,7 +632,7 @@
   left: 0;
   width: 100vw;
   height: 100vh;
-  background: rgba(0, 0, 0, 0.3);
+  background: rgba(0, 0, 0, 0.5);
   z-index: 1000;
   opacity: 0;
   visibility: hidden;
