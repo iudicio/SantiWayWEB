@@ -289,7 +289,7 @@ function flyTo(id){
 // Таблица/пагинация 
 const tbody = document.querySelector('#devicesTable tbody');
 const showing = document.getElementById('showing');
-const pagination = document.getElementById('pagination');
+//const pagination = document.getElementById('pagination');
 
 function renderTable(){
   tbody.innerHTML = state.rows.map(d => `
@@ -320,12 +320,12 @@ function renderTable(){
   showing.textContent = `Отображено ${start} до ${end} из ${state.total} записей`;
 
   const totalPages = Math.max(1, Math.ceil(state.total / state.pageSize));
-  pagination.innerHTML = '';
+//  pagination.innerHTML = '';
 
   const prev = document.createElement('button');
   prev.textContent = 'Предыдущая'; prev.className = 'page'; prev.disabled = state.page===1;
   prev.onclick = ()=>{ state.page = Math.max(1, state.page-1); reload(); };
-  pagination.appendChild(prev);
+//  pagination.appendChild(prev);
 
   const pages = [];
   const startPage = Math.max(1, state.page-3);
@@ -342,13 +342,13 @@ function renderTable(){
       if(p === state.page) b.classList.add('active');
       b.onclick = ()=>{ state.page = p; reload(); };
     }
-    pagination.appendChild(b);
+//    pagination.appendChild(b);
   });
 
   const next = document.createElement('button');
   next.textContent = 'Следующая'; next.className = 'page'; next.disabled = state.page===totalPages;
   next.onclick = ()=>{ state.page = Math.min(totalPages, state.page+1); reload(); };
-  pagination.appendChild(next);
+//  pagination.appendChild(next);
 }
 
 function selectRow(id, fly=false){
@@ -415,7 +415,7 @@ async function reload(){
     console.error(e);
     tbody.innerHTML = `<tr><td colspan="13">Ошибка загрузки данных: ${e.message}</td></tr>`;
     showing.textContent = '';
-    pagination.innerHTML = '';
+//    pagination.innerHTML = '';
     markersLayer.clearLayers();
   }
 }
@@ -427,12 +427,6 @@ document.getElementById('btnApplyFilters').addEventListener('click', () => {
   state.filters.mac      = normalize(document.getElementById('f-mac').value);
   state.filters.alert    = document.getElementById('f-alert').checked;
   state.filters.ignore   = document.getElementById('f-ignore').checked;
-  state.page = 1;
-  reload();
-});
-
-document.getElementById('btnTopSearch').addEventListener('click', () => {
-  state.search = normalize(document.getElementById('topSearch').value) || normalize(document.getElementById('tableSearch').value);
   state.page = 1;
   reload();
 });
@@ -489,6 +483,7 @@ function renderPolygons(rows){
               <button class="action-btn monitor js-action-start">📊 Запустить мониторинг</button>
               <button class="action-btn stop js-action-stop">⏹️ Остановить мониторинг</button>
               <button class="action-btn status js-action-status">📈 Статус мониторинга</button>
+              <button class="action-btn delete js-delete-polygon">❌ Удалить полигон</button>
             </div>
           `);
       poly.on('popupopen', (ev) => {
@@ -669,29 +664,36 @@ window.checkMonitoringStatus = async function checkMonitoringStatus(polygonId) {
     const modal = document.createElement('div');
     modal.className = 'modal-overlay show';
     modal.innerHTML = `
-      <div class="modal">
-        <div class="modal-header">
-          <h3 class="modal-title">📊 Статус мониторинга</h3>
-          <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">×</button>
-        </div>
-        <div class="modal-body">
-          <div style="text-align: center; margin-bottom: 20px;">
-            <div style="font-size: 20px; font-weight: 700; margin-bottom: 8px; color: #1f2937;">${statusText}</div>
-            <div style="color: #6b7280; font-size: 14px; background: #f3f4f6; padding: 8px 12px; border-radius: 6px; display: inline-block;">
-              🗺️ Полигон: ${result.polygon_name || 'N/A'}
-            </div>
+       <div class="modal">
+          <div class="modal-header">
+            <h3 class="modal-title">📊 Статус мониторинга</h3>
+            <button class="modal-close">&#10005;</button>
           </div>
-          ${actionsInfo}
+          <div class="modal-body">
+            <div class="modal-status-block">
+              <div class="status-indicator ${result.monitoring_status}">${statusText}</div>
+            </div>
+            <div class="modal-polygon-block">
+              <div class="modal-polygon-name">
+                Полигон: ${result.polygon_name || 'N/A'}
+              </div>
+            </div>
+            ${actionsInfo}
+          </div>
+          <div class="modal-footer">
+            <button class="btn-primary modal-btn-close">Закрыть</button>
+          </div>
         </div>
-        <div class="modal-footer">
-          <button class="action-btn status" onclick="this.closest('.modal-overlay').remove()" style="background: #6b7280; color: white; padding: 10px 20px; border-radius: 8px; border: none; cursor: pointer; font-weight: 600;">
-            ✕ Закрыть
-          </button>
-        </div>
-      </div>
     `;
     document.body.appendChild(modal);
-    
+
+    const closeBtn = modal.querySelector('.modal-close');
+    const actionBtn = modal.querySelector('.btn-primary');
+
+    const closeModal = () => modal.remove();
+
+    closeBtn.addEventListener('click', closeModal);
+    actionBtn.addEventListener('click', closeModal);
     modal.addEventListener('click', (e) => {
       if (e.target === modal) {
         modal.remove();
@@ -704,6 +706,10 @@ window.checkMonitoringStatus = async function checkMonitoringStatus(polygonId) {
   }
 }
 
+// Объявляем переменную для менеджера уведомлений
+let notificationManager;
+
+// Класс для управления уведомлениями
 class NotificationManager {
   constructor() {
     this.notifications = [];
@@ -727,9 +733,15 @@ class NotificationManager {
   }
 
   bindEvents() {
-    this.notificationsBtn.addEventListener('click', () => this.togglePanel());
-    this.notificationsCloseBtn.addEventListener('click', () => this.closePanel());
-    this.notificationsOverlay.addEventListener('click', () => this.closePanel());
+    if (this.notificationsBtn) {
+      this.notificationsBtn.addEventListener('click', () => this.togglePanel());
+    }
+    if (this.notificationsCloseBtn) {
+      this.notificationsCloseBtn.addEventListener('click', () => this.closePanel());
+    }
+    if (this.notificationsOverlay) {
+      this.notificationsOverlay.addEventListener('click', () => this.closePanel());
+    }
   }
 
   togglePanel() {
@@ -859,7 +871,6 @@ class NotificationManager {
         }
         
         this.renderNotifications();
-        
         this.checkUnreadCount();
       }
     } catch (error) {
@@ -909,12 +920,11 @@ class NotificationManager {
     if (this.isPolling) return;
     
     this.isPolling = true;
-    
     this.checkUnreadCount();
     
     this.pollInterval = setInterval(() => {
       this.checkUnreadCount();
-    }, 30000);
+    }, 30000); // каждые 30 секунд
   }
 
   stopPolling() {
@@ -941,8 +951,6 @@ class NotificationManager {
   }
 }
 
-let notificationManager;
-
 // Инициализация
 ;(function init(){
   console.log('Initializing app...');
@@ -951,13 +959,14 @@ let notificationManager;
   ensureDrawTools();
   console.log('Calling reload...');
   reload();
+  console.log('App initialized');
   
+  // Инициализируем менеджер уведомлений
   if (API_KEY && API_KEY.trim() !== '') {
-    console.log('Initializing notification manager with API key:', API_KEY.substring(0, 8) + '...');
+    console.log('Initializing notification manager...');
     notificationManager = new NotificationManager();
   } else {
     console.log('API key not available, skipping notification manager initialization');
   }
-  
-  console.log('App initialized');
 })();
+
