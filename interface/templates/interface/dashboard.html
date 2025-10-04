@@ -21,7 +21,7 @@
       API_KEY: "{{ API_KEY|default:'' }}"
     };
   </script>
-  <script defer src="{% static 'interface/app.js' %}?v=3"></script>
+  <script defer src="{% static 'interface/app.js' %}?v=4"></script>
   <title>Locator</title>
 </head>
 <body>
@@ -46,7 +46,10 @@
         <div class="searchbar">
           <input id="topSearch" class="input" placeholder="Поиск по ID, MAC, типу..."/>
           <button class="btn" id="btnTopSearch">Поиск</button>
-          
+          <button class="notifications-btn" id="notificationsBtn">
+            🔔
+            <span class="notifications-badge" id="notificationsBadge" style="display: none;">0</span>
+          </button>
         </div>
       </div>
     </div>
@@ -143,8 +146,22 @@
   </main>
 </div>
 
-<!-- Контейнер для уведомлений -->
 <div class="notification-container" id="notificationContainer"></div>
+
+<div class="notifications-overlay" id="notificationsOverlay"></div>
+
+<div class="notifications-panel" id="notificationsPanel">
+  <div class="notifications-header">
+    <h3>Уведомления</h3>
+    <button class="notifications-close" id="notificationsCloseBtn">×</button>
+  </div>
+  <div class="notifications-body" id="notificationsBody">
+    <div class="notifications-empty" id="notificationsEmpty">
+      <div class="notifications-empty-icon">🔔</div>
+      <p>Нет уведомлений</p>
+    </div>
+  </div>
+</div>
 
 </body>
 </html>
