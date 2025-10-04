@@ -556,3 +556,217 @@
         justify-content: center;
       }
     }
+
+    /* Стили для панели уведомлений */
+    .notifications-panel {
+      position: fixed;
+      top: 0;
+      right: -400px;
+      width: 400px;
+      height: 100vh;
+      background: var(--card);
+      border-left: 1px solid var(--border);
+      box-shadow: -4px 0 24px rgba(0, 0, 0, 0.1);
+      transition: right 0.3s ease;
+      z-index: 1001;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .notifications-panel.open {
+      right: 0;
+    }
+
+    .notifications-header {
+      padding: 20px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .notifications-header h3 {
+      margin: 0;
+      font-size: 18px;
+      font-weight: 600;
+    }
+
+    .notifications-close {
+      background: none;
+      border: none;
+      font-size: 20px;
+      cursor: pointer;
+      color: var(--muted);
+      padding: 4px;
+    }
+
+    .notifications-close:hover {
+      color: var(--text);
+    }
+
+    .notifications-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 0;
+    }
+
+    .notification-item {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+      cursor: pointer;
+      transition: background-color 0.2s ease;
+    }
+
+    .notification-item:hover {
+      background: var(--bg);
+    }
+
+    .notification-item.unread {
+      background: rgba(37, 99, 235, 0.05);
+      border-left: 3px solid var(--blue);
+    }
+
+    .notification-item-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 8px;
+    }
+
+    .notification-item-title {
+      font-weight: 600;
+      font-size: 14px;
+      margin: 0;
+      line-height: 1.3;
+    }
+
+    .notification-item-time {
+      font-size: 12px;
+      color: var(--muted);
+      white-space: nowrap;
+      margin-left: 12px;
+    }
+
+    .notification-item-message {
+      font-size: 13px;
+      color: var(--muted);
+      line-height: 1.4;
+      margin: 0;
+    }
+
+    .notification-item-meta {
+      display: flex;
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    .notification-badge {
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 500;
+      text-transform: uppercase;
+    }
+
+    .notification-badge.severity-low {
+      background: rgba(16, 185, 129, 0.1);
+      color: var(--success);
+    }
+
+    .notification-badge.severity-medium {
+      background: rgba(245, 158, 11, 0.1);
+      color: var(--warn);
+    }
+
+    .notification-badge.severity-high {
+      background: rgba(239, 68, 68, 0.1);
+      color: var(--danger);
+    }
+
+    .notification-badge.severity-critical {
+      background: rgba(239, 68, 68, 0.2);
+      color: var(--danger);
+      font-weight: 600;
+    }
+
+    .notification-badge.type {
+      background: rgba(99, 102, 241, 0.1);
+      color: var(--indigo);
+    }
+
+    .notifications-empty {
+      padding: 40px 20px;
+      text-align: center;
+      color: var(--muted);
+    }
+
+    .notifications-empty-icon {
+      font-size: 48px;
+      margin-bottom: 16px;
+      opacity: 0.5;
+    }
+
+    /* Кнопка уведомлений в топбаре */
+    .notifications-btn {
+      position: relative;
+      background: none;
+      border: none;
+      padding: 8px;
+      cursor: pointer;
+      color: var(--muted);
+      font-size: 18px;
+      border-radius: 6px;
+      transition: all 0.2s ease;
+    }
+
+    .notifications-btn:hover {
+      background: rgba(0, 0, 0, 0.05);
+      color: var(--text);
+    }
+
+    .notifications-badge {
+      position: absolute;
+      top: 2px;
+      right: 2px;
+      background: var(--danger);
+      color: white;
+      font-size: 10px;
+      font-weight: 600;
+      padding: 2px 6px;
+      border-radius: 10px;
+      min-width: 16px;
+      height: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* Анимация для новых уведомлений */
+    @keyframes pulse {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.1); }
+      100% { transform: scale(1); }
+    }
+
+    .notifications-btn.has-new {
+      animation: pulse 2s infinite;
+    }
+
+    /* Overlay для закрытия панели */
+    .notifications-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(0, 0, 0, 0.3);
+      z-index: 1000;
+      opacity: 0;
+      visibility: hidden;
+      transition: all 0.3s ease;
+    }
+
+    .notifications-overlay.show {
+      opacity: 1;
+      visibility: visible;
+    }
