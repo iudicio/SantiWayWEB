@@ -4,7 +4,7 @@ from celery_app import app
 
 base = vendorsFunc.load_vendors("mac-vendors.json")
 
-@app.task(name="vendor", queue="vendor_queue")
+@app.task(name="vendor", queue="preprocessor_queue")
 def vendor(messages: Iterable[Dict[str, Any]]) -> Iterable[Dict[str, Any]]:
     """
     Принимает список устройств, достаёт MAC из поля `device_id`,
@@ -25,5 +25,5 @@ def vendor(messages: Iterable[Dict[str, Any]]) -> Iterable[Dict[str, Any]]:
                 msg["vendor"] = "Unknown"
             processed += 1
 
-    app.send_task("esWriter", args=[messages], queue="es_writer")
+    app.send_task("esWriter", args=[messages], queue="preprocessor_queue")
     return processed

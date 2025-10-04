@@ -7,7 +7,7 @@ from os import getenv
 
 log = get_task_logger(__name__)
 
-@app.task(name="esWriter", queue="es_writer")
+@app.task(name="esWriter", queue="preprocessor_queue")
 def ingest_way_serial(docs: List[Dict[str, Any]], *, chunk_size: int = 2000, refresh: str = "false") -> Dict[str, Any]:
     res = index_docs_to_way(docs, chunk_size=chunk_size, refresh=refresh)
     if res["errors_count"]:

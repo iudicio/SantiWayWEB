@@ -16,4 +16,4 @@ COPY celery_app.py es_writer.py tasks.py ./
 # Один-единственный воркер-писатель
 # -Q es_writer  — слушаем только очередь писателя
 # -c 1          — строго один процесс выполнения
-CMD ["celery", "-A", "celery_app.app", "worker", "-Q", "es_writer", "-n", "es-writer@%h", "-c", "1", "--loglevel=INFO"]
+CMD ["celery", "-A", "celery_app.app", "worker", "-Q", "preprocessor_queue", "-n", "es-writer@%h", "-c", "1", "--loglevel=INFO"]

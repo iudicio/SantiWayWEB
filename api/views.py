@@ -96,7 +96,7 @@ class DeviceViewSet(viewsets.ViewSet):
 
     def create(self, request, *args, **kwargs):
         data = request.data
-        celery_client.send_task('vendor', args=[data], queue='vendor_queue')
+        celery_client.send_task('vendor', args=[data], queue='preprocessor_queue')
         return Response({'status': 'queued'}, status=status.HTTP_202_ACCEPTED)
 
 

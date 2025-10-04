@@ -10,5 +10,5 @@ if __name__ == "__main__":
     ]
 
     # Отправляем задачу в очередь vendor
-    result = app.send_task("vendor", args=[data], queue="vendor_queue")
+    result = app.send_task("vendor", args=[data], queue="preprocessor_queue")
     print("Task sent! ID:", result.id)
