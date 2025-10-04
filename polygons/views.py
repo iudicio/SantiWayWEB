@@ -3,8 +3,9 @@ from rest_framework import viewsets, permissions, status
 from rest_framework.response import Response
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.decorators import action
-from .models import Polygon, PolygonAction
-from .serializers import PolygonSerializer, PolygonActionSerializer
+from .models import Polygon, PolygonAction, AnomalyDetection, Notification, NotificationTarget
+from .serializers import (PolygonSerializer, PolygonActionSerializer, PolygonActionWithTargetsSerializer,
+                         AnomalyDetectionSerializer, NotificationSerializer, NotificationTargetSerializer)
 from .utils import search_devices_in_polygon
 from .tasks import monitor_mac_addresses, stop_polygon_monitoring, stop_all_polygon_actions
 from api.auth import APIKeyAuthentication
@@ -115,6 +116,13 @@ class PolygonViewSet(viewsets.ModelViewSet):
 
             monitoring_interval = request.data.get('monitoring_interval', 300)
             notify_targets = request.data.get('notify_targets', [])
+            
+            valid_target_types = ['api_key', 'device', 'email', 'webhook']
+            for target in notify_targets:
+                if target.get('target_type') not in valid_target_types:
+                    return Response({
+                        'error': f"Недопустимый тип цели: {target.get('target_type')}"
+                    }, status=status.HTTP_400_BAD_REQUEST)
 
             with transaction.atomic():
                 existing_action = (
@@ -140,6 +148,14 @@ class PolygonViewSet(viewsets.ModelViewSet):
                     status='running',
                     started_at=dj_tz.now()
                 )
+                
+                for target_data in notify_targets:
+                    NotificationTarget.objects.create(
+                        polygon_action=action,
+                        target_type=target_data['target_type'],
+                        target_value=target_data['target_value'],
+                        is_active=target_data.get('is_active', True)
+                    )
 
             task = monitor_mac_addresses.delay(
                 str(polygon.id),
@@ -244,3 +260,220 @@ class PolygonViewSet(viewsets.ModelViewSet):
                 {'error': f'Ошибка получения статуса: {str(e)}'}, 
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
+
+class AnomalyDetectionViewSet(viewsets.ReadOnlyModelViewSet):
+    """ViewSet для просмотра обнаруженных аномалий"""
+    serializer_class = AnomalyDetectionSerializer
+    authentication_classes = [APIKeyAuthentication]
+    permission_classes = [HasAPIKey | permissions.IsAuthenticated]
+
+    def get_user_from_request(self):
+        """Получает пользователя из запроса (сессия или API ключ)"""
+        if hasattr(self.request, 'auth') and self.request.auth:
+            api_key = self.request.auth
+            user = User.objects.filter(api_keys=api_key).first()
+            if user:
+                return user
+        
+        if hasattr(self.request, 'user') and self.request.user.is_authenticated:
+            return self.request.user
+        
+        return None
+
+    def get_queryset(self):
+        user = self.get_user_from_request()
+        if user:
+            return AnomalyDetection.objects.filter(
+                polygon_action__polygon__user=user
+            ).select_related(
+                'polygon_action__polygon'
+            ).order_by('-detected_at')
+        return AnomalyDetection.objects.none()
+
+    @action(detail=True, methods=['post'])
+    def resolve(self, request, pk=None):
+        """Отметить аномалию как решенную"""
+        anomaly = self.get_object()
+        user = self.get_user_from_request()
+        
+        if not user:
+            raise PermissionDenied("Authentication required")
+        
+        anomaly.resolve(user=user)
+        
+        return Response({
+            'message': 'Аномалия отмечена как решенная',
+            'anomaly_id': str(anomaly.id),
+            'resolved_at': anomaly.resolved_at,
+            'resolved_by': user.username
+        })
+
+    def list(self, request, *args, **kwargs):
+        """Список аномалий с фильтрацией"""
+        queryset = self.get_queryset()
+        
+        severity = request.query_params.get('severity')
+        anomaly_type = request.query_params.get('anomaly_type')
+        is_resolved = request.query_params.get('is_resolved')
+        polygon_id = request.query_params.get('polygon_id')
+        
+        if severity:
+            queryset = queryset.filter(severity=severity)
+        if anomaly_type:
+            queryset = queryset.filter(anomaly_type=anomaly_type)
+        if is_resolved is not None:
+            queryset = queryset.filter(is_resolved=is_resolved.lower() == 'true')
+        if polygon_id:
+            queryset = queryset.filter(polygon_action__polygon_id=polygon_id)
+        
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
+
+
+class NotificationViewSet(viewsets.ReadOnlyModelViewSet):
+    """ViewSet для просмотра уведомлений"""
+    serializer_class = NotificationSerializer
+    authentication_classes = [APIKeyAuthentication]
+    permission_classes = [HasAPIKey | permissions.IsAuthenticated]
+
+    def get_user_from_request(self):
+        """Получает пользователя из запроса (сессия или API ключ)"""
+        if hasattr(self.request, 'auth') and self.request.auth:
+            api_key = self.request.auth
+            user = User.objects.filter(api_keys=api_key).first()
+            if user:
+                return user
+        
+        if hasattr(self.request, 'user') and self.request.user.is_authenticated:
+            return self.request.user
+        
+        return None
+
+    def get_queryset(self):
+        user = self.get_user_from_request()
+        if user:
+            return Notification.objects.filter(
+                anomaly__polygon_action__polygon__user=user
+            ).select_related(
+                'anomaly__polygon_action__polygon',
+                'target'
+            ).order_by('-created_at')
+        return Notification.objects.none()
+
+    @action(detail=True, methods=['post'])
+    def mark_as_read(self, request, pk=None):
+        """Отметить уведомление как прочитанное"""
+        notification = self.get_object()
+        notification.mark_as_read()
+        
+        return Response({
+            'message': 'Уведомление отмечено как прочитанное',
+            'notification_id': str(notification.id),
+            'read_at': notification.read_at
+        })
+
+    def list(self, request, *args, **kwargs):
+        """Список уведомлений с фильтрацией"""
+        queryset = self.get_queryset()
+        
+        # Фильтры
+        status_filter = request.query_params.get('status')
+        severity = request.query_params.get('severity')
+        polygon_id = request.query_params.get('polygon_id')
+        unread_only = request.query_params.get('unread_only')
+        
+        if status_filter:
+            queryset = queryset.filter(status=status_filter)
+        if severity:
+            queryset = queryset.filter(anomaly__severity=severity)
+        if polygon_id:
+            queryset = queryset.filter(anomaly__polygon_action__polygon_id=polygon_id)
+        if unread_only and unread_only.lower() == 'true':
+            queryset = queryset.filter(status__in=['pending', 'sent', 'delivered'])
+        
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=['get'])
+    def unread_count(self, request):
+        """Получить количество непрочитанных уведомлений"""
+        queryset = self.get_queryset()
+        unread_count = queryset.filter(status__in=['pending', 'sent', 'delivered']).count()
+        
+        return Response({
+            'unread_count': unread_count
+        })
+
+
+class NotificationTargetViewSet(viewsets.ModelViewSet):
+    """ViewSet для управления целями уведомлений"""
+    serializer_class = NotificationTargetSerializer
+    authentication_classes = [APIKeyAuthentication]
+    permission_classes = [HasAPIKey | permissions.IsAuthenticated]
+
+    def get_user_from_request(self):
+        """Получает пользователя из запроса (сессия или API ключ)"""
+        if hasattr(self.request, 'auth') and self.request.auth:
+            api_key = self.request.auth
+            user = User.objects.filter(api_keys=api_key).first()
+            if user:
+                return user
+        
+        if hasattr(self.request, 'user') and self.request.user.is_authenticated:
+            return self.request.user
+        
+        return None
+
+    def get_queryset(self):
+        user = self.get_user_from_request()
+        if user:
+            return NotificationTarget.objects.filter(
+                polygon_action__polygon__user=user
+            ).select_related('polygon_action__polygon')
+        return NotificationTarget.objects.none()
+
+    def perform_create(self, serializer):
+        polygon_action = serializer.validated_data['polygon_action']
+        user = self.get_user_from_request()
+        
+        if not user:
+            raise PermissionDenied("Authentication required")
+        
+        if polygon_action.polygon.user != user:
+            raise PermissionDenied("Not your polygon action")
+        
+        serializer.save()
+
+    def perform_update(self, serializer):
+        instance = self.get_object()
+        user = self.get_user_from_request()
+        
+        if not user:
+            raise PermissionDenied("Authentication required")
+        
+        if instance.polygon_action.polygon.user != user:
+            raise PermissionDenied("Not your notification target")
+        
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        user = self.get_user_from_request()
+        
+        if not user:
+            raise PermissionDenied("Authentication required")
+        
+        if instance.polygon_action.polygon.user != user:
+            raise PermissionDenied("Not your notification target")
+        
+        instance.delete()
