@@ -321,7 +321,7 @@ function renderTable(){
   const totalPages = Math.max(1, Math.ceil(state.total / state.pageSize));
 //  pagination.innerHTML = '';
 
-  const prev = document.createElement('button');
+  const prev = document.getElementById('prevPage');
   prev.textContent = 'Предыдущая'; prev.className = 'page'; prev.disabled = state.page===1;
   prev.onclick = ()=>{ state.page = Math.max(1, state.page-1); reload(); };
 //  pagination.appendChild(prev);
@@ -344,7 +344,7 @@ function renderTable(){
 //    pagination.appendChild(b);
   });
 
-  const next = document.createElement('button');
+  const next = document.getElementById('nextPage');
   next.textContent = 'Следующая'; next.className = 'page'; next.disabled = state.page===totalPages;
   next.onclick = ()=>{ state.page = Math.min(totalPages, state.page+1); reload(); };
 //  pagination.appendChild(next);
