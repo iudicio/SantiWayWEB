@@ -24,4 +24,4 @@ RUN addgroup --system celery && adduser --system --ingroup celery celery \
     && mkdir -p /app/cache && chown -R celery:celery /app
 USER celery
 
-CMD ["sh", "-c", "celery -A celery_app worker -Q $CELERY_QUEUE -n $CELERY_WORKER_NAME@%h -l $CELERY_LOG_LEVEL"]
+CMD ["sh", "-c", "celery -A celery_app worker -Q $CELERY_C_QUEUE -n $CELERY_CONSUMER_NAME -l $CELERY_LOG_LEVEL"]

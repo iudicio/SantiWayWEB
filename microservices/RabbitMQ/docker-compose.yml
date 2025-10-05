@@ -5,7 +5,7 @@ networks:
 services:
   rabbitmq:
     build:
-      context: .           # рядом лежит твой Dockerfile, rabbitmq.conf и definitions.json
+      context: .
       dockerfile: Dockerfile
     container_name: rabbitmq
     networks: [appnet]

@@ -20,6 +20,7 @@ services:
       - media_volume:/app/media
       - ./users/migrations:/app/users/migrations
       - ./apkbuilder/migrations:/app/apkbuilder/migrations
+      - ./polygons/migrations:/app/polygons/migrations
       - ./media:/app/media
     restart: unless-stopped
 
