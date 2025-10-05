@@ -10,7 +10,8 @@ document.addEventListener("DOMContentLoaded", ()=>{
   initCustomSelects();
   initColumnsMenu();
   initRowSelection();
-  initCollapsibleApiList();
+  initCollapsibleList("apiList");
+  initCollapsibleList("deviceList");
 
   function initCustomSelects() {
     document.querySelectorAll("select.custom-select").forEach(select => {
@@ -178,11 +179,11 @@ document.addEventListener("DOMContentLoaded", ()=>{
   }
 
 //   Создание раскрывающегося списка apiList.
-  function initCollapsibleApiList() {
-    const container = document.getElementById("apiList");
+  function initCollapsibleList(id) {
+    const container = document.getElementById(id);
     const wrapper = container.parentElement;
     const header = wrapper.querySelector(".collapsible-header");
-    const selectAll = document.getElementById("__all__");
+    const selectAll = container.querySelector("input[value='__all__']");
     const status = header.querySelector(".selection-status");
     const total = container.querySelectorAll("input[type='checkbox']:not([value='__all__'])").length;
 

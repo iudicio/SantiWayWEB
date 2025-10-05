@@ -58,14 +58,30 @@
             <div id="apiList" class="collapsible-content">
               <!-- Апи-ключи -->
               <label class="custom-checkbox select-all">
-                <input type="checkbox" id="__all__" value="__all__">Выбрать всё
+                <input type="checkbox" value="__all__">Выбрать всё
               </label>
             </div>
           </div>
         </div>
 
         <div class="form-group">
-          <label for="folderList">Выбрать Папку</label>
+          <label for="deviceList">Выбрать устройство</label>
+          <div class="collapsible-wrapper">
+            <div class="collapsible-header">
+              <span class="selection-status">Выбрано: 0</span>
+              <span class="arrow"></span>
+            </div>
+            <div id="deviceList" class="collapsible-content">
+              <!-- Список устройств -->
+              <label class="custom-checkbox select-all">
+                <input type="checkbox" value="__all__">Выбрать всё
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="folderList">Выбрать папку</label>
           <input id="folderList" type="text" name="f_folder_name" placeholder="Имя">
         </div>
 

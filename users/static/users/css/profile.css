@@ -43,8 +43,18 @@
 
 .btn-link:hover { color: var(--color-primary-light);}
 
-.table tbody tr[data-status="create"] td {
+tr:has(.apk-btn[data-status="create"]) td {
   background: rgba(245, 158, 11, 0.12);
+  transition: background 0.3s;
+}
+
+tr:has(.apk-btn[data-status="ready"]) td {
+  background: rgba(16, 185, 129, 0.12);
+  transition: background 0.3s;
+}
+
+tr:has(.apk-btn[data-status="failed"]) td {
+  background: rgba(239, 68, 68, 0.12);
   transition: background 0.3s;
 }
 
@@ -67,11 +77,6 @@
   }
 }
 
-.table tbody tr[data-status="ready"] td {
-  background: rgba(16, 185, 129, 0.12);
-  transition: background 0.3s;
-}
-
 .table th.delete-column,
 .table td.delete-column {
   width: 48px;
@@ -82,7 +87,6 @@
   background-color: rgba(239, 68, 68, 0.15) !important;
   transition: background 0.2s;
 }
-
 
 .copy-btn,
 .delete-btn {
@@ -142,7 +146,12 @@
 }
 
 .apk-btn[data-status="create"] {
+  min-width: 160px;
   background-color: rgb(211, 174, 105);
+}
+
+.apk-btn[data-status="failed"] {
+   background-color: var(--color-danger);
 }
 
 .email-badge,
