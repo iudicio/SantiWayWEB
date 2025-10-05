@@ -2,9 +2,9 @@ name: CI Pipeline
 
 on:
   push:
-    branches: [ main ]
+    branches: [ docker-ci/cd ]
   pull_request:
-    branches: [ main ]
+    branches: [ docker-ci/cd ]
 
 jobs:
   lint:

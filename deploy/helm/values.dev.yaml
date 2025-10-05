@@ -1,0 +1,16 @@
+images:
+  web:
+    tag: "dev"
+  vendor:
+    tag: "dev"
+  eswriter:
+    tag: "dev"
+
+web:
+  ingress:
+    enabled: true
+    hosts:
+      - host: localhost
+        paths:
+          - path: /
+            pathType: Prefix

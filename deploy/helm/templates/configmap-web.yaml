@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: web-config
+  namespace: {{ .Values.namespace }}
+data:
+  DEBUG: {{ .Values.env.DEBUG | quote }}
+  ALLOWED_HOSTS: {{ .Values.env.ALLOWED_HOSTS | quote }}
+  ELASTICSEARCH_URL: {{ .Values.env.ELASTICSEARCH_URL | quote }}

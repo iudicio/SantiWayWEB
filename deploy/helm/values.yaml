@@ -1,0 +1,54 @@
+namespace: santiway
+
+images:
+  web:
+    repository: ghcr.io/iudicio/santiway-web
+    tag: "latest"
+    pullPolicy: IfNotPresent
+  vendor:
+    repository: ghcr.io/iudicio/santiway-vendor
+    tag: "latest"
+    pullPolicy: IfNotPresent
+  eswriter:
+    repository: ghcr.io/iudicio/santiway-eswriter
+    tag: "latest"
+    pullPolicy: IfNotPresent
+
+env:
+  # общие переменные из вашего .env.example
+  DJANGO_SECRET_KEY: "change-me"
+  DEBUG: "true"
+  ALLOWED_HOSTS: "*,localhost,127.0.0.1"
+  # URL очереди для сервисов:
+  RABBITMQ_URL: "amqp://user:password@{{ .Release.Name }}-rabbitmq:5672//"
+  # если используете Elasticsearch — добавьте сюда адрес
+  ELASTICSEARCH_URL: "http://elasticsearch:9200"
+
+web:
+  replicas: 1
+  port: 8000
+  resources: {}
+  ingress:
+    enabled: true
+    className: ""
+    hosts:
+      - host: localhost
+        paths:
+          - path: /
+            pathType: Prefix
+    tls: []  # для локалки можно без TLS
+
+vendor:
+  replicas: 1
+  resources: {}
+
+eswriter:
+  replicas: 1
+  resources: {}
+
+rabbitmq:
+  auth:
+    username: user
+    password: password
+  persistence:
+    enabled: false

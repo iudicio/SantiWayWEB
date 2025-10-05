@@ -1,0 +1,27 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web
+  namespace: {{ .Values.namespace }}
+spec:
+  replicas: {{ .Values.web.replicas }}
+  selector: { matchLabels: { app: web } }
+  template:
+    metadata: { labels: { app: web } }
+    spec:
+      containers:
+        - name: web
+          image: "{{ .Values.images.web.repository }}:{{ .Values.images.web.tag }}"
+          imagePullPolicy: {{ .Values.images.web.pullPolicy }}
+          ports: [ { containerPort: {{ .Values.web.port }} } ]
+          envFrom:
+            - configMapRef: { name: web-config }
+            - secretRef: { name: app-secrets }
+          readinessProbe:
+            httpGet: { path: /healthz, port: {{ .Values.web.port }} }
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /healthz, port: {{ .Values.web.port }} }
+            initialDelaySeconds: 30
+            periodSeconds: 20

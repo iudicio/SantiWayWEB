@@ -1,0 +1,10 @@
+apiVersion: v2
+name: santiway
+description: SantiWayWEB stack (Web + Vendor + ESWriter + RabbitMQ)
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+dependencies:
+  - name: rabbitmq
+    version: 16.0.14            # пример; актуальную версию смотрите в bitnami chart index
+    repository: https://charts.bitnami.com/bitnami

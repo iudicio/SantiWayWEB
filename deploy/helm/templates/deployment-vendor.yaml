@@ -1,0 +1,20 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vendor
+  namespace: {{ .Values.namespace }}
+spec:
+  replicas: {{ .Values.vendor.replicas }}
+  selector: { matchLabels: { app: vendor } }
+  template:
+    metadata: { labels: { app: vendor } }
+    spec:
+      containers:
+        - name: vendor
+          image: "{{ .Values.images.vendor.repository }}:{{ .Values.images.vendor.tag }}"
+          imagePullPolicy: {{ .Values.images.vendor.pullPolicy }}
+          env:
+            - name: RABBITMQ_URL
+              valueFrom: { secretKeyRef: { name: app-secrets, key: RABBITMQ_URL } }
+            - name: ELASTICSEARCH_URL
+              valueFrom: { configMapKeyRef: { name: web-config, key: ELASTICSEARCH_URL } }

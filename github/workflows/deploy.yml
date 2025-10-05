@@ -1,0 +1,86 @@
+name: Build & Deploy to K8s
+
+on:
+  push:
+    branches: [ "docker-ci/cd" ]
+
+permissions:
+  contents: read
+  packages: write
+  id-token: write  # для логина в ghcr по OIDC
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    env:
+      REGISTRY: ghcr.io
+      IMAGE_WEB: ghcr.io/iudicio/santiway-web
+      IMAGE_VENDOR: ghcr.io/iudicio/santiway-vendor
+      IMAGE_ESWRITER: ghcr.io/iudicio/santiway-eswriter
+      TAG: ${{ github.sha }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Сборка образов
+      - name: Build & push Web
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: |
+            ${{ env.IMAGE_WEB }}:${{ env.TAG }}
+            ${{ env.IMAGE_WEB }}:latest
+
+      - name: Build & push Vendor
+        uses: docker/build-push-action@v6
+        with:
+          context: ./microservices/Vendor
+          file: ./microservices/Vendor/Dockerfile
+          push: true
+          tags: |
+            ${{ env.IMAGE_VENDOR }}:${{ env.TAG }}
+            ${{ env.IMAGE_VENDOR }}:latest
+
+      - name: Build & push ESWriter
+        uses: docker/build-push-action@v6
+        with:
+          context: ./microservices/ESWriter
+          file: ./microservices/ESWriter/Dockerfile
+          push: true
+          tags: |
+            ${{ env.IMAGE_ESWRITER }}:${{ env.TAG }}
+            ${{ env.IMAGE_ESWRITER }}:latest
+
+      # Деплой в кластер: используем kubeconfig из секрета
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v4
+
+      - name: Configure kubeconfig
+        run: |
+          mkdir -p $HOME/.kube
+          echo "${{ secrets.KUBECONFIG_DATA_BASE64 }}" | base64 -d > $HOME/.kube/config
+
+      - name: Setup Helm
+        uses: azure/setup-helm@v4
+
+      - name: Helm deps
+        working-directory: ./deploy/helm
+        run: helm dependency update
+
+      - name: Deploy with Helm
+        run: |
+          helm upgrade --install santiway ./deploy/helm \
+            --namespace santiway --create-namespace \
+            --set images.web.tag=${TAG} \
+            --set images.vendor.tag=${TAG} \
+            --set images.eswriter.tag=${TAG} \
+            -f deploy/helm/values.yaml
