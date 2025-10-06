@@ -21,6 +21,7 @@ services:
       - ./users/migrations:/app/users/migrations
       - ./apkbuilder/migrations:/app/apkbuilder/migrations
       - ./polygons/migrations:/app/polygons/migrations
+      - ./filtering/migrations:/app/filtering/migrations
       - ./media:/app/media
     restart: unless-stopped
 
