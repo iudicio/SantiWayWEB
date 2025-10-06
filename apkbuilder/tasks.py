@@ -82,3 +82,6 @@ def apk_get_task(messages: Dict[str, Any]):
     except APKBuild.DoesNotExist:
         log.error(f"apkget: APKBuild {build_id} не найден")
         return {"ok": False, "error": "not found", "apk_build_id": build_id}
+
+
+# TODO таска на удаление апк файлов через день

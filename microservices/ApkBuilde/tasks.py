@@ -95,6 +95,8 @@ def apk_build_task(messages: Dict[str, Any]):
 
         send_to_queue("apkget", payload, "apkget")
         return status
+    
+    # TODO удаление файла после отправки
 
     except Exception as e:
         log.exception("Сборка/отправка APK завершилась ошибкой")
