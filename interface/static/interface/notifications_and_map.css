@@ -364,6 +364,42 @@
   color: var(--color-gray-medium);
 }
 
+.status-badge.small {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  vertical-align: middle;       /* <-- ключевой момент */
+  font-size: 0.8rem;
+  padding: 3px 8px;
+  border-radius: 8px;
+  font-weight: 600;
+  line-height: 1.2;
+  border: 1px solid transparent;
+  background: rgba(255, 255, 255, 0.04);
+  margin-left: 6px;             /* лёгкий отступ от "Статус:" */
+}
+
+/* Цвета для разных статусов */
+.status-badge.small.running {
+  color: var(--color-success);
+  border-color: rgba(16, 185, 129, 0.3);
+}
+
+.status-badge.small.stopped {
+  color: var(--color-danger);
+  border-color: rgba(239, 68, 68, 0.3);
+}
+
+.status-badge.small.completed {
+  color: var(--color-primary);
+  border-color: rgba(14, 165, 233, 0.3);
+}
+
+.status-badge.small.not-started {
+  color: var(--color-gray-medium);
+  border-color: rgba(156, 163, 175, 0.3);
+}
+
 /* Загрузка */
 .loading {
   display: inline-flex;

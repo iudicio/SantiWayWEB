@@ -69,6 +69,8 @@ const state = {
   apiKey: (window.APP_CONFIG && window.APP_CONFIG.API_KEY) || ''
 };
 
+if (!state.apiKey){alert('Для корректной работы сайта создайте API-ключ в профиле и перезагрузите эту страницу');}
+
 function normalize(v){ return String(v ?? '').trim(); }
 function toBool(v){ return v ? 'true' : 'false'; }
 function formatCoord(n){ return (Number(n) || 0).toFixed(5); }
@@ -288,7 +290,6 @@ function flyTo(id){
 // Таблица/пагинация 
 const tbody = document.querySelector('#devicesTable tbody');
 const showing = document.getElementById('showing');
-//const pagination = document.getElementById('pagination');
 
 function renderTable(){
   tbody.innerHTML = state.rows.map(d => `
@@ -319,12 +320,10 @@ function renderTable(){
   showing.textContent = `Отображено ${start} до ${end} из ${state.total} записей`;
 
   const totalPages = Math.max(1, Math.ceil(state.total / state.pageSize));
-//  pagination.innerHTML = '';
 
   const prev = document.getElementById('prevPage');
-  prev.textContent = 'Предыдущая'; prev.className = 'page'; prev.disabled = state.page===1;
+  prev.textContent = 'Предыдущая'; prev.disabled = state.page===1;
   prev.onclick = ()=>{ state.page = Math.max(1, state.page-1); reload(); };
-//  pagination.appendChild(prev);
 
   const pages = [];
   const startPage = Math.max(1, state.page-3);
@@ -341,13 +340,11 @@ function renderTable(){
       if(p === state.page) b.classList.add('active');
       b.onclick = ()=>{ state.page = p; reload(); };
     }
-//    pagination.appendChild(b);
   });
 
   const next = document.getElementById('nextPage');
-  next.textContent = 'Следующая'; next.className = 'page'; next.disabled = state.page===totalPages;
+  next.textContent = 'Следующая'; next.disabled = state.page===totalPages;
   next.onclick = ()=>{ state.page = Math.min(totalPages, state.page+1); reload(); };
-//  pagination.appendChild(next);
 }
 
 function selectRow(id, fly=false){
@@ -375,7 +372,7 @@ function buildQuery(){
   return qs.toString();
 }
 
-async function fetchDevices(){
+async function fetchDevices() {
   const url = `${API_DEVICES_URL}?${buildQuery()}`;
   const res = await fetch(url, { 
     headers: { 
@@ -647,9 +644,9 @@ window.checkMonitoringStatus = async function checkMonitoringStatus(polygonId) {
     if (result.actions && result.actions.length > 0) {
       const lastAction = result.actions[0];
       actionsInfo = `
-        <div style="margin-top: 12px; padding: 12px; background: #f8fafc; border-radius: 8px;">
+        <div class="card">
           <strong>Последнее действие:</strong><br/>
-          Статус: <span class="status-indicator ${lastAction.status === 'running' ? 'running' : 'stopped'}">
+          Статус: <span class="status-badge small ${lastAction.status === 'running' ? 'running' : 'stopped'}">
             <span class="status-dot"></span>
             ${lastAction.status === 'running' ? 'Активен' : 'Остановлен'}
           </span><br/>
