@@ -37,6 +37,7 @@ INSTALLED_APPS = [
     'api',
     'interface',
     'polygons',
+    'filtering',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
