@@ -45,6 +45,8 @@ vendor:
 eswriter:
   replicas: 1
   resources: {}
+  probes:
+    enabled: false
 
 rabbitmq:
   auth:

@@ -1,10 +1,17 @@
 images:
   web:
-    tag: "dev"
+    repository: ghcr.io/iudicio/santiway-web
+    tag: dev
+    pullPolicy: IfNotPresent
   vendor:
-    tag: "dev"
+    repository: ghcr.io/iudicio/santiway-vendor
+    tag: dev
+    pullPolicy: IfNotPresent
   eswriter:
-    tag: "dev"
+    repository: ghcr.io/iudicio/santiway-eswriter
+    tag: dev
+    pullPolicy: IfNotPresent
+
 
 web:
   ingress:
@@ -14,3 +21,9 @@ web:
         paths:
           - path: /
             pathType: Prefix
+
+# docker build -t ghcr.io/iudicio/santiway-web:dev .
+# docker build -t ghcr.io/iudicio/santiway-vendor:dev ./microservices/Vendor
+# docker build -t ghcr.io/iudicio/santiway-eswriter:dev ./microservices/ESWriter
+# helm upgrade --install santiway ./deploy/helm -n santiway -f deploy/helm/values.dev.yaml
+
