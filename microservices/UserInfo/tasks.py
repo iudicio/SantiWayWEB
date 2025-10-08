@@ -15,8 +15,6 @@ cQueue = getenv("CELERY_C_QUEUE_NAME")
 
 @app.task(name=cName1, queue=cQueue)
 def getDevices(data: list[str]) -> list[str]:
-    print("Задача получена")
-    print(data)
     global ES_CLIENT
 
     
@@ -39,29 +37,26 @@ def getDevices(data: list[str]) -> list[str]:
     return macs
 
 @app.task(name=cName2, queue=cQueue)
-def getFolders(data: list[tuple[str, str]]) -> list[str]:
-    print("Задача получена")
+def getFolders(data: dict) -> list[str]:
     global ES_CLIENT
-    should_pairs = [
-        {"bool": {"must": [
-            {"term": {"api_key.keyword": api_key}},
-            {"term": {"device.keyword": device}}
-        ]}}
-        for api_key, device in data
-    ]
+
+    api_keys = data.get("api_keys", [])
+    devices = data.get("devices", [])
 
     query = {
         "query": {
             "bool": {
-                "should": should_pairs,
-                "minimum_should_match": 1
+                "filter": [
+                    {"terms": {"user_api": api_keys}},
+                    {"terms": {"user_phone_mac": devices}}
+                ]
             }
         },
         "size": 0,
         "aggs": {
             "unique_folders": {
                 "terms": {
-                    "field": "folder_name.keyword",
+                    "field": "folder_name",
                     "size": 100000
                 }
             }
