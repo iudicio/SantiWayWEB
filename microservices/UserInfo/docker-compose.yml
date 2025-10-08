@@ -1,0 +1,12 @@
+networks:
+  appnet:
+    external: true
+    name: app-network
+services:
+  userinfo:
+    build: .
+    container_name: userInfo
+    networks: [appnet]
+    env_file:
+      - .env
+    restart: unless-stopped
