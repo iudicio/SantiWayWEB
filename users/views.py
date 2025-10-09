@@ -1,36 +1,42 @@
-from django.shortcuts import render, get_object_or_404, redirect
+from django.contrib import messages
+from django.contrib.auth import login
+from django.shortcuts import get_object_or_404, redirect, render
 from django.utils.http import url_has_allowed_host_and_scheme
-from rest_framework import viewsets, status
-from rest_framework.response import Response
+
+from rest_framework import status, viewsets
+from rest_framework.authentication import BaseAuthentication, SessionAuthentication
 from rest_framework.permissions import IsAuthenticated
-from rest_framework.authentication import SessionAuthentication, BaseAuthentication
+from rest_framework.response import Response
+
+from .forms import LoginForm, RegistrationForm
 from .models import APIKey, Device, User
 from .serializers import DeviceAPIKeySerializer
-from .forms import RegistrationForm, LoginForm
-from django.contrib.auth import login
-from django.contrib import messages
-    
+
+
 class APIKeyViewSet(viewsets.ViewSet):
     authentication_classes = [SessionAuthentication]
     permission_classes = [IsAuthenticated]
+
     def create(self, request):
         print("Генерация API ключа")
         device_name = request.data.get("name")
         if not device_name:
-            return Response({"error": "Device name required"}, status=status.HTTP_400_BAD_REQUEST)
-        
-        api_key=APIKey.objects.create()
+            return Response(
+                {"error": "Device name required"}, status=status.HTTP_400_BAD_REQUEST
+            )
 
-        device = Device.objects.create(
-                name=device_name,
-                api_key=api_key
-        )
+        api_key = APIKey.objects.create()
+
+        device = Device.objects.create(name=device_name, api_key=api_key)
 
         request.user.api_keys.add(api_key)
-        return Response({
-            "device_name": device.name,
-            "api_key": device.api_key.key  # отдаём токен пользователю
-        }, status=status.HTTP_201_CREATED)
+        return Response(
+            {
+                "device_name": device.name,
+                "api_key": device.api_key.key,  # отдаём токен пользователю
+            },
+            status=status.HTTP_201_CREATED,
+        )
 
     # Удаление устройства
     def destroy(self, request, pk=None):
@@ -48,7 +54,7 @@ def register_view(request):
     """
     if request.user.is_authenticated:
         return redirect("users:profile_overview")
-    if request.method == 'POST':
+    if request.method == "POST":
         form = RegistrationForm(request.POST)
         if form.is_valid():
             user = form.save()
@@ -56,7 +62,9 @@ def register_view(request):
             user_in_db = User.objects.filter(username=user.username).first()
             login(request, user)
             next_url = request.POST.get("next") or request.GET.get("next")
-            if next_url and url_has_allowed_host_and_scheme(next_url, allowed_hosts={request.get_host()}):
+            if next_url and url_has_allowed_host_and_scheme(
+                next_url, allowed_hosts={request.get_host()}
+            ):
                 return redirect(next_url)
             # Переход на другую следующую страницу при успешной регистрации
             return redirect("users:profile_overview")
@@ -81,7 +89,9 @@ def login_view(request):
             login(request, user)
 
             next_url = request.POST.get("next") or request.GET.get("next")
-            if next_url and url_has_allowed_host_and_scheme(next_url, allowed_hosts={request.get_host()}):
+            if next_url and url_has_allowed_host_and_scheme(
+                next_url, allowed_hosts={request.get_host()}
+            ):
                 return redirect(next_url)
             return redirect("users:profile_overview")
         else:
@@ -107,11 +117,15 @@ def profile_overview(request):
         },
     )
 
+
 # Детали конкретного API ключа
 def api_key_detail(request, key_id):
     api_key = get_object_or_404(APIKey, id=key_id)
     devices = api_key.devices.all()
-    return render(request, "users/api_key_detail.html", {"api_key": api_key, "devices": devices})
+    return render(
+        request, "users/api_key_detail.html", {"api_key": api_key, "devices": devices}
+    )
+
 
 # Список всех устройств (можно фильтровать по API ключу)
 def devices_list(request):
@@ -121,4 +135,6 @@ def devices_list(request):
     else:
         devices = Device.objects.all()
     api_keys = request.user.api_keys.all()
-    return render(request, "users/devices_list.html", {"devices": devices, "api_keys": api_keys})
+    return render(
+        request, "users/devices_list.html", {"devices": devices, "api_keys": api_keys}
+    )

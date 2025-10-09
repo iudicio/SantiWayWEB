@@ -1,6 +1,7 @@
 # es_writer_way
 from os import getenv
-from typing import List, Dict, Any
+from typing import Any, Dict, List
+
 from elasticsearch import Elasticsearch, helpers
 
 WAY_ALIAS = "way"
@@ -8,7 +9,10 @@ WAY_ALIAS = "way"
 ES_HOST = getenv("ES_HOST")
 ES_CLIENT = Elasticsearch(hosts=ES_HOST)
 
-def index_docs_to_way(docs: List[Dict[str, Any]], *, chunk_size: int = 2000, refresh: str = "false") -> Dict[str, Any]:
+
+def index_docs_to_way(
+    docs: List[Dict[str, Any]], *, chunk_size: int = 2000, refresh: str = "false"
+) -> Dict[str, Any]:
     """Пишем список JSON-объектов в alias 'way'. _id не задаём — ES сам генерит."""
     if not isinstance(docs, list):
         raise ValueError("docs must be a list of JSON objects")

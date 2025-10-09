@@ -1,6 +1,7 @@
 import uuid
-from django.db import models
+
 from django.contrib.auth.models import AbstractUser
+from django.db import models
 
 
 class APIKey(models.Model):
@@ -10,12 +11,16 @@ class APIKey(models.Model):
     def __str__(self):
         return str(self.key)
 
+
 class Device(models.Model):
     name = models.CharField(max_length=100)
-    api_key = models.ForeignKey(APIKey, related_name='devices', on_delete=models.CASCADE)
+    api_key = models.ForeignKey(
+        APIKey, related_name="devices", on_delete=models.CASCADE
+    )
 
     def __str__(self):
         return self.name
+
 
 class SearchQuery(models.Model):
     query_text = models.TextField()
@@ -25,28 +30,21 @@ class SearchQuery(models.Model):
     def __str__(self):
         return self.query_text
 
+
 class User(AbstractUser):
     # Делаем email обязательным и уникальным
     email = models.EmailField(
-        unique=True,
-        blank=False,
-        null=False,
-        verbose_name='Email'
+        unique=True, blank=False, null=False, verbose_name="Email"
     )
 
     # username теперь не уникальный
     username = models.CharField(
-        max_length=150,
-        unique=False,
-        blank=False,
-        null=False,
-        verbose_name='username'
+        max_length=150, unique=False, blank=False, null=False, verbose_name="username"
     )
 
     # Изменение поля для аутентификации на email
-    USERNAME_FIELD = 'email'
+    USERNAME_FIELD = "email"
     REQUIRED_FIELDS = []
-
 
     registration_date = models.DateTimeField(auto_now_add=True)
     api_keys = models.ManyToManyField(APIKey, blank=True)

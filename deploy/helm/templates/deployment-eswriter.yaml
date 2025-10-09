@@ -6,7 +6,7 @@ metadata:
   labels:
     app: eswriter
 spec:
-  replicas: {{ .Values.eswriter.replicas }}
+  replicas: {{ default 1 .Values.eswriter.replicas }}
   selector:
     matchLabels:
       app: eswriter
@@ -22,64 +22,95 @@ spec:
       {{- if .Values.eswriter.serviceAccountName }}
       serviceAccountName: {{ .Values.eswriter.serviceAccountName }}
       {{- end }}
+
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+
       containers:
         - name: eswriter
           image: "{{ .Values.images.eswriter.repository }}:{{ .Values.images.eswriter.tag }}"
-          imagePullPolicy: {{ .Values.images.eswriter.pullPolicy }}
-          {{- if .Values.eswriter.command }}
-          command: {{- toYaml .Values.eswriter.command | nindent 12 }}
-          {{- end }}
-          {{- if .Values.eswriter.args }}
-          args: {{- toYaml .Values.eswriter.args | nindent 12 }}
+          imagePullPolicy: {{ default "IfNotPresent" .Values.images.eswriter.pullPolicy }}
+
+          {{- with .Values.eswriter.command }}
+          command:
+            {{- toYaml . | nindent 12 }}
           {{- end }}
 
-          # Воркерам порт не нужен. Уберите, если он не используется совсем.
-          # ports:
-          #   - name: metrics
-          #     containerPort: 9100
+          {{- with .Values.eswriter.args }}
+          args:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
 
+          # У воркера обычно нет входящих портов. Оставлено на случай метрик:
+          {{- with .Values.eswriter.ports }}
+          ports:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+
+          # Обязательные/общие переменные окружения
           env:
-            # URL очереди и прочие секреты — из Secret
             - name: RABBITMQ_URL
               valueFrom:
                 secretKeyRef:
                   name: app-secrets
                   key: RABBITMQ_URL
-            # Если ES используется — берём из ConfigMap
             - name: ELASTICSEARCH_URL
               valueFrom:
                 configMapKeyRef:
                   name: web-config
                   key: ELASTICSEARCH_URL
-          {{- if .Values.eswriter.extraEnv }}
-          {{- toYaml .Values.eswriter.extraEnv | nindent 10 }}
+          {{- with .Values.eswriter.extraEnv }}
+          {{- if . }}
+          envFrom:
+            {{- if .configMaps }}
+            {{- range .configMaps }}
+            - configMapRef:
+                name: {{ . }}
+            {{- end }}
+            {{- end }}
+            {{- if .secrets }}
+            {{- range .secrets }}
+            - secretRef:
+                name: {{ . }}
+            {{- end }}
+            {{- end }}
+          {{- end }}
           {{- end }}
 
-          # Пробы для воркера обычно exec или tcp к брокеру. Сделал опционально.
-          {{- if .Values.eswriter.probes.enabled }}
+          {{- $probes := .Values.eswriter.probes | default dict }}
+          {{- if and $probes ($probes.enabled | default false) }}
+          {{- with $probes.liveness }}
           livenessProbe:
-            {{- toYaml .Values.eswriter.probes.liveness | nindent 12 }}
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with $probes.readiness }}
           readinessProbe:
-            {{- toYaml .Values.eswriter.probes.readiness | nindent 12 }}
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
           {{- end }}
 
           resources:
-            {{- toYaml .Values.eswriter.resources | nindent 12 }}
+            {{- toYaml ( .Values.eswriter.resources | default dict ) | nindent 12 }}
 
-          # Корректное завершение, чтобы воркер обработал сообщение и вышел
           lifecycle:
             preStop:
               exec:
                 command: ["/bin/sh","-c","sleep 5"]
+
       terminationGracePeriodSeconds: {{ default 30 .Values.eswriter.terminationGracePeriodSeconds }}
+
       {{- with .Values.eswriter.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+
       {{- with .Values.eswriter.tolerations }}
       tolerations:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+
       {{- with .Values.eswriter.affinity }}
       affinity:
         {{- toYaml . | nindent 8 }}

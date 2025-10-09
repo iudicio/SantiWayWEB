@@ -1,24 +1,22 @@
+import uuid
+from os import getenv
+
 from celery import Celery
-from rest_framework import viewsets, status
-from rest_framework.response import Response
 from elasticsearch import Elasticsearch
-from .serializers import DeviceSerializer
+from rest_framework import status, viewsets
+from rest_framework.response import Response
+
 from .auth import APIKeyAuthentication
 from .permissions import HasAPIKey
-from celery import Celery
-from os import getenv
-import uuid
-
+from .serializers import DeviceSerializer
 
 ES_HOST = getenv("ES_URL", None)
 ES_USER = getenv("ES_USER", None)
 ES_PASSWORD = getenv("ES_PASSWORD", None)
-BROKER_URL = getenv('CELERY_BROKER_URL', None)
+BROKER_URL = getenv("CELERY_BROKER_URL", None)
 
-celery_client = Celery('producer', broker=BROKER_URL)
-es = Elasticsearch(
-            hosts = ES_HOST
-        )
+celery_client = Celery("producer", broker=BROKER_URL)
+es = Elasticsearch(hosts=ES_HOST)
 
 
 class DeviceViewSet(viewsets.ViewSet):
@@ -26,7 +24,6 @@ class DeviceViewSet(viewsets.ViewSet):
     permission_classes = [HasAPIKey]
     serializer_class = DeviceSerializer
     lookup_field = "device_id"
-
 
     def list(self, request, *args, **kwargs):
         must_filters = []
@@ -36,28 +33,26 @@ class DeviceViewSet(viewsets.ViewSet):
             if "__" in field:
                 field_name, op = field.split("__", 1)
                 if op in ["gte", "lte", "gt", "lt"]:
-                    must_filters.append({
-                        "range": {field_name: {op: value}}
-                    })
+                    must_filters.append({"range": {field_name: {op: value}}})
                 continue
 
             # Несколько значений через запятую -> terms
             if "," in value:
-                must_filters.append({
-                    "terms": {field: value.split(",")}
-                })
+                must_filters.append({"terms": {field: value.split(",")}})
             else:
                 # Обычный term-фильтр
-                must_filters.append({
-                    "term": {field: value}
-                })
+                must_filters.append({"term": {field: value}})
 
-        query = {"query": {"bool": {"must": must_filters}}} if must_filters else {"query": {"match_all": {}}}
+        query = (
+            {"query": {"bool": {"must": must_filters}}}
+            if must_filters
+            else {"query": {"match_all": {}}}
+        )
         print(query)
         res = es.search(index="way", body=query, size=100)
 
         return Response([hit["_source"] for hit in res["hits"]["hits"]])
-    
+
     # Прямая запись из API в ES
     # def create(self, request, *args, **kwargs):
     #     serializer = self.serializer_class(data=request.data)
@@ -79,8 +74,5 @@ class DeviceViewSet(viewsets.ViewSet):
 
     def create(self, request, *args, **kwargs):
         data = request.data
-        celery_client.send_task('vendor', args=[data], queue='vendor_queue')
-        return Response({'status': 'queued'}, status=status.HTTP_202_ACCEPTED)
-
-
-    
+        celery_client.send_task("vendor", args=[data], queue="vendor_queue")
+        return Response({"status": "queued"}, status=status.HTTP_202_ACCEPTED)

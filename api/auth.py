@@ -1,8 +1,12 @@
 import uuid
+
+from django.contrib.auth.models import AnonymousUser
+
 from rest_framework.authentication import BaseAuthentication, get_authorization_header
 from rest_framework.exceptions import AuthenticationFailed
-from django.contrib.auth.models import AnonymousUser
+
 from users.models import APIKey
+
 
 class APIKeyAuthentication(BaseAuthentication):
     keyword = b"api-key"
