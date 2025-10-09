@@ -6,6 +6,12 @@ Django admin: При сборке и запуске суперпользоват
 Username: admin@example.com
 Password: admin
 
+helm upgrade --install santiway ./deploy/helm \
+  --kube-context docker-desktop \
+  -n santiway --create-namespace \
+  -f deploy/helm/values.yaml
+
+
 # 1. Поднятие всего WEB проекта для самых маленьких
 ## Выполнять строго в этой последовательности, чтобы микросервисы подружились
 1. Клонируем репозиторий к себе
