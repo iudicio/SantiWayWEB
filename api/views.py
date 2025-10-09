@@ -1,10 +1,13 @@
 from celery import Celery
 from rest_framework import viewsets, status
 from rest_framework.response import Response
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.authentication import SessionAuthentication
+from rest_framework.views import APIView
 from elasticsearch import Elasticsearch
 from elasticsearch import NotFoundError
 from django.conf import settings
-from .serializers import DeviceSerializer
+from .serializers import DeviceSerializer, WaySerializer
 from .auth import APIKeyAuthentication
 from .permissions import HasAPIKey
 from celery import Celery
@@ -15,9 +18,15 @@ import uuid
 ES_HOST = getattr(settings, "ELASTICSEARCH_DSN", getenv("ES_URL", None))
 ES_USER = getenv("ES_USER", None)
 ES_PASSWORD = getenv("ES_PASSWORD", None)
-BROKER_URL = getenv('CELERY_BROKER_URL', None)
 
-celery_client = Celery('producer', broker=BROKER_URL)
+BROKER_URL = getenv('CELERY_BROKER_URL', "amqp://celery:celerypassword@rabbitmq:5672//")
+BACKEND = getenv("CELERY_RESULT_BACKEND", "redis://:strongpassword@redis:6379/0")
+
+celery_client = Celery('producer', broker=BROKER_URL, backend=BACKEND)
+
+print("PRODUCER broker:", celery_client.connection().as_uri())
+print("PRODUCER backend:", celery_client.backend.as_uri())
+
 es = None
 if ES_HOST:
     try:
@@ -76,9 +85,26 @@ class DeviceViewSet(viewsets.ViewSet):
         return Response([hit["_source"] for hit in res["hits"]["hits"]])
 
     def create(self, request, *args, **kwargs):
+        global celery_client
         data = request.data
         celery_client.send_task('vendor', args=[data], queue='vendor_queue')
         return Response({'status': 'queued'}, status=status.HTTP_202_ACCEPTED)
-
-
     
+class WayAPIView(APIView):
+    authentication_classes = [SessionAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, *args, **kwargs):
+        global celery_client
+        serializer = WaySerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+        if not data.get("devices"):
+            result = celery_client.send_task('devices', args=[data], queue="info_queue")
+        else:
+            result = celery_client.send_task('folders', args=[data], queue="info_queue")
+        print("Ждем ответ")
+        response = result.get(timeout=5)
+        print("Ответ: ", response)
+        return Response(response)
+        
