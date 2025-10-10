@@ -107,14 +107,12 @@ class NotificationTarget(models.Model):
     TARGET_TYPES = [
         ('api_key', 'API ключ'),
         ('device', 'Устройство'),
-        ('email', 'Email'),
-        ('webhook', 'Webhook URL'),
     ]
     
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     polygon_action = models.ForeignKey(PolygonAction, on_delete=models.CASCADE, related_name='notification_targets')
     target_type = models.CharField(max_length=20, choices=TARGET_TYPES, verbose_name='Тип цели')
-    target_value = models.CharField(max_length=500, verbose_name='Значение цели')  # API key, device ID, email, URL
+    target_value = models.CharField(max_length=500, verbose_name='Значение цели')  # API key, device ID
     is_active = models.BooleanField(default=True, verbose_name='Активна')
     
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='Создана')
