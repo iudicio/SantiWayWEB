@@ -86,12 +86,11 @@ class NotificationTargetSerializer(serializers.ModelSerializer):
         target_type = self.initial_data.get('target_type')
         target_value = self.initial_data.get('target_value')
         
-        if target_type == 'email':
-            if '@' not in target_value:
-                raise serializers.ValidationError("Некорректный email адрес")
-        elif target_type == 'webhook':
-            if not target_value.startswith(('http://', 'https://')):
-                raise serializers.ValidationError("URL должен начинаться с http:// или https://")
+        if target_type not in ['api_key', 'device']:
+            raise serializers.ValidationError(f"Недопустимый тип цели: {target_type}. Доступны: api_key, device")
+        
+        if not target_value or not isinstance(target_value, str):
+            raise serializers.ValidationError("target_value должен быть непустой строкой")
         
         return target_value
 

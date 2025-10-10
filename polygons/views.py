@@ -117,11 +117,11 @@ class PolygonViewSet(viewsets.ModelViewSet):
             monitoring_interval = request.data.get('monitoring_interval', 300)
             notify_targets = request.data.get('notify_targets', [])
             
-            valid_target_types = ['api_key', 'device', 'email', 'webhook']
+            valid_target_types = ['api_key', 'device']
             for target in notify_targets:
                 if target.get('target_type') not in valid_target_types:
                     return Response({
-                        'error': f"Недопустимый тип цели: {target.get('target_type')}"
+                        'error': f"Недопустимый тип цели: {target.get('target_type')}. Доступны только: {', '.join(valid_target_types)}"
                     }, status=status.HTTP_400_BAD_REQUEST)
 
             with transaction.atomic():
