@@ -221,9 +221,6 @@ def detect_anomalies_in_devices(action_id: str, current_devices: List[Dict[str, 
                 anomalies_found.append(anomaly)
         
         if anomalies_found:
-            for anomaly in anomalies_found:
-                send_anomaly_notifications.delay(str(anomaly.id))
-            
             logger.info(f"Обнаружено {len(anomalies_found)} аномалий в полигоне {action.polygon.name}")
         
         return len(anomalies_found)
@@ -268,211 +265,15 @@ def create_anomaly(action: PolygonAction, anomaly_type: str, severity: str,
 
 
 @shared_task
-def send_anomaly_notifications(anomaly_id: str):
-    """
-    Отправляет уведомления о найденной аномалии всем целям
-    """
-    try:
-        anomaly = AnomalyDetection.objects.get(id=anomaly_id)
-        targets = NotificationTarget.objects.filter(
-            polygon_action=anomaly.polygon_action,
-            is_active=True
-        )
-        
-        if not targets.exists():
-            logger.info(f"Нет активных целей для уведомлений в действии {anomaly.polygon_action.id}")
-            return 0
-        
-        notifications_created = 0
-        
-        for target in targets:
-            title = f"🚨 Аномалия в полигоне {anomaly.polygon_action.polygon.name}"
-            message = f"{anomaly.get_anomaly_type_display()}: {anomaly.description}"
-            
-            notification = Notification.objects.create(
-                anomaly=anomaly,
-                target=target,
-                title=title,
-                message=message,
-                delivery_metadata={
-                    'polygon_name': anomaly.polygon_action.polygon.name,
-                    'severity': anomaly.severity,
-                    'device_id': anomaly.device_id
-                }
-            )
-            
-            if target.target_type == 'api_key':
-                send_api_notification.delay(str(notification.id))
-            elif target.target_type == 'email':
-                send_email_notification.delay(str(notification.id))
-            elif target.target_type == 'webhook':
-                send_webhook_notification.delay(str(notification.id))
-            elif target.target_type == 'device':
-                send_device_notification.delay(str(notification.id))
-            
-            notifications_created += 1
-        
-        logger.info(f"Создано {notifications_created} уведомлений для аномалии {anomaly_id}")
-        return notifications_created
-        
-    except AnomalyDetection.DoesNotExist:
-        logger.error(f"Аномалия с ID {anomaly_id} не найдена")
-        return 0
-    except Exception as e:
-        logger.error(f"Ошибка при отправке уведомлений: {e}")
-        raise
-
-
-@shared_task
-def send_api_notification(notification_id: str):
-    """
-    Отправляет уведомление через API (сохраняет в базе для получения через API)
-    """
-    try:
-        notification = Notification.objects.get(id=notification_id)
-        
-        # GET /api/notifications/
-        notification.mark_as_sent()
-        
-        logger.info(f"API уведомление {notification_id} помечено как отправленное")
-        return True
-        
-    except Notification.DoesNotExist:
-        logger.error(f"Уведомление с ID {notification_id} не найдено")
-        return False
-    except Exception as e:
-        logger.error(f"Ошибка при отправке API уведомления: {e}")
-        notification = Notification.objects.get(id=notification_id)
-        notification.mark_as_failed()
-        raise
-
-
-@shared_task
-def send_email_notification(notification_id: str):
-    """
-    Отправляет email уведомление
-    """
-    try:
-        notification = Notification.objects.get(id=notification_id)
-        
-        # TODO: Реализовать отправку email через Django mail или внешний сервис
-        # Пока что просто помечаем как отправленное
-        
-        logger.info(f"Email уведомление отправлено на {notification.target.target_value}")
-        notification.mark_as_sent()
-        return True
-        
-    except Notification.DoesNotExist:
-        logger.error(f"Уведомление с ID {notification_id} не найдено")
-        return False
-    except Exception as e:
-        logger.error(f"Ошибка при отправке email: {e}")
-        notification = Notification.objects.get(id=notification_id)
-        notification.mark_as_failed()
-        return False
-
-
-@shared_task
-def send_webhook_notification(notification_id: str):
-    """
-    Отправляет webhook уведомление
-    """
-    try:
-        notification = Notification.objects.get(id=notification_id)
-        
-        import requests
-        
-        payload = {
-            'notification_id': str(notification.id),
-            'anomaly_id': str(notification.anomaly.id),
-            'title': notification.title,
-            'message': notification.message,
-            'severity': notification.anomaly.severity,
-            'polygon_name': notification.anomaly.polygon_action.polygon.name,
-            'device_id': notification.anomaly.device_id,
-            'detected_at': notification.anomaly.detected_at.isoformat(),
-            'metadata': notification.delivery_metadata
-        }
-        
-        response = requests.post(
-            notification.target.target_value,
-            json=payload,
-            timeout=30,
-            headers={'Content-Type': 'application/json'}
-        )
-        
-        if response.status_code == 200:
-            notification.mark_as_delivered()
-            logger.info(f"Webhook уведомление успешно отправлено на {notification.target.target_value}")
-            return True
-        else:
-            logger.error(f"Webhook вернул код {response.status_code}: {response.text}")
-            notification.mark_as_failed()
-            return False
-            
-    except Notification.DoesNotExist:
-        logger.error(f"Уведомление с ID {notification_id} не найдено")
-        return False
-    except Exception as e:
-        logger.error(f"Ошибка при отправке webhook: {e}")
-        try:
-            notification = Notification.objects.get(id=notification_id)
-            notification.mark_as_failed()
-        except:
-            pass
-        return False
-
-
-@shared_task
-def send_device_notification(notification_id: str):
-    """
-    Отправляет push-уведомление на устройство
-    """
-    try:
-        notification = Notification.objects.get(id=notification_id)
-        
-        # TODO: Реализовать отправку push-уведомлений через FCM или другой сервис
-        # Пока что просто помечаем как отправленное
-        
-        logger.info(f"Push уведомление отправлено на устройство {notification.target.target_value}")
-        notification.mark_as_sent()
-        return True
-        
-    except Notification.DoesNotExist:
-        logger.error(f"Уведомление с ID {notification_id} не найдено")
-        return False
-    except Exception as e:
-        logger.error(f"Ошибка при отправке push уведомления: {e}")
-        notification = Notification.objects.get(id=notification_id)
-        notification.mark_as_failed()
-        return False
-
-
-@shared_task
 def retry_failed_notifications():
     """
-    Повторно отправляет неудачные уведомления
+    Повторно отправляет неудачные уведомления через WebSocket
+    Используется системой для автоматической повторной отправки
     """
-    failed_notifications = Notification.objects.filter(
-        status='failed'
-    ).select_related('target', 'anomaly')
+    from .notification_utils import retry_failed_notifications as retry_util
     
-    retried_count = 0
-    
-    for notification in failed_notifications:
-        if notification.can_retry():
-            if notification.target.target_type == 'api_key':
-                send_api_notification.delay(str(notification.id))
-            elif notification.target.target_type == 'email':
-                send_email_notification.delay(str(notification.id))
-            elif notification.target.target_type == 'webhook':
-                send_webhook_notification.delay(str(notification.id))
-            elif notification.target.target_type == 'device':
-                send_device_notification.delay(str(notification.id))
-            
-            retried_count += 1
-    
-    logger.info(f"Повторно отправлено {retried_count} уведомлений")
-    return retried_count
+    retry_count, success_count = retry_util()
+    logger.info(f"Повторно отправлено {retry_count} уведомлений, успешно: {success_count}")
+    return {'retried': retry_count, 'successful': success_count}
 
 
