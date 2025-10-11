@@ -66,7 +66,16 @@ const state = {
   search: '',
   filters: { network: 'any', deviceid: '', mac: '', alert: false, ignore: false },
   selectedId: null,
-  apiKey: (window.APP_CONFIG && window.APP_CONFIG.API_KEY) || ''
+  apiKey: (window.APP_CONFIG && window.APP_CONFIG.API_KEY) || '',
+  colorForPolygon: {} // Используется как хранилище цветов, чтобы при каждом reload() не слать запросы на сервер
+};
+
+// Цвета полигонов в зависимости от статуса
+const POLYGON_COLORS = {
+  DEFAULT: "#ef4444",   // Неактивный/неизвестный
+  RUNNING: "#0b60de",   // Мониторинг идет
+  COMPLETED: "#22c55e", // Завершен
+  STOPPED: "#9ca3af"    // Остановлен
 };
 
 if (!state.apiKey){alert('Для корректной работы сайта создайте API-ключ в профиле и перезагрузите эту страницу');}
@@ -178,6 +187,9 @@ function ensureDrawTools(){
         body: JSON.stringify(payload)
       });
       if(!res.ok) throw new Error(`API ${res.status}`);
+      // Получение id и добавление его в объект colorForPolygon
+      const data = await res.json();
+      state.colorForPolygon[data.id] = POLYGON_COLORS.DEFAULT;
       await reload();
     } catch(err){ console.error('Polygon create failed', err); }
   });
@@ -400,10 +412,13 @@ async function reload(){
   try{
     const { rows, total } = await fetchDevices();
     const polygons = await fetchPolygons();
+    // Шлем на сервер запросы только при загрузке страницы в первый раз
+    if (Object.keys(state.colorForPolygon).length === 0){ state.colorForPolygon= await getAllPolygonsColor(polygons);}
+
     state.rows = rows;
     state.total = total;
     renderMarkers(rows);
-    renderPolygons(polygons);
+    renderPolygons(polygons, state.colorForPolygon);
     renderTable();
     if(rows.length){ selectRow(rows[0].device_id); }
     else { selectRow(null); }
@@ -411,7 +426,6 @@ async function reload(){
     console.error(e);
     tbody.innerHTML = `<tr><td colspan="13">Ошибка загрузки данных: ${e.message}</td></tr>`;
     showing.textContent = '';
-//    pagination.innerHTML = '';
     markersLayer.clearLayers();
   }
 }
@@ -450,7 +464,7 @@ async function fetchPolygons(){
   return await res.json();
 }
 
-function renderPolygons(rows){
+function renderPolygons(rows, colors){
   polygonsLayer.clearLayers();
   if(!Array.isArray(rows)) return;
   rows.forEach(p => {
@@ -462,9 +476,9 @@ function renderPolygons(rows){
       if(ring.length < 4) return;
       const latlngs = ring.map(([lon,lat]) => [lat,lon]);
           const poly = L.polygon(latlngs, {
-            color: '#ef4444',
+            color: colors[p.id],
             weight: 2,
-            fillColor: '#ef4444',
+            fillColor: colors[p.id],
             fillOpacity: 0.15,
             _pid: p.id
           }).bindPopup(`
@@ -565,12 +579,13 @@ window.startMonitoring = async function startMonitoring(polygonId) {
         monitoring_interval: 300 // 5 минут
       })
     });
-    
+
     if (!response.ok) {
       const errorData = await response.json();
       throw new Error(errorData.error || `API ${response.status}`);
     }
-    
+
+    changePolygonColor(polygonId, POLYGON_COLORS.RUNNING);
     const result = await response.json();
     
     notifications.success(`Мониторинг запущен!<br/>Интервал: ${result.monitoring_interval} сек<br/>Task ID: ${result.task_id}`, 'Мониторинг активен');
@@ -595,7 +610,8 @@ window.stopMonitoring = async function stopMonitoring(polygonId) {
     if (!response.ok) {
       throw new Error(`API ${response.status}`);
     }
-    
+
+    changePolygonColor(polygonId, POLYGON_COLORS.STOPPED);
     const result = await response.json();
     
     notifications.success(`Мониторинг остановлен для полигона: ${result.polygon_name}`);
@@ -700,6 +716,51 @@ window.checkMonitoringStatus = async function checkMonitoringStatus(polygonId) {
     console.error('Ошибка проверки статуса мониторинга:', error);
     notifications.error(`Ошибка проверки статуса: ${error.message}`);
   }
+}
+
+// Получение цветов для всех полигонов
+async function getAllPolygonsColor(polygons) {
+  const colorForPolygon = {}; // локальный словарь
+
+  for (const p of polygons) {
+    try {
+      const res = await fetch(`${API_POLYGONS_URL}${p.id}/monitoring_status/`, {
+        headers: {
+          'Accept': 'application/json',
+          'Authorization': `Api-Key ${state.apiKey}`
+        }
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        console.log(`Status: ${data.monitoring_status}`)
+        switch (data.monitoring_status) {
+          case 'running': colorForPolygon[p.id] = POLYGON_COLORS.RUNNING; break;
+          case 'stopped': colorForPolygon[p.id] = POLYGON_COLORS.STOPPED; break;
+          case 'completed': colorForPolygon[p.id] = POLYGON_COLORS.COMPLETED; break;
+          default: colorForPolygon[p.id] = POLYGON_COLORS.DEFAULT;
+        }
+      } else {
+        colorForPolygon[p.id] = POLYGON_COLORS.DEFAULT;
+      }
+    } catch {
+      colorForPolygon[p.id] = POLYGON_COLORS.DEFAULT;
+    }
+  }
+  return colorForPolygon;
+}
+
+// Меняет цвет полигона на карте и в colorForPolygon по его ID
+function changePolygonColor(id, newColor= POLYGON_COLORS.DEFAULT){
+  state.colorForPolygon[id] = newColor;
+  let poly = polygonsLayer.getLayers().find(p => p.options._pid == id);
+    if (poly) {
+      poly.setStyle({
+        color: newColor,
+        fillColor: newColor,
+        fillOpacity: 0.15
+      });
+    }
 }
 
 // Инициализация
