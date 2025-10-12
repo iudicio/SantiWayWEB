@@ -99,14 +99,65 @@ GET ```http://localhost/api/devices/?is_alert=true```
 # 3. Запросы к Api для получений APK файлов
 Отправляем POST запрос на эндпоинт ```http://localhost/api/apk/build/```:
 
-```Authorization: Api-Key 0028e040-db1f-4144-b711-7011d71fbbcf``` <- Ваш Api-Key
+Headers:
 
-Приложение начинает собираться, для получения статуса сборки отправляем GET запрос на эндпоинт ```http://localhost/api/apk/build/```
+```Authorization: Api-Key <your_api_key>``` <- Ваш Api-Key, который Вы создали
 
-Для того, чтобы скачать собранный файл, отправляем GET запрос на эндпоинт ```http://localhost/api/apk/build/?action=download```
+```Content-Type: application/json```
 
-Чтобы проверить скачается ли он, можно отправить такой запрос в cmd:
+## Response:
+
+### 202 Accepted - задача успешно создана
+
+```
+{
+    "status": "Задача на сборку APK принята",
+    "apk_build_id": "uuid-строка",
+    "created_at": "2024-01-01T12:00:00Z",
+    "build_status": "pending"
+}
+```
+
+### 409 Conflict - сборка уже выполняется
+
+```
+{
+    "error": "Build already in progress",
+    "apk_build_id": "uuid-строка",
+    "status": "pending"
+}
+```
+
+### 401 Unauthorized - неверный или отсутствующий API ключ
+
+Приложение начинает собираться
+
+## Для получения статуса сборки отправляем GET запрос на эндпоинт ```http://localhost/api/apk/build/```
+
+Headers:
+
+```Authorization: Api-Key <your_api_key>``` <- Ваш Api-Key, который Вы создали
+
+## Response:
+### 200 OK
+
+```
+{
+    "apk_build_id": "uuid-строка",
+    "status": "pending|success|failed",
+    "created_at": "2024-01-01T12:00:00Z",
+    "completed_at": "2024-01-01T12:30:00Z"
+}
+```
+
+### 404 Not Found - сборки не найдены
+
+### 401 Unauthorized - неверный API ключ
+
+## Для того, чтобы скачать собранный файл, отправляем GET запрос на эндпоинт ```http://localhost/api/apk/build/?action=download```
+
+### Чтобы проверить скачается ли он, можно отправить такой запрос в cmd:
 
 ```curl -H "Authorization: Api-Key <Твой Api-Key>" -L "http://localhost/api/apk/build/?action=download" -o app.apk```
 
-Ключ всегда подтягивается из Api-Key, который вы используете в Headers
+### Ключ всегда подтягивается из Api-Key, который вы используете в Headers
