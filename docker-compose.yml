@@ -44,6 +44,24 @@ services:
       - ./media:/app/media
     restart: unless-stopped
 
+  django-cron:
+    build: .
+    container_name: santi_django_cron
+    networks: [ appnet ]
+    env_file: .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: >
+      bash -lc "
+        python manage.py crontab remove || true &&
+        python manage.py crontab add &&
+        printenv | sed 's/^\(.*\)$/export \1/g' > /etc/profile.d/env.sh &&
+        chmod +x /etc/profile.d/env.sh &&
+        cron -f
+      "
+    restart: unless-stopped
+
   nginx:
     image: nginx:1.27-alpine
     container_name: santi_nginx

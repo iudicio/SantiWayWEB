@@ -48,6 +48,12 @@ INSTALLED_APPS = [
     'corsheaders',
     "drf_spectacular",
     "drf_spectacular_sidecar",  # статические ассеты Swagger UI
+    'django_crontab', # для периодических задач
+]
+
+
+CRONJOBS = [
+    ('*/30 * * * *', 'apkbuilder.cron.delete_background_task', '> /proc/1/fd/1 2>&1'),
 ]
 
 
@@ -61,7 +67,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-
+    'django.middleware.csrf.CsrfViewMiddleware', # Раскомментить/закоментить, если проблемы с созданим api_key
     'users.middleware.RedirectToLoginMiddleware'
 ]
 
@@ -157,7 +163,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = 'en-us'
 
-TIME_ZONE = 'UTC'
+TIME_ZONE = 'Europe/Moscow'
 
 USE_I18N = True
 

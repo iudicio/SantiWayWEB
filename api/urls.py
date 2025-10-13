@@ -3,7 +3,7 @@ from rest_framework.routers import DefaultRouter
 
 from apkbuilder.views import APKBuildCreateView
 from filtering.views import FilteringViewSet
-from .views import DeviceViewSet
+from .views import DeviceViewSet, WayAPIView
 from users.views import APIKeyViewSet
 from drf_spectacular.views import (
     SpectacularAPIView,
@@ -23,6 +23,7 @@ app_name = "api"
 
 urlpatterns = [
     path("", include(router.urls)),
+    path("userinfo/", WayAPIView.as_view(), name="userinfo"),
     # JSON-схема OpenAPI (генерится на лету)
     path("schema/", SpectacularAPIView.as_view(), name="schema"),
     # Swagger UI
