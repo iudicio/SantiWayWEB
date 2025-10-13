@@ -1,5 +1,6 @@
 # celery_app.py
 from os import getenv
+
 from celery import Celery
 
 broker = getenv("CELERY_BROKER_URL", "amqp://celery:celerypassword@rabbitmq:5672//")

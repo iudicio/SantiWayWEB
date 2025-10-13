@@ -1,16 +1,16 @@
 import base64
 import os
 from datetime import datetime, timezone
-from typing import Dict, Any
+from typing import Any, Dict
 
-from celery.utils.log import get_task_logger
 from django.apps import apps
 from django.core.files.base import ContentFile
 from django.db import transaction
 from django.utils import timezone
 
-from SantiWayWEB.celery_app import celery_app
+from celery.utils.log import get_task_logger
 
+from SantiWayWEB.celery_app import celery_app
 
 log = get_task_logger(__name__)
 

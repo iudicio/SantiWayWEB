@@ -1,8 +1,8 @@
+from os import getenv
 from typing import Any, Dict, Iterable
 
 import vendorsFunc
 from celery_app import app
-from os import getenv
 
 base = vendorsFunc.load_vendors("mac-vendors.json")
 

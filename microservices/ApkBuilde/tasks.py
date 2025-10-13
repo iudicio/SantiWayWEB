@@ -1,12 +1,12 @@
 import base64
 import os
 import threading
-from typing import Dict, Any
-from celery import Celery
-from celery_app import app
-from celery.utils.log import get_task_logger
-from build_apk import clone_public_repo, should_clone_repository, process_apk_build
+from typing import Any, Dict
 
+from build_apk import clone_public_repo, process_apk_build, should_clone_repository
+from celery import Celery
+from celery.utils.log import get_task_logger
+from celery_app import app
 
 log = get_task_logger(__name__)
 

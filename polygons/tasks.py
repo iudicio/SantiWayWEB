@@ -2,11 +2,14 @@
 Celery задачи для работы с полигонами
 """
 
-from celery import shared_task
+import logging
+
 from django.utils import timezone
+
+from celery import shared_task
+
 from .models import Polygon, PolygonAction
 from .utils import search_devices_in_polygon
-import logging
 
 logger = logging.getLogger(__name__)
 

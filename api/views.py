@@ -1,19 +1,19 @@
 import uuid
 from os import getenv
 
-from celery import Celery
-from rest_framework import viewsets, status
-from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
-from rest_framework.authentication import SessionAuthentication
-from rest_framework.views import APIView
-from elasticsearch import Elasticsearch
-from elasticsearch import NotFoundError
 from django.conf import settings
-from .serializers import DeviceSerializer, WaySerializer
+
+from celery import Celery
+from elasticsearch import Elasticsearch, NotFoundError
+from rest_framework import status, viewsets
+from rest_framework.authentication import SessionAuthentication
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework.views import APIView
+
 from .auth import APIKeyAuthentication
 from .permissions import HasAPIKey
-from .serializers import DeviceSerializer
+from .serializers import DeviceSerializer, WaySerializer
 
 ES_HOST = getattr(settings, "ELASTICSEARCH_DSN", getenv("ES_URL", None))
 ES_USER = getenv("ES_USER", None)

@@ -1,12 +1,13 @@
 import json
 import random
-from datetime import timedelta
-from typing import Dict, Any, Iterable, Optional, Tuple
+from datetime import datetime, timedelta
+from datetime import timezone as dt_tz
+from typing import Any, Dict, Iterable, Optional, Tuple
 
-from shapely.geometry import Point, Polygon as ShapelyPolygon, MultiPolygon
-from shapely.geometry.base import BaseGeometry
 from celery.utils.log import get_task_logger
-from datetime import datetime, timezone as dt_tz
+from shapely.geometry import MultiPolygon, Point
+from shapely.geometry import Polygon as ShapelyPolygon
+from shapely.geometry.base import BaseGeometry
 
 log = get_task_logger(__name__)
 

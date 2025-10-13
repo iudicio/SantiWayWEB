@@ -1,19 +1,22 @@
 from django.shortcuts import render
-from rest_framework import viewsets, permissions, status
-from rest_framework.response import Response
-from rest_framework.exceptions import PermissionDenied
+
+from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
-from .models import Polygon, PolygonAction
-from .serializers import PolygonSerializer, PolygonActionSerializer
-from .utils import search_devices_in_polygon
-from .tasks import (
-    monitor_mac_addresses,
-    stop_polygon_monitoring,
-    stop_all_polygon_actions,
-)
+from rest_framework.exceptions import PermissionDenied
+from rest_framework.response import Response
+
 from api.auth import APIKeyAuthentication
 from api.permissions import HasAPIKey
 from users.models import User
+
+from .models import Polygon, PolygonAction
+from .serializers import PolygonActionSerializer, PolygonSerializer
+from .tasks import (
+    monitor_mac_addresses,
+    stop_all_polygon_actions,
+    stop_polygon_monitoring,
+)
+from .utils import search_devices_in_polygon
 
 
 class IsOwner(permissions.BasePermission):
@@ -112,7 +115,7 @@ class PolygonViewSet(viewsets.ModelViewSet):
         """Запуск мониторинга MAC адресов в полигоне"""
         polygon = self.get_object()
 
-        from django.db import transaction, IntegrityError
+        from django.db import IntegrityError, transaction
         from django.utils import timezone as dj_tz
 
         try:

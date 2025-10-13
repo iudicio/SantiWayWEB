@@ -3,13 +3,16 @@
 """
 
 import math
-from typing import List, Tuple, Dict, Any
-from shapely.geometry import Polygon as ShapelyPolygon, Point
-from shapely.ops import transform
 from functools import partial
+from typing import Any, Dict, List, Tuple
+
+from django.conf import settings
+
 import pyproj
 from elasticsearch import Elasticsearch
-from django.conf import settings
+from shapely.geometry import Point
+from shapely.geometry import Polygon as ShapelyPolygon
+from shapely.ops import transform
 
 
 def calculate_polygon_area(coordinates: List[List[float]]) -> float:

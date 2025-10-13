@@ -1,6 +1,7 @@
 from rest_framework import serializers
+
 from .models import Polygon, PolygonAction
-from .utils import validate_polygon_geometry, calculate_polygon_area
+from .utils import calculate_polygon_area, validate_polygon_geometry
 
 
 class PolygonSerializer(serializers.ModelSerializer):

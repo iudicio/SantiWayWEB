@@ -2,8 +2,8 @@ import os
 import shutil
 import subprocess
 from pathlib import Path
-from celery.utils.log import get_task_logger
 
+from celery.utils.log import get_task_logger
 
 log = get_task_logger(__name__)
 

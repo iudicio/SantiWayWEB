@@ -1,4 +1,5 @@
 import os
+
 from celery import Celery
 
 # Используем вашу конфигурацию RabbitMQ

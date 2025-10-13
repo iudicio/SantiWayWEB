@@ -1,7 +1,8 @@
 import os
-from typing import Dict, Any, Optional, Tuple
-from celery_app import app
+from typing import Any, Dict, Optional, Tuple
+
 from celery.utils.log import get_task_logger
+from celery_app import app
 from gen_core import iter_docs
 
 log = get_task_logger(__name__)

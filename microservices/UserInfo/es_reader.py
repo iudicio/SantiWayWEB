@@ -1,5 +1,6 @@
 from os import getenv
-from typing import List, Dict, Any
+from typing import Any, Dict, List
+
 from elasticsearch import Elasticsearch
 
 WAY_ALIAS = "way"

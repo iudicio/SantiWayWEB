@@ -1,8 +1,9 @@
 from os import getenv
-from typing import List, Dict, Any
-from elasticsearch import Elasticsearch
-from celery_app import app
+from typing import Any, Dict, List
+
 from celery.utils.log import get_task_logger
+from celery_app import app
+from elasticsearch import Elasticsearch
 
 log = get_task_logger(__name__)
 

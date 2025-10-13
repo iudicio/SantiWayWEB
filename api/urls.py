@@ -1,18 +1,17 @@
-from django.urls import path, include
-from rest_framework.routers import DefaultRouter
-
-from apkbuilder.views import APKBuildCreateView
-from .views import DeviceViewSet, WayAPIView
-from users.views import APIKeyViewSet
+from django.urls import include, path
 
 from drf_spectacular.views import (
     SpectacularAPIView,
     SpectacularRedocView,
     SpectacularSwaggerView,
 )
+from rest_framework.routers import DefaultRouter
 
+from apkbuilder.views import APKBuildCreateView
 from polygons.views import PolygonViewSet
+from users.views import APIKeyViewSet
 
+from .views import DeviceViewSet, WayAPIView
 
 router = DefaultRouter()
 router.register(r"devices", DeviceViewSet, basename="devices")
