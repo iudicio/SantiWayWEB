@@ -12,6 +12,7 @@ python-dotenv>=1.0
 django-cors-headers>=4.4
 Celery[redis]>=5.3
 drf-spectacular[sidecar]>=0.27
+django-crontab>=0.7
 # Геопространственные функции
 geopy>=2.3.0
 shapely>=2.0.0

@@ -1,11 +1,14 @@
 FROM python:3.12-slim-bookworm
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1
+    PYTHONUNBUFFERED=1 \
+    TZ=Europe/Moscow
 
 # Системные зависимости
 RUN apt-get update && apt-get install -y --no-install-recommends \
       curl netcat-traditional libpq5 dos2unix \
+      cron tzdata \
+    && ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app

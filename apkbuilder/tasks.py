@@ -3,6 +3,7 @@ import os
 from datetime import datetime, timezone
 from typing import Dict, Any
 
+from celery import shared_task
 from celery.utils.log import get_task_logger
 from django.apps import apps
 from django.core.files.base import ContentFile

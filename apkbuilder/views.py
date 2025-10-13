@@ -1,3 +1,5 @@
+from urllib.parse import quote
+
 from celery.utils.log import get_task_logger
 from django.http import FileResponse
 from rest_framework import generics, status
@@ -25,13 +27,13 @@ celery_client = Celery('apkbuild_producer', broker=BROKER_URL)
 
 IN_PROGRESS_STATUSES = {"pending"}
 SUCCESS_STATUS = "success"
-FILE_NAME = "Wave Hunter"
+new_filename = "Wave_Hunter.apk"
 
 
 class APKBuildCreateView(generics.CreateAPIView):
     """
     POST /apkbuild/                  -> создать задачу (если нет активной)
-    GET  /apkbuild/?action=status    -> статус последней сборки по ключу
+    GET  /apkbuild/                  -> статус последней сборки по ключу
     GET  /apkbuild/?action=download  -> скачать, если готово; иначе 409 с сообщением
     """
     queryset = APKBuild.objects.all()
@@ -145,15 +147,13 @@ class APKBuildCreateView(generics.CreateAPIView):
                     "status": build.status
                 }, status=status.HTTP_409_CONFLICT)
 
-            # новое имя файла
-            new_filename = f"{FILE_NAME}.apk"
-
             # Отдаём файл
             response = FileResponse(
                 build.apk_file.open("rb"),
                 as_attachment=True,
-                filename=new_filename,
             )
+            dispo = f"attachment; filename*=UTF-8''{quote(new_filename)}; filename=\"{new_filename}\""
+            response["Content-Disposition"] = dispo
             response["Content-Type"] = "application/vnd.android.package-archive"
             return response
 
