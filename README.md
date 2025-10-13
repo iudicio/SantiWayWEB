@@ -1,4 +1,4 @@
-"# SantiWayWEB" 
+# SantiWayWEB 
 
 docker compose up -d --build
 
@@ -10,6 +10,10 @@ helm upgrade --install santiway ./deploy/helm \
   --kube-context docker-desktop \
   -n santiway --create-namespace \
   -f deploy/helm/values.yaml
+
+helm upgrade --install santiway ./deploy/helm \
+  --kube-context docker-desktop \
+  -n santiway -f deploy/helm/values.yaml
 
 
 # 1. Поднятие всего WEB проекта для самых маленьких

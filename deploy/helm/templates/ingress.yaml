@@ -9,11 +9,11 @@ spec:
   ingressClassName: {{ .Values.web.ingress.className }}
   {{- end }}
   rules:
-  {{- range .Values.web.ingress.hosts }}
+    {{- range .Values.web.ingress.hosts }}
     - host: {{ .host }}
       http:
         paths:
-        {{- range .paths }}
+          {{- range .paths }}
           - path: {{ .path }}
             pathType: {{ .pathType }}
             backend:
@@ -21,6 +21,6 @@ spec:
                 name: web
                 port:
                   number: 80
-        {{- end }}
-  {{- end }}
+          {{- end }}
+    {{- end }}
 {{- end }}

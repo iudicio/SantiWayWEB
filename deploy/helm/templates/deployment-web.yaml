@@ -13,10 +13,16 @@ spec:
         - name: web
           image: "{{ .Values.images.web.repository }}:{{ .Values.images.web.tag }}"
           imagePullPolicy: {{ .Values.images.web.pullPolicy }}
-          ports: [ { containerPort: {{ .Values.web.port }} } ]
+          ports:
+            - name: http
+              containerPort: {{ .Values.web.targetPort | default 8000 }}
           envFrom:
             - configMapRef: { name: web-config }
             - secretRef: { name: app-secrets }
+          {{- if .Values.web.env }}
+          env:
+            {{- toYaml .Values.web.env | nindent 12 }}
+          {{- end }}
           readinessProbe:
             httpGet: { path: /healthz, port: {{ .Values.web.port }} }
             initialDelaySeconds: 10

@@ -20,20 +20,24 @@ env:
   DEBUG: "true"
   ALLOWED_HOSTS: "*,localhost,127.0.0.1"
   # URL очереди для сервисов:
-  RABBITMQ_URL: "amqp://user:password@{{ .Release.Name }}-rabbitmq:5672//"
+  RABBITMQ_URL: "amqp://celery:celerypassword@{{ .Release.Name }}-rabbitmq:5672//"
   # если используете Elasticsearch — добавьте сюда адрес
   ELASTICSEARCH_URL: "http://elasticsearch:9200"
+  DATABASE_URL: "postgresql://santi:santi@postgres:5432/santi"
 
 web:
   replicas: 1
+  port: 80            
+  targetPort: 8000
   env:
     - name: UVICORN_HOST
       value: "0.0.0.0"
-  port: 8000
+    - name: UVICORN_PORT
+      value: "8000"
   resources: {}
   ingress:
     enabled: true
-    className: ""
+    className: nginx
     hosts:
       - host: localhost
         paths:
@@ -57,3 +61,14 @@ rabbitmq:
     password: password
   persistence:
     enabled: false
+
+postgresql:
+  enabled: true
+  auth:
+    username: santi
+    password: santi
+    database: santi
+  primary:
+    persistence:
+      enabled: false  # для локалки Docker Desktop
+

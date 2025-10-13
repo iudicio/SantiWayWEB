@@ -7,5 +7,6 @@ spec:
   type: ClusterIP
   selector: { app: web }
   ports:
-    - port: 80
-      targetPort: {{ .Values.web.port }}
+    - name: http
+      port: {{ .Values.web.port | default 80 }}
+      targetPort: {{ .Values.web.targetPort | default 8000 }}
