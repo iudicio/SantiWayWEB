@@ -24,10 +24,10 @@ spec:
             {{- toYaml .Values.web.env | nindent 12 }}
           {{- end }}
           readinessProbe:
-            httpGet: { path: /healthz, port: {{ .Values.web.port }} }
+            httpGet: { path: /healthz, port: http }
             initialDelaySeconds: 10
             periodSeconds: 10
           livenessProbe:
-            httpGet: { path: /healthz, port: {{ .Values.web.port }} }
+            httpGet: { path: /healthz, port: http }
             initialDelaySeconds: 30
             periodSeconds: 20

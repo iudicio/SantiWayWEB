@@ -1,5 +1,10 @@
 namespace: santiway
 
+global:
+  imageRegistry: ghcr.io
+  security:
+    allowInsecureImages: true
+
 images:
   web:
     repository: ghcr.io/iudicio/santiway-web
@@ -20,10 +25,10 @@ env:
   DEBUG: "true"
   ALLOWED_HOSTS: "*,localhost,127.0.0.1"
   # URL очереди для сервисов:
-  RABBITMQ_URL: "amqp://celery:celerypassword@{{ .Release.Name }}-rabbitmq:5672//"
+  RABBITMQ_URL: "amqp://celery:celerypassword@santiway-rabbitmq:5672//"
   # если используете Elasticsearch — добавьте сюда адрес
   ELASTICSEARCH_URL: "http://elasticsearch:9200"
-  DATABASE_URL: "postgresql://santi:santi@postgres:5432/santi"
+  DATABASE_URL: "postgresql://santi:santi@santiway-postgresql:5432/santi"
 
 web:
   replicas: 1
@@ -56,19 +61,25 @@ eswriter:
     enabled: false
 
 rabbitmq:
-  auth:
-    username: user
-    password: password
+  image:
+    registry: ghcr.io
+    repository: bitnami/rabbitmq
   persistence:
-    enabled: false
+    enabled: true
+    storageClass: "hostpath"
+    size: 1Gi
 
 postgresql:
-  enabled: true
-  auth:
-    username: santi
-    password: santi
-    database: santi
+  image:
+    registry: ghcr.io
+    repository: bitnami/postgresql
   primary:
     persistence:
-      enabled: false  # для локалки Docker Desktop
-
+      enabled: true
+      storageClass: "hostpath"
+      size: 2Gi
+  volumePermissions:
+    enabled: true
+    image:
+      registry: ghcr.io
+      repository: bitnami/os-shell
