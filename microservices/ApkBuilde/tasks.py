@@ -94,9 +94,19 @@ def apk_build_task(messages: Dict[str, Any]):
         }
 
         send_to_queue("apkget", payload, "apkget")
+        log.info(f"APK отправлен в очередь apkget ({apk_filename}, size={apk_size} байт)")
+
+        # Удаляем временный файл
+        try:
+            if os.path.exists(final_apk_path):
+                os.remove(final_apk_path)
+                log.info(f"Удалён временный файл: {final_apk_path}")
+            else:
+                log.warning(f"Не найден файл для удаления: {final_apk_path}")
+        except Exception as del_err:
+            log.warning(f"Ошибка при удалении файла {final_apk_path}: {del_err}")
+
         return status
-    
-    # TODO удаление файла после отправки
 
     except Exception as e:
         log.exception("Сборка/отправка APK завершилась ошибкой")

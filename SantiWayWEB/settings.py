@@ -52,7 +52,7 @@ INSTALLED_APPS = [
 
 
 CRONJOBS = [
-    ('* * * * *', 'apkbuilder.cron.delete_background_task', '> /proc/1/fd/1 2>&1'),
+    ('*/30 * * * *', 'apkbuilder.cron.delete_background_task', '> /proc/1/fd/1 2>&1'),
 ]
 
 
