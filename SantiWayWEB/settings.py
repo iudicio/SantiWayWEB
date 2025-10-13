@@ -47,6 +47,12 @@ INSTALLED_APPS = [
     'corsheaders',
     "drf_spectacular",
     "drf_spectacular_sidecar",  # статические ассеты Swagger UI
+    'django_crontab', # для периодических задач
+]
+
+
+CRONJOBS = [
+    ('* * * * *', 'apkbuilder.cron.delete_background_task', '> /proc/1/fd/1 2>&1'),
 ]
 
 
@@ -156,7 +162,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = 'en-us'
 
-TIME_ZONE = 'UTC'
+TIME_ZONE = 'Europe/Moscow'
 
 USE_I18N = True
 

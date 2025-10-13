@@ -3,6 +3,7 @@ import os
 from datetime import datetime, timezone
 from typing import Dict, Any
 
+from celery import shared_task
 from celery.utils.log import get_task_logger
 from django.apps import apps
 from django.core.files.base import ContentFile
@@ -82,6 +83,3 @@ def apk_get_task(messages: Dict[str, Any]):
     except APKBuild.DoesNotExist:
         log.error(f"apkget: APKBuild {build_id} не найден")
         return {"ok": False, "error": "not found", "apk_build_id": build_id}
-
-
-# TODO таска на удаление апк файлов через день
