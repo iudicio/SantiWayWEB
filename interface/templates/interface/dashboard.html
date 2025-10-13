@@ -11,107 +11,184 @@
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
           integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 
-  <link rel="stylesheet" href="{% static 'interface/styles.css' %}"/>
+  <link rel="stylesheet" href="{% static 'interface/main.css' %}">
+  <link rel="stylesheet" href="{% static 'interface/dashboard.css' %}">
+  <link rel="stylesheet" href="{% static 'interface/notifications_and_map.css' %}"/>
+  <link rel="stylesheet" href="{% static 'interface/collapsible.css' %}">
+
+  <link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css" />
+  <script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
 
   <script>
     window.APP_CONFIG = {
-      API_BASE: "{{ API_BASE|default:'/api' }}"
+      API_BASE: "{{ API_BASE|default:'/api' }}",
+      API_KEY: "{{ API_KEY|default:'' }}"
     };
   </script>
-  <script defer src="{% static 'interface/app.js' %}"></script>
+  <script defer src="{% static 'interface/app.js' %}?v=3"></script>
+  <script src="{% static 'interface/custom-elements.js' %}"></script>
+  <script src="{% static 'interface/background.js' %}"></script>
   <title>Locator</title>
 </head>
 <body>
-<div class="app">
-  <aside class="sidebar">
-    <div class="brand">
-      <div class="logo">LOC</div>
-      <h1>Locator</h1>
-    </div>
-    <nav class="menu">
-      <a href="#" class="active">Дашборд</a>
-      <a href="#">Настройки</a>
-      <a href="#">Мониторинг</a>
-    </nav>
-    <small>© 2025 SantiWay</small>
-  </aside>
+  <canvas id="network-canvas"></canvas>
 
-  <main class="content">
-    <div class="topbar">
-      <div class="topbar-inner">
-        <div class="title">Панель: Карта и Таблица Устройств</div>
-        <div class="searchbar">
-          <input id="topSearch" class="input" placeholder="Поиск по ID, MAC, типу..."/>
-          <button class="btn" id="btnTopSearch">Поиск</button>
+  <!-- NAV -->
+  <nav class="navbar">
+    <div class="nav-actions">
+      <a href="#" class="nav-link active">Дашборд</a>
+      <a href="{%url 'users:profile_overview' %}" class="nav-link">Профиль / API</a>
+      <a href="{% url 'users:logout' %}" class="nav-link logout-link">Выйти</a>
+    </div>
+  </nav>
+
+  <main class="main">
+    <!-- Левая панель — фильтры -->
+    <aside class="sidebar" aria-label="Фильтры">
+      <h2 class="section-title">Фильтры</h2>
+
+      <form class="form" id="filtersForm" autocomplete="off">
+        <div class="form-group">
+          <label for="apiList">Выбрать API</label>
+          <div class="collapsible-wrapper">
+            <div class="collapsible-header">
+              <span class="selection-status">Выбрано: 0</span>
+              <span class="arrow"></span>
+            </div>
+            <div id="apiList" class="collapsible-content">
+              <!-- Апи-ключи -->
+              <label class="custom-checkbox select-all">
+                <input type="checkbox" value="__all__">Выбрать всё
+              </label>
+            </div>
+          </div>
         </div>
+
+        <div class="form-group">
+          <label for="deviceList">Выбрать устройство</label>
+          <div class="collapsible-wrapper">
+            <div class="collapsible-header">
+              <span class="selection-status">Выбрано: 0</span>
+              <span class="arrow"></span>
+            </div>
+            <div id="deviceList" class="collapsible-content">
+              <!-- Список устройств -->
+              <label class="custom-checkbox select-all">
+                <input type="checkbox" value="__all__">Выбрать всё
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="folderList">Выбрать папку</label>
+          <input id="folderList" type="text" name="f_folder_name" placeholder="Имя">
+        </div>
+
+        <div class="form-group">
+          <label for="time-start">Время от</label>
+          <input id="time-start" type="datetime-local" name="f_time_start" />
+        </div>
+
+          <div class="form-group">
+          <label for="time-end">Время до</label>
+          <input id="time-end" type="datetime-local" name="f_time_end" />
+        </div>
+
+        <div class="form-group">
+          <label for="f-network">Тип устройства</label>
+          <!-- custom-select в js прописан  -->
+          <select id="f-network" class="custom-select" name="f_network">
+            <option value="any">Любой</option>
+            <option value="WiFi">WiFi</option>
+            <option value="Bluetooth">Bluetooth</option>
+            <option value="Cellular">Cellular</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="f-mac">MAC</label>
+          <input id="f-mac" name="f_mac" placeholder="id" />
+        </div>
+
+        <div class="form-group">
+          <label for="f-name">Имя</label>
+          <input id="f-name" name="f_name" placeholder="Name" />
+        </div>
+        <div class="checkbox-group">
+          <label class="custom-checkbox">
+            <input type="checkbox" id="f-alert" name="f_alert" />
+            <span>Тревожное</span>
+          </label>
+
+          <label class="custom-checkbox">
+            <input type="checkbox" id="f-ignore" name="f_ignore" />
+            <span>Игнорируемое</span>
+          </label>
+        </div>
+
+        <div class="form-actions">
+          <button type="submit" class="btn-primary" id="btnApplyFilters">Применить фильтры</button>
+        </div>
+      </form>
+    </aside>
+
+    <!-- Правая часть — контент дашборда -->
+    <section class="content">
+      <!-- Карта -->
+      <div class="card">
+        <div class="card-header">
+          <span class="text-muted">Карта Локаций</span>
+          <span class="text-muted">Выбрано: <span id="selected-id">—</span></span>
+        </div>
+        <div id="map" class="map-root" role="region" aria-label="Карта локаций"></div>
       </div>
-    </div>
 
-    <div class="container">
-      <section class="grid">
-        <div class="card" id="mapCard">
-          <div class="header">
-            <h2>Карта Локаций</h2>
-            <div class="muted">Выбрано: <span id="selected-id">—</span></div>
-          </div>
-          <div class="body"><div id="map"></div></div>
-        </div>
+      <!-- Таблица устройств -->
+      <div class="card">
+        <div class="card-header">
+          <span class="text-muted">Данные устройств</span>
 
-        <div class="card">
-          <div class="header"><h2>Фильтры</h2></div>
-          <div class="filters">
-            <div class="row">
-              <label>Тип сети</label>
-              <select id="f-network">
-                <option value="any">Любой</option>
-                <option value="WiFi">WiFi</option>
-                <option value="Bluetooth">Bluetooth</option>
-                <option value="Cellular">Cellular</option>
-                <option value="Ethernet">Ethernet</option>
-              </select>
-            </div>
-            <div class="row">
-              <label>Device ID</label>
-              <input id="f-deviceid" class="input" placeholder="Device ID"/>
-            </div>
-            <div class="row">
-              <label>User Phone MAC</label>
-              <input id="f-mac" class="input" placeholder="MAC адрес"/>
-            </div>
-            <div class="checkbox">
-              <input type="checkbox" id="f-alert"/> <label for="f-alert">С тревогой</label>
-            </div>
-            <div class="checkbox">
-              <input type="checkbox" id="f-ignore"/> <label for="f-ignore">Игнорируемое</label>
-            </div>
-            <button class="btn" id="btnApplyFilters">Применить фильтры</button>
+          <div class="table-stats">
+            <div class="stat-item total">Всего: <span id="stat-total">12</span></div>
+            <div class="stat-item filtered">Отфильтровано: <span id="stat-filtered">1</span></div>
+            <div class="stat-item alert">Тревожных: <span id="stat-alert">3</span></div>
+            <div class="stat-item ignore">Игнорируемых: <span id="stat-ignore">4</span></div>
           </div>
         </div>
-      </section>
 
-      <section class="card table-card">
-        <div class="header"><h2>Данные Устройств</h2></div>
-        <div class="body">
-          <div class="table-controls">
-            <div class="left">
-              <span>Показывать</span>
-              <select id="pageSize">
-                <option>10</option>
-                <option>25</option>
-                <option>50</option>
-                <option>100</option>
-              </select>
-              <span>записей</span>
-            </div>
-            <div class="right">
-              <span>Быстрый поиск:</span>
-              <input id="tableSearch" class="input" style="height:34px" placeholder="Введите запрос"/>
-            </div>
+
+        <!-- Контролы таблицы -->
+        <div class="table-controls">
+          <div class="controls-left">
+            Показывать
+            <select id="pageSize" class="custom-select">
+              <option>10</option>
+              <option>25</option>
+              <option>50</option>
+              <option>100</option>
+            </select>
+            записей
           </div>
 
-          <div style="overflow:auto">
-            <table id="devicesTable">
-              <thead>
+          <div class="controls-right">
+            Быстрый поиск:
+            <input id="tableSearch" class="search-input" placeholder="Введите запрос" />
+
+            <div class="table-settings" style="position: relative;">
+              <button id="columnsToggle" class="settings-btn" type="button" aria-expanded="false" aria-controls="columnsMenu">
+                <img src="{% static 'interface/settings.png' %}" alt="Настройки столбцов" />
+              </button>
+
+              <div id="columnsMenu" class="columns-menu hidden" role="menu" aria-hidden="true"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Таблица -->
+        <div class="table-container">
+          <table id="devicesTable" class="table" aria-describedby="table-info">
+            <thead>
               <tr>
                 <th>Device ID</th>
                 <th>User Phone MAC</th>
@@ -127,16 +204,30 @@
                 <th>Folder Name</th>
                 <th>System Folder Name</th>
               </tr>
-              </thead>
-              <tbody></tbody>
-            </table>
-          </div>
-          <div class="muted" id="showing"></div>
-          <div class="pagination" id="pagination"></div>
+            </thead>
+            <tbody>
+              <!-- Динамическое заполнение устройств -->
+            </tbody>
+          </table>
         </div>
-      </section>
-    </div>
+
+        <!-- Футер таблицы -->
+        <div class="table-footer" id="table-info">
+          <div id="showing">
+          </div>
+          <div id="pagination"></div>
+          <div class="pagination-controls">
+            <button class="page-btn" id="prevPage">&laquo; Назад</button>
+            <span id="pageNumbers" class="page-numbers"></span>
+            <button class="page-btn" id="nextPage">Вперед &raquo;</button>
+          </div>
+        </div>
+      </div>
+    </section>
   </main>
-</div>
+
+<!-- Контейнер для уведомлений -->
+<div class="notification-container" id="notificationContainer"></div>
+
 </body>
 </html>

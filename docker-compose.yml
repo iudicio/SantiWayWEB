@@ -19,6 +19,28 @@ services:
       - static_volume:/app/staticfiles
       - media_volume:/app/media
       - ./users/migrations:/app/users/migrations
+      - ./apkbuilder/migrations:/app/apkbuilder/migrations
+      - ./polygons/migrations:/app/polygons/migrations
+      - ./media:/app/media
+    restart: unless-stopped
+
+  celery-worker:
+    build: .
+    container_name: santi_celery_worker
+    networks: [ appnet ]
+    env_file: .env
+    command: >
+      celery -A SantiWayWEB.celery_app worker
+      --loglevel=info
+      -Q apkget
+      -n apkget@%h
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./users/migrations:/app/users/migrations
+      - ./apkbuilder/migrations:/app/apkbuilder/migrations
+      - ./media:/app/media
     restart: unless-stopped
 
   nginx:
@@ -76,7 +98,18 @@ services:
       timeout: 5s
       retries: 20
     restart: unless-stopped
-  
+
+  es-bootstrap:
+    build:
+      context: .
+      dockerfile: infra/elasticsearch/bootstrap.Dockerfile
+    container_name: santi_es_bootstrap
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    networks: [appnet]
+    restart: "no"
+
 
 
 volumes:

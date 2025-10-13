@@ -2,11 +2,17 @@ from typing import Any, Dict, Iterable
 
 import vendorsFunc
 from celery_app import app
+from os import getenv
 
 base = vendorsFunc.load_vendors("mac-vendors.json")
 
+cName = getenv("CELERY_C_TASK_NAME")
+cQueue = getenv("CELERY_C_QUEUE_NAME")
 
-@app.task(name="vendor", queue="vendor_queue")
+pName = getenv("CELERY_P_TASK_NAME")
+pQueue = getenv("CELERY_P_QUEUE_NAME")
+
+@app.task(name=cName, queue=cQueue)
 def vendor(messages: Iterable[Dict[str, Any]]) -> Iterable[Dict[str, Any]]:
     """
     Принимает список устройств, достаёт MAC из поля `device_id`,
@@ -27,5 +33,5 @@ def vendor(messages: Iterable[Dict[str, Any]]) -> Iterable[Dict[str, Any]]:
             msg["vendor"] = "Unknown"
         processed += 1
 
-    app.send_task("esWriter", args=[messages], queue="es_writer")
-    return processed
+    app.send_task(name=pName, args=[messages], queue=pQueue)
+    return print(f"Выполнено {processed}, отправлено в {pQueue}")

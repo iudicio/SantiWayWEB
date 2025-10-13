@@ -8,11 +8,11 @@ from es_writer import index_docs_to_way
 
 log = get_task_logger(__name__)
 
+cName = getenv("CELERY_C_TASK_NAME")
+cQueue = getenv("CELERY_C_QUEUE_NAME")
 
-@app.task(name="esWriter", queue="es_writer")
-def ingest_way_serial(
-    docs: List[Dict[str, Any]], *, chunk_size: int = 2000, refresh: str = "false"
-) -> Dict[str, Any]:
+@app.task(name=cName, queue=cQueue)
+def ingest_way_serial(docs: List[Dict[str, Any]], *, chunk_size: int = 2000, refresh: str = "false") -> Dict[str, Any]:
     res = index_docs_to_way(docs, chunk_size=chunk_size, refresh=refresh)
     if res["errors_count"]:
         log.warning(

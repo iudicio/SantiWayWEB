@@ -51,6 +51,10 @@
           "type" : "keyword",
           "ignore_above" : 64,
           "normalizer" : "lowercase_norm"
+        },
+        "vendor": {
+          "type": "keyword",
+          "ignore_above": 256
         }
       }
     }

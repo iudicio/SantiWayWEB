@@ -18,7 +18,6 @@ class APIKeyViewSet(viewsets.ViewSet):
     permission_classes = [IsAuthenticated]
 
     def create(self, request):
-        print("Генерация API ключа")
         device_name = request.data.get("name")
         if not device_name:
             return Response(
@@ -30,13 +29,12 @@ class APIKeyViewSet(viewsets.ViewSet):
         device = Device.objects.create(name=device_name, api_key=api_key)
 
         request.user.api_keys.add(api_key)
-        return Response(
-            {
-                "device_name": device.name,
-                "api_key": device.api_key.key,  # отдаём токен пользователю
-            },
-            status=status.HTTP_201_CREATED,
-        )
+        
+        return Response({
+            "key_id": device.api_key.id,
+            "device_name": device.name,
+            "api_key": device.api_key.key  # отдаём токен пользователю
+        }, status=status.HTTP_201_CREATED)
 
     # Удаление устройства
     def destroy(self, request, pk=None):
@@ -46,6 +44,16 @@ class APIKeyViewSet(viewsets.ViewSet):
             return Response({"error": "Not allowed"}, status=status.HTTP_403_FORBIDDEN)
         device.api_key.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+    
+    # Вывод всех API ключей
+    def list(self, request):
+        api_keys = request.user.api_keys.all()
+        data = dict()
+        for key in api_keys:
+            device = Device.objects.get(api_key__key=key.key)
+            data[str(key.key)] = device.name
+        return Response(data, status=status.HTTP_200_OK)
+
 
 
 def register_view(request):

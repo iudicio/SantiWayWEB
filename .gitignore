@@ -25,3 +25,4 @@ db.sqlite3-journal
 
 # Media files uploaded by users
 /media/
+.env
