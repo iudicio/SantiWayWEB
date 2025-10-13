@@ -1,4 +1,5 @@
 import os
+import stat
 import shutil
 import subprocess
 from pathlib import Path
@@ -112,7 +113,11 @@ def process_apk_build(key: str, target_dir: str, android_url: str) -> str:
     if not gradlew.exists():
         raise FileNotFoundError("gradlew не найден в корне репозитория")
     try:
-        os.chmod(gradlew, 0o755)
+        if os.name != "nt":  # на Windows chmod смысла не имеет
+            os.chmod(gradlew, stat.S_IRUSR | stat.S_IWUSR | stat.S_IXUSR)  # 0o700
+    # !!!Изменила, так как ругался CI. Если ApkBuilde не работает, скорее всего, причина в этом.
+    # try: 
+    #     os.chmod(gradlew, 0o755)
     except Exception:
         pass
 
