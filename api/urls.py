@@ -1,4 +1,3 @@
-
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 
@@ -34,9 +33,9 @@ urlpatterns = [
         name="swagger-ui",
     ),
     # ReDoc (альтернативная документация)
-
-    path("schema/redoc/", SpectacularRedocView.as_view(url_name="schema"), name="redoc"),
+    path(
+        "schema/redoc/", SpectacularRedocView.as_view(url_name="schema"), name="redoc"
+    ),
     # Создание сборки APK
-    path('apk/build/', APKBuildCreateView.as_view(), name='apk-build-create'),
+    path("apk/build/", APKBuildCreateView.as_view(), name="apk-build-create"),
 ]
-

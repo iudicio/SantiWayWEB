@@ -12,6 +12,7 @@ cQueue = getenv("CELERY_C_QUEUE_NAME")
 pName = getenv("CELERY_P_TASK_NAME")
 pQueue = getenv("CELERY_P_QUEUE_NAME")
 
+
 @app.task(name=cName, queue=cQueue)
 def vendor(messages: Iterable[Dict[str, Any]]) -> Iterable[Dict[str, Any]]:
     """

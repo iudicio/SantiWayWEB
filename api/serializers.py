@@ -18,14 +18,11 @@ class DeviceSerializer(serializers.Serializer):
     folder_name = serializers.CharField(max_length=100, allow_blank=True)
     system_folder_name = serializers.CharField(max_length=100, allow_blank=True)
 
+
 class WaySerializer(serializers.Serializer):
     api_keys = serializers.ListField(
-        child=serializers.CharField(),
-        required=True,
-        allow_empty=False
+        child=serializers.CharField(), required=True, allow_empty=False
     )
     devices = serializers.ListField(
-        child=serializers.CharField(),
-        required=False,
-        allow_empty=False
+        child=serializers.CharField(), required=False, allow_empty=False
     )

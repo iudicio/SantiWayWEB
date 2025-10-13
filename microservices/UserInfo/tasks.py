@@ -13,28 +13,22 @@ cName1 = getenv("CELERY_C_TASK_NAME1")
 cName2 = getenv("CELERY_C_TASK_NAME2")
 cQueue = getenv("CELERY_C_QUEUE_NAME")
 
+
 @app.task(name=cName1, queue=cQueue)
 def getDevices(data: list[str]) -> list[str]:
     global ES_CLIENT
 
-    
     query = {
         "query": {"bool": {"filter": [{"terms": {"user_api": data["api_keys"]}}]}},
         "size": 0,
         "_source": False,
-        "aggs": {
-            "unique_macs": {
-                "terms": {
-                    "field": "user_phone_mac",
-                    "size": 100000
-                }
-            }
-        }
+        "aggs": {"unique_macs": {"terms": {"field": "user_phone_mac", "size": 100000}}},
     }
 
     result = ES_CLIENT.search(index="way", body=query)
     macs = [b["key"] for b in result["aggregations"]["unique_macs"]["buckets"]]
     return macs
+
 
 @app.task(name=cName2, queue=cQueue)
 def getFolders(data: dict) -> list[str]:
@@ -48,19 +42,12 @@ def getFolders(data: dict) -> list[str]:
             "bool": {
                 "filter": [
                     {"terms": {"user_api": api_keys}},
-                    {"terms": {"user_phone_mac": devices}}
+                    {"terms": {"user_phone_mac": devices}},
                 ]
             }
         },
         "size": 0,
-        "aggs": {
-            "unique_folders": {
-                "terms": {
-                    "field": "folder_name",
-                    "size": 100000
-                }
-            }
-        }
+        "aggs": {"unique_folders": {"terms": {"field": "folder_name", "size": 100000}}},
     }
 
     res = ES_CLIENT.search(index="way", body=query)

@@ -1,2 +1,1 @@
-default_app_config = 'polygons.apps.PolygonsConfig'
-
+default_app_config = "polygons.apps.PolygonsConfig"

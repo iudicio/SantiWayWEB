@@ -1,6 +1,7 @@
 """
 Утилиты для работы с геометрией полигонов
 """
+
 import math
 from typing import List, Tuple, Dict, Any
 from shapely.geometry import Polygon as ShapelyPolygon, Point
@@ -50,7 +51,9 @@ def calculate_polygon_area(coordinates: List[List[float]]) -> float:
         try:
             web_merc = pyproj.CRS.from_epsg(3857)
             wgs84 = pyproj.CRS.from_epsg(4326)
-            project = pyproj.Transformer.from_crs(wgs84, web_merc, always_xy=True).transform
+            project = pyproj.Transformer.from_crs(
+                wgs84, web_merc, always_xy=True
+            ).transform
             poly_m = transform(project, poly)
             area_m2 = float(poly_m.area)
             if area_m2 > 0:
@@ -62,6 +65,7 @@ def calculate_polygon_area(coordinates: List[List[float]]) -> float:
             minx, miny, maxx, maxy = poly.bounds
             R = 6371000.0
             import math
+
             deg_to_rad = math.pi / 180.0
             d_lon = (maxx - minx) * deg_to_rad
             d_lat = (maxy - miny) * deg_to_rad
@@ -81,30 +85,30 @@ def calculate_polygon_area(coordinates: List[List[float]]) -> float:
 def validate_polygon_geometry(geometry: Dict[str, Any]) -> bool:
     """
     Валидирует геометрию полигона
-    
+
     Args:
         geometry: GeoJSON геометрия
-    
+
     Returns:
         True если геометрия валидна
     """
     try:
-        if geometry.get('type') != 'Polygon':
+        if geometry.get("type") != "Polygon":
             return False
-        
-        coordinates = geometry.get('coordinates', [])
+
+        coordinates = geometry.get("coordinates", [])
         if not coordinates or len(coordinates) == 0:
             return False
-        
+
         # Проверяем внешнее кольцо
         outer_ring = coordinates[0]
         if len(outer_ring) < 4:  # Минимум 4 точки (замкнутый полигон)
             return False
-        
+
         # Проверяем, что первая и последняя точки совпадают
         if outer_ring[0] != outer_ring[-1]:
             return False
-        
+
         # Проверяем координаты
         for coord in outer_ring:
             if len(coord) != 2:
@@ -112,21 +116,23 @@ def validate_polygon_geometry(geometry: Dict[str, Any]) -> bool:
             lon, lat = coord
             if not (-180 <= lon <= 180) or not (-90 <= lat <= 90):
                 return False
-        
+
         return True
-        
+
     except Exception:
         return False
 
 
-def point_in_polygon(point: Tuple[float, float], polygon_coordinates: List[List[float]]) -> bool:
+def point_in_polygon(
+    point: Tuple[float, float], polygon_coordinates: List[List[float]]
+) -> bool:
     """
     Проверяет, находится ли точка внутри полигона
-    
+
     Args:
         point: (longitude, latitude)
         polygon_coordinates: Список координат полигона
-    
+
     Returns:
         True если точка внутри полигона
     """
@@ -134,29 +140,31 @@ def point_in_polygon(point: Tuple[float, float], polygon_coordinates: List[List[
         polygon = ShapelyPolygon(polygon_coordinates)
         point_obj = Point(point[0], point[1])
         return polygon.contains(point_obj)
-        
+
     except Exception:
         return False
 
 
-def simplify_polygon(coordinates: List[List[float]], tolerance: float = 0.0001) -> List[List[float]]:
+def simplify_polygon(
+    coordinates: List[List[float]], tolerance: float = 0.0001
+) -> List[List[float]]:
     """
     Упрощает полигон, удаляя избыточные точки
-    
+
     Args:
         coordinates: Координаты полигона
         tolerance: Толерантность упрощения
-    
+
     Returns:
         Упрощенные координаты
     """
     try:
         polygon = ShapelyPolygon(coordinates)
         simplified = polygon.simplify(tolerance, preserve_topology=True)
-        
+
         # Возвращаем координаты внешнего кольца
         return list(simplified.exterior.coords)
-        
+
     except Exception:
         return coordinates
 
@@ -164,59 +172,55 @@ def simplify_polygon(coordinates: List[List[float]], tolerance: float = 0.0001) 
 def get_polygon_bounds(coordinates: List[List[float]]) -> Dict[str, float]:
     """
     Получает границы полигона (bounding box)
-    
+
     Args:
         coordinates: Координаты полигона
-    
+
     Returns:
         Словарь с границами {min_lon, max_lon, min_lat, max_lat}
     """
     try:
         polygon = ShapelyPolygon(coordinates)
         bounds = polygon.bounds
-        
+
         return {
-            'min_lon': bounds[0],
-            'min_lat': bounds[1],
-            'max_lon': bounds[2],
-            'max_lat': bounds[3]
+            "min_lon": bounds[0],
+            "min_lat": bounds[1],
+            "max_lon": bounds[2],
+            "max_lat": bounds[3],
         }
-        
+
     except Exception:
-        return {
-            'min_lon': 0,
-            'min_lat': 0,
-            'max_lon': 0,
-            'max_lat': 0
-        }
+        return {"min_lon": 0, "min_lat": 0, "max_lon": 0, "max_lat": 0}
 
 
-def search_devices_in_polygon(geometry: Dict[str, Any], user_api_key: str = None) -> List[Dict[str, Any]]:
+def search_devices_in_polygon(
+    geometry: Dict[str, Any], user_api_key: str = None
+) -> List[Dict[str, Any]]:
     """
     Поиск устройств в полигоне через Elasticsearch
-    
+
     Args:
         geometry: GeoJSON геометрия полигона
         user_api_key: API ключ пользователя для фильтрации
-    
+
     Returns:
         Список найденных устройств
     """
     try:
         es = Elasticsearch([settings.ELASTICSEARCH_DSN])
-        
-        coordinates = geometry.get('coordinates', [])
+
+        coordinates = geometry.get("coordinates", [])
         if not coordinates or len(coordinates) == 0:
             return []
-        
+
         outer_ring = coordinates[0]
-        
 
         lons = [point[0] for point in outer_ring]
         lats = [point[1] for point in outer_ring]
         min_lon, max_lon = min(lons), max(lons)
         min_lat, max_lat = min(lats), max(lats)
-        
+
         query = {
             "query": {
                 "bool": {
@@ -229,18 +233,15 @@ def search_devices_in_polygon(geometry: Dict[str, Any], user_api_key: str = None
                                         "range": {
                                             "longitude": {
                                                 "gte": min_lon,
-                                                "lte": max_lon
+                                                "lte": max_lon,
                                             }
                                         }
                                     },
                                     {
                                         "range": {
-                                            "latitude": {
-                                                "gte": min_lat,
-                                                "lte": max_lat
-                                            }
+                                            "latitude": {"gte": min_lat, "lte": max_lat}
                                         }
-                                    }
+                                    },
                                 ]
                             }
                         },
@@ -252,7 +253,7 @@ def search_devices_in_polygon(geometry: Dict[str, Any], user_api_key: str = None
                                         "range": {
                                             "location.lon": {
                                                 "gte": min_lon,
-                                                "lte": max_lon
+                                                "lte": max_lon,
                                             }
                                         }
                                     },
@@ -260,33 +261,33 @@ def search_devices_in_polygon(geometry: Dict[str, Any], user_api_key: str = None
                                         "range": {
                                             "location.lat": {
                                                 "gte": min_lat,
-                                                "lte": max_lat
+                                                "lte": max_lat,
                                             }
                                         }
-                                    }
+                                    },
                                 ]
                             }
-                        }
+                        },
                     ],
-                    "minimum_should_match": 1
+                    "minimum_should_match": 1,
                 }
             },
-            "size": 1000
+            "size": 1000,
         }
-        
+
         if user_api_key:
             if "must" not in query["query"]["bool"]:
                 query["query"]["bool"]["must"] = []
-            query["query"]["bool"]["must"].append({
-                "term": {"user_api.keyword": user_api_key}
-            })
-        
+            query["query"]["bool"]["must"].append(
+                {"term": {"user_api.keyword": user_api_key}}
+            )
+
         response = es.search(index="way", body=query)
-        
+
         devices = []
         for hit in response["hits"]["hits"]:
             device = hit["_source"]
-            
+
             if "latitude" in device and "longitude" in device:
                 # latitude, longitude
                 lat, lon = device["latitude"], device["longitude"]
@@ -295,12 +296,12 @@ def search_devices_in_polygon(geometry: Dict[str, Any], user_api_key: str = None
                 lat, lon = device["location"]["lat"], device["location"]["lon"]
             else:
                 continue  # Без координат
-            
+
             if point_in_polygon((lon, lat), outer_ring):
                 devices.append(device)
-        
+
         return devices
-        
+
     except Exception as e:
         print(f"Ошибка поиска устройств в полигоне: {e}")
         return []

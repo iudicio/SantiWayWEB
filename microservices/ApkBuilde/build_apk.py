@@ -10,8 +10,7 @@ log = get_task_logger(__name__)
 
 def run_cmd(cmd, cwd=None, env=None, log_prefix=""):
     log.info("%s$ %s", log_prefix, " ".join(cmd))
-    proc = subprocess.run(cmd, cwd=cwd, env=env, text=True,
-                          capture_output=True)
+    proc = subprocess.run(cmd, cwd=cwd, env=env, text=True, capture_output=True)
     if proc.returncode != 0:
         log.error("%sSTDOUT:\n%s", log_prefix, proc.stdout)
         log.error("%sSTDERR:\n%s", log_prefix, proc.stderr)
@@ -24,9 +23,10 @@ def run_cmd(cmd, cwd=None, env=None, log_prefix=""):
 
 
 def have_keystore_env():
-    return all(os.getenv(k) for k in (
-        "KEYSTORE_PATH", "KEYSTORE_PASSWORD", "KEY_ALIAS", "KEY_PASSWORD"
-    ))
+    return all(
+        os.getenv(k)
+        for k in ("KEYSTORE_PATH", "KEYSTORE_PASSWORD", "KEY_ALIAS", "KEY_PASSWORD")
+    )
 
 
 def find_apk(app_dir: Path, variant: str) -> Path:
@@ -34,7 +34,9 @@ def find_apk(app_dir: Path, variant: str) -> Path:
     # release: app-release.apk / app-release-unsigned.apk
     # debug:   app-debug.apk
     out = app_dir / "build" / "outputs" / "apk" / variant
-    candidates = sorted(out.glob("*.apk"), key=lambda p: p.stat().st_mtime, reverse=True)
+    candidates = sorted(
+        out.glob("*.apk"), key=lambda p: p.stat().st_mtime, reverse=True
+    )
     if not candidates:
         raise FileNotFoundError(f"APK не найден в {out}")
     return candidates[0]
@@ -52,7 +54,11 @@ def sign_with_apksigner(apk_path: Path) -> Path:
 
     # выбираем самую новую версию build-tools, где есть apksigner
     build_tools_dir = Path(sdk) / "build-tools"
-    bt_versions = [p for p in build_tools_dir.iterdir() if (p / "apksigner").exists() or (p / "apksigner.bat").exists()]
+    bt_versions = [
+        p
+        for p in build_tools_dir.iterdir()
+        if (p / "apksigner").exists() or (p / "apksigner.bat").exists()
+    ]
     if not bt_versions:
         raise RuntimeError("apksigner не найден в build-tools")
     bt = sorted(bt_versions, key=lambda p: p.name)[-1]
@@ -70,16 +76,24 @@ def sign_with_apksigner(apk_path: Path) -> Path:
     shutil.copy2(apk_path, signed_apk)
 
     cmd = [
-        apksigner, "sign",
-        "--ks", ks,
-        "--ks-pass", f"pass:{ks_pass}",
-        "--key-pass", f"pass:{key_pass}",
-        "--ks-key-alias", alias,
-        str(signed_apk)
+        apksigner,
+        "sign",
+        "--ks",
+        ks,
+        "--ks-pass",
+        f"pass:{ks_pass}",
+        "--key-pass",
+        f"pass:{key_pass}",
+        "--ks-key-alias",
+        alias,
+        str(signed_apk),
     ]
     run_cmd(cmd, log_prefix="[apksigner] ")
     # проверка подписи
-    run_cmd([apksigner, "verify", "--print-certs", str(signed_apk)], log_prefix="[apksigner] ")
+    run_cmd(
+        [apksigner, "verify", "--print-certs", str(signed_apk)],
+        log_prefix="[apksigner] ",
+    )
     return signed_apk
 
 
@@ -148,7 +162,9 @@ def process_apk_build(key: str, target_dir: str, android_url: str) -> str:
 
     # Если релиз и файл неподписанный — подпишем
     final_apk = apk
-    if aim_release and ("unsigned" in apk.name.lower() or "-unsigned" in apk.name.lower()):
+    if aim_release and (
+        "unsigned" in apk.name.lower() or "-unsigned" in apk.name.lower()
+    ):
         final_apk = sign_with_apksigner(apk)
 
     # Сохраним/скопируем в понятное место (например ./artifacts/)
@@ -173,22 +189,26 @@ def clone_public_repo(repo_url, target_dir):
             log.info(f"Пытаемся обновить существующий репозиторий в {target_dir}")
 
             # Сбрасываем все локальные изменения
-            subprocess.run(['git', 'reset', '--hard'], cwd=target_dir, check=True)
+            subprocess.run(["git", "reset", "--hard"], cwd=target_dir, check=True)
             # Получаем последние изменения
-            subprocess.run(['git', 'pull', 'origin', 'main'], cwd=target_dir, check=True)
+            subprocess.run(
+                ["git", "pull", "origin", "main"], cwd=target_dir, check=True
+            )
 
             log.info("Репозиторий успешно обновлен через git pull")
             return True
         except subprocess.CalledProcessError:
-            log.warning("Не удалось обновить через git pull, удаляем и клонируем заново")
+            log.warning(
+                "Не удалось обновить через git pull, удаляем и клонируем заново"
+            )
             shutil.rmtree(target_dir)
     try:
         log.info(f"Клонирование репозитория {repo_url} в {target_dir}")
         result = subprocess.run(
-            ['git', 'clone', repo_url, target_dir],
+            ["git", "clone", repo_url, target_dir],
             check=True,
             capture_output=True,
-            text=True
+            text=True,
         )
         log.info("Репозиторий успешно клонирован.")
         return True
@@ -219,19 +239,21 @@ def should_clone_repository(repo_url, target_dir):
         return True
 
     # Проверяем, является ли папка git репозиторием
-    git_dir = os.path.join(target_dir, '.git')
+    git_dir = os.path.join(target_dir, ".git")
     if not os.path.exists(git_dir):
-        log.info(f"Папка {target_dir} не является git репозиторием, требуется клонирование.")
+        log.info(
+            f"Папка {target_dir} не является git репозиторием, требуется клонирование."
+        )
         return True
 
     try:
         # Получаем текущий origin URL репозитория
         result = subprocess.run(
-            ['git', 'config', '--get', 'remote.origin.url'],
+            ["git", "config", "--get", "remote.origin.url"],
             cwd=target_dir,
             capture_output=True,
             text=True,
-            check=True
+            check=True,
         )
         current_url = result.stdout.strip()
 
@@ -240,40 +262,48 @@ def should_clone_repository(repo_url, target_dir):
             """Нормализует URL для сравнения"""
             url = url.lower().strip()
             # Убираем .git в конце если есть
-            if url.endswith('.git'):
+            if url.endswith(".git"):
                 url = url[:-4]
             # Заменяем разные формы записи
-            url = url.replace('https://', '').replace('http://', '').replace('git@', '')
-            url = url.replace('github.com/', 'github.com:')
+            url = url.replace("https://", "").replace("http://", "").replace("git@", "")
+            url = url.replace("github.com/", "github.com:")
             return url
 
         if normalize_url(current_url) != normalize_url(repo_url):
-            log.info(f"Текущий репозиторий отличается от целевого: {current_url} vs {repo_url}")
+            log.info(
+                f"Текущий репозиторий отличается от целевого: {current_url} vs {repo_url}"
+            )
             return True
         try:
             # Получаем последний коммит из удаленного репозитория
-            subprocess.run(['git', 'fetch', 'origin'], cwd=target_dir,
-                           capture_output=True, check=True)
+            subprocess.run(
+                ["git", "fetch", "origin"],
+                cwd=target_dir,
+                capture_output=True,
+                check=True,
+            )
 
             # Сравниваем локальный и удаленный коммит
             local_commit = subprocess.run(
-                ['git', 'rev-parse', 'HEAD'],
+                ["git", "rev-parse", "HEAD"],
                 cwd=target_dir,
                 capture_output=True,
                 text=True,
-                check=True
+                check=True,
             ).stdout.strip()
 
             remote_commit = subprocess.run(
-                ['git', 'rev-parse', 'origin/main'],  # или origin/master
+                ["git", "rev-parse", "origin/main"],  # или origin/master
                 cwd=target_dir,
                 capture_output=True,
                 text=True,
-                check=True
+                check=True,
             ).stdout.strip()
 
             if local_commit != remote_commit:
-                log.info(f"Репозиторий устарел: локальный {local_commit[:8]} != удаленный {remote_commit[:8]}")
+                log.info(
+                    f"Репозиторий устарел: локальный {local_commit[:8]} != удаленный {remote_commit[:8]}"
+                )
                 return True
             else:
                 log.info("Репозиторий актуален")

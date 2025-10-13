@@ -44,13 +44,23 @@ def generate_data_task(cfg: Dict[str, Any]) -> Dict[str, Any]:
     seed = cfg.get("seed")
     send_batch_size = int(cfg.get("chunk_size", 5000))
 
-    writer_task = os.getenv("ESWRITER_TASK_NAME", os.getenv("ES_WRITER_TASK_NAME", "esWriter"))
-    writer_queue = os.getenv("ESWRITER_QUEUE_NAME", os.getenv("ES_WRITER_QUEUE_NAME", "esWriter_queue"))
+    writer_task = os.getenv(
+        "ESWRITER_TASK_NAME", os.getenv("ES_WRITER_TASK_NAME", "esWriter")
+    )
+    writer_queue = os.getenv(
+        "ESWRITER_QUEUE_NAME", os.getenv("ES_WRITER_QUEUE_NAME", "esWriter_queue")
+    )
     es_bulk_chunk = int(os.getenv("ESWRITER_BULK_CHUNK", "2000"))
 
     log.info(
         "Start generation: index=%s mac=%s records=[%s,%s] in_ratio=%s -> ESWriter task=%s queue=%s",
-        index, mac_count, rmin, rmax, in_ratio, writer_task, writer_queue,
+        index,
+        mac_count,
+        rmin,
+        rmax,
+        in_ratio,
+        writer_task,
+        writer_queue,
     )
 
     total_docs = 0
@@ -71,17 +81,29 @@ def generate_data_task(cfg: Dict[str, Any]) -> Dict[str, Any]:
         buf.append(doc)
         total_docs += 1
         if len(buf) >= send_batch_size:
-            app.send_task(writer_task, args=[buf], kwargs={"chunk_size": es_bulk_chunk}, queue=writer_queue)
+            app.send_task(
+                writer_task,
+                args=[buf],
+                kwargs={"chunk_size": es_bulk_chunk},
+                queue=writer_queue,
+            )
             buf = []
 
     if buf:
-        app.send_task(writer_task, args=[buf], kwargs={"chunk_size": es_bulk_chunk}, queue=writer_queue)
+        app.send_task(
+            writer_task,
+            args=[buf],
+            kwargs={"chunk_size": es_bulk_chunk},
+            queue=writer_queue,
+        )
 
     result = {
         "mac_count": mac_count,
         "total_docs": total_docs,
-        "index": index, 
-        "published_batches": max(1, (total_docs + send_batch_size - 1) // send_batch_size)
+        "index": index,
+        "published_batches": max(
+            1, (total_docs + send_batch_size - 1) // send_batch_size
+        ),
     }
     log.info("Generation published to ESWriter: %s", result)
     return result

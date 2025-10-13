@@ -12,8 +12,10 @@ log = get_task_logger(__name__)
 
 android_url = os.getenv("ANDROID_REPO_URL", "")
 
-BROKER_URL = os.getenv('CELERY_BROKER_URL', 'amqp://celery:celerypassword@rabbitmq:5672/')
-celery_client = Celery('apkget_producer', broker=BROKER_URL)
+BROKER_URL = os.getenv(
+    "CELERY_BROKER_URL", "amqp://celery:celerypassword@rabbitmq:5672/"
+)
+celery_client = Celery("apkget_producer", broker=BROKER_URL)
 
 # Глобальная блокировка для клонирования
 clone_lock = threading.Lock()
@@ -22,14 +24,10 @@ is_cloning = False
 
 def send_to_queue(task_name: str, message: Dict[str, Any], queue_name: str):
     """Отправка сообщения в очередь RabbitMQ"""
-    celery_client.send_task(
-        task_name,
-        args=[message],
-        queue=queue_name
-    )
+    celery_client.send_task(task_name, args=[message], queue=queue_name)
 
 
-@app.task(name='apkbuild', queue='apkbuilder')
+@app.task(name="apkbuild", queue="apkbuilder")
 def apk_build_task(messages: Dict[str, Any]):
     global is_cloning
 
@@ -51,6 +49,7 @@ def apk_build_task(messages: Dict[str, Any]):
         if is_cloning:
             log.info("Идет клонирование репозитория, ожидание...")
             import time
+
             time.sleep(5)
             # Перезапускаем задачу через несколько секунд
             apk_build_task.apply_async(args=[messages], countdown=10)
@@ -68,7 +67,11 @@ def apk_build_task(messages: Dict[str, Any]):
                 else:
                     status = "failed"
                     log.error("Ошибка при клонировании репозитория.")
-                    send_to_queue("apkget", {"status":status, "apk_build_id": apk_build_id}, "apkget")
+                    send_to_queue(
+                        "apkget",
+                        {"status": status, "apk_build_id": apk_build_id},
+                        "apkget",
+                    )
                     return "ERROR"
             finally:
                 is_cloning = False
@@ -99,5 +102,9 @@ def apk_build_task(messages: Dict[str, Any]):
     except Exception as e:
         log.exception("Сборка/отправка APK завершилась ошибкой")
         status = "failed"
-        send_to_queue("apkget", {"status": status, "apk_build_id": apk_build_id, "error": str(e)}, "apkget")
+        send_to_queue(
+            "apkget",
+            {"status": status, "apk_build_id": apk_build_id, "error": str(e)},
+            "apkget",
+        )
         return "ERROR"

@@ -20,9 +20,9 @@ android_url = os.getenv("ANDROID_REPO_URL", "")
 TERMINAL_STATUSES = {"success", "failed"}
 
 
-@celery_app.task(name='apkget', queue='apkget')
+@celery_app.task(name="apkget", queue="apkget")
 def apk_get_task(messages: Dict[str, Any]):
-    APKBuild = apps.get_model('apkbuilder', 'APKBuild')
+    APKBuild = apps.get_model("apkbuilder", "APKBuild")
 
     status = messages.get("status")
     build_id = messages.get("apk_build_id")
@@ -42,7 +42,10 @@ def apk_get_task(messages: Dict[str, Any]):
             if status == "success":
                 b64 = messages.get("apk_base64")
                 filename = messages.get("apk_filename") or "app.apk"
-                content_type = messages.get("content_type") or "application/vnd.android.package-archive"
+                content_type = (
+                    messages.get("content_type")
+                    or "application/vnd.android.package-archive"
+                )
 
                 if not b64:
                     log.error("apkget: status=success, но apk_base64 отсутствует")
@@ -55,7 +58,9 @@ def apk_get_task(messages: Dict[str, Any]):
                         # сохраняем файл в FileField (upload_to='apks/')
                         build.apk_file.save(filename, ContentFile(data), save=False)
                         update_fields.append("apk_file")
-                        log.info(f"apkget: APK сохранён в build {build_id} как {filename} ({len(data)} байт)")
+                        log.info(
+                            f"apkget: APK сохранён в build {build_id} как {filename} ({len(data)} байт)"
+                        )
                     except Exception as e:
                         log.exception("apkget: ошибка сохранения APK")
                         status = "failed"

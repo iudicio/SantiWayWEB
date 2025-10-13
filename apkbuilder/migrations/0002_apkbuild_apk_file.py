@@ -6,13 +6,15 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('apkbuilder', '0001_initial'),
+        ("apkbuilder", "0001_initial"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='apkbuild',
-            name='apk_file',
-            field=models.FileField(blank=True, null=True, upload_to='apks/', verbose_name='APK файл'),
+            model_name="apkbuild",
+            name="apk_file",
+            field=models.FileField(
+                blank=True, null=True, upload_to="apks/", verbose_name="APK файл"
+            ),
         ),
     ]

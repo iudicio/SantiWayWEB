@@ -1,6 +1,5 @@
 from django.urls import path
 
-app_name = 'polygons'
+app_name = "polygons"
 
-urlpatterns = [
-]
+urlpatterns = []

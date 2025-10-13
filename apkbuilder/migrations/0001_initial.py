@@ -11,20 +11,59 @@ class Migration(migrations.Migration):
     initial = True
 
     dependencies = [
-        ('users', '0002_alter_user_email_alter_user_username'),
+        ("users", "0002_alter_user_email_alter_user_username"),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
     operations = [
         migrations.CreateModel(
-            name='APKBuild',
+            name="APKBuild",
             fields=[
-                ('id', models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True, serialize=False)),
-                ('created_at', models.DateTimeField(auto_now_add=True, verbose_name='Время создания')),
-                ('completed_at', models.DateTimeField(blank=True, null=True, verbose_name='Время завершения')),
-                ('status', models.CharField(default='pending', max_length=20, verbose_name='Статус сборки')),
-                ('api_key', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='apk_builds', to='users.apikey', verbose_name='API ключ')),
-                ('user', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='apk_builds', to=settings.AUTH_USER_MODEL, verbose_name='Пользователь')),
+                (
+                    "id",
+                    models.UUIDField(
+                        default=uuid.uuid4,
+                        editable=False,
+                        primary_key=True,
+                        serialize=False,
+                    ),
+                ),
+                (
+                    "created_at",
+                    models.DateTimeField(
+                        auto_now_add=True, verbose_name="Время создания"
+                    ),
+                ),
+                (
+                    "completed_at",
+                    models.DateTimeField(
+                        blank=True, null=True, verbose_name="Время завершения"
+                    ),
+                ),
+                (
+                    "status",
+                    models.CharField(
+                        default="pending", max_length=20, verbose_name="Статус сборки"
+                    ),
+                ),
+                (
+                    "api_key",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="apk_builds",
+                        to="users.apikey",
+                        verbose_name="API ключ",
+                    ),
+                ),
+                (
+                    "user",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="apk_builds",
+                        to=settings.AUTH_USER_MODEL,
+                        verbose_name="Пользователь",
+                    ),
+                ),
             ],
         ),
     ]

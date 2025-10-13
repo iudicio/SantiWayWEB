@@ -21,7 +21,10 @@ def ensure_index(es, index: str) -> None:
                 "device_id": {"type": "keyword"},
                 "mac": {"type": "keyword"},
                 "mac_address": {"type": "keyword"},
-                "user_api": {"type": "text", "fields": {"keyword": {"type": "keyword"}}},
+                "user_api": {
+                    "type": "text",
+                    "fields": {"keyword": {"type": "keyword"}},
+                },
                 "location": {"type": "geo_point"},
                 "latitude": {"type": "double"},
                 "longitude": {"type": "double"},
@@ -36,9 +39,9 @@ def ensure_index(es, index: str) -> None:
                 "is_alert": {"type": "boolean"},
                 "is_ignored": {"type": "boolean"},
                 "folder_name": {"type": "keyword"},
-                "system_folder_name": {"type": "keyword"}
+                "system_folder_name": {"type": "keyword"},
             }
-        }
+        },
     }
     es.indices.create(index=index, body=body)
 
@@ -67,7 +70,9 @@ def rand_point_in_polygon(poly: BaseGeometry) -> Point:
     return poly.centroid
 
 
-def rand_point_outside(bounds: Tuple[float, float, float, float], exclude_poly: Optional[BaseGeometry]) -> Point:
+def rand_point_outside(
+    bounds: Tuple[float, float, float, float], exclude_poly: Optional[BaseGeometry]
+) -> Point:
     minx, miny, maxx, maxy = bounds
     w = maxx - minx
     h = maxy - miny
@@ -81,8 +86,16 @@ def rand_point_outside(bounds: Tuple[float, float, float, float], exclude_poly: 
     return Point(emaxx, emaxy)
 
 
-def make_doc(mac: str, device_id: str, point: Point, ts: datetime, inside: bool,
-             polygon_id: Optional[str], test_tag: str, user_api_value: Optional[str]) -> Dict[str, Any]:
+def make_doc(
+    mac: str,
+    device_id: str,
+    point: Point,
+    ts: datetime,
+    inside: bool,
+    polygon_id: Optional[str],
+    test_tag: str,
+    user_api_value: Optional[str],
+) -> Dict[str, Any]:
     lat, lon = float(point.y), float(point.x)
     network = random.choice(["WiFi", "Bluetooth", "Cellular"])
     base = {
@@ -149,7 +162,7 @@ def generate_and_index(
         if polygon_bbox:
             bounds = polygon_bbox
         else:
-            bounds = (37.4, 55.5, 37.9, 55.9) 
+            bounds = (37.4, 55.5, 37.9, 55.9)
 
     macs = [gen_mac() for _ in range(mac_count)]
 
@@ -165,26 +178,44 @@ def generate_and_index(
         for _ in range(inside_n):
             pt = rand_point_in_polygon(target_polygon)
             ts = rand_ts(days_back)
-            doc = make_doc(mac, device_id, pt, ts, True,
-                           polygon_geojson.get("id") if polygon_geojson else None, tag, user_api_value)
+            doc = make_doc(
+                mac,
+                device_id,
+                pt,
+                ts,
+                True,
+                polygon_geojson.get("id") if polygon_geojson else None,
+                tag,
+                user_api_value,
+            )
             buf.append({"_index": index, "_source": doc})
 
         for _ in range(outside_n):
             pt = rand_point_outside(bounds, target_polygon)
             ts = rand_ts(days_back)
-            doc = make_doc(mac, device_id, pt, ts, False,
-                           polygon_geojson.get("id") if polygon_geojson else None, tag, user_api_value)
+            doc = make_doc(
+                mac,
+                device_id,
+                pt,
+                ts,
+                False,
+                polygon_geojson.get("id") if polygon_geojson else None,
+                tag,
+                user_api_value,
+            )
             buf.append({"_index": index, "_source": doc})
 
         total_docs += n
 
         if len(buf) >= chunk_size:
             from elasticsearch.helpers import bulk
+
             bulk(es, buf, raise_on_error=False, request_timeout=180)
             buf.clear()
 
     if buf:
         from elasticsearch.helpers import bulk
+
         bulk(es, buf, raise_on_error=False, request_timeout=180)
 
     return {"mac_count": mac_count, "total_docs": total_docs, "index": index}
@@ -230,16 +261,26 @@ def iter_docs(
             pt = rand_point_in_polygon(target_polygon)
             ts = rand_ts(days_back)
             yield make_doc(
-                mac, device_id, pt, ts, True,
+                mac,
+                device_id,
+                pt,
+                ts,
+                True,
                 polygon_geojson.get("id") if polygon_geojson else None,
-                tag, user_api_value,
+                tag,
+                user_api_value,
             )
 
         for _ in range(outside_n):
             pt = rand_point_outside(bounds, target_polygon)
             ts = rand_ts(days_back)
             yield make_doc(
-                mac, device_id, pt, ts, False,
+                mac,
+                device_id,
+                pt,
+                ts,
+                False,
                 polygon_geojson.get("id") if polygon_geojson else None,
-                tag, user_api_value,
+                tag,
+                user_api_value,
             )

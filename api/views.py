@@ -19,10 +19,10 @@ ES_HOST = getattr(settings, "ELASTICSEARCH_DSN", getenv("ES_URL", None))
 ES_USER = getenv("ES_USER", None)
 ES_PASSWORD = getenv("ES_PASSWORD", None)
 
-BROKER_URL = getenv('CELERY_BROKER_URL', "amqp://celery:celerypassword@rabbitmq:5672//")
+BROKER_URL = getenv("CELERY_BROKER_URL", "amqp://celery:celerypassword@rabbitmq:5672//")
 BACKEND = getenv("CELERY_RESULT_BACKEND", "redis://:strongpassword@redis:6379/0")
 
-celery_client = Celery('producer', broker=BROKER_URL, backend=BACKEND)
+celery_client = Celery("producer", broker=BROKER_URL, backend=BACKEND)
 
 print("PRODUCER broker:", celery_client.connection().as_uri())
 print("PRODUCER backend:", celery_client.backend.as_uri())
@@ -47,9 +47,12 @@ class DeviceViewSet(viewsets.ViewSet):
             try:
                 es = Elasticsearch(hosts=ES_HOST)
             except Exception as e:
-                return Response({"error": f"Elasticsearch init failed: {e}"}, status=status.HTTP_502_BAD_GATEWAY)
+                return Response(
+                    {"error": f"Elasticsearch init failed: {e}"},
+                    status=status.HTTP_502_BAD_GATEWAY,
+                )
         must_filters = []
-        
+
         for field, value in request.query_params.items():
             # Диапазоны (например: ?timestamp__gte=2025-01-01T00:00:00)
             if "__" in field:
@@ -65,15 +68,25 @@ class DeviceViewSet(viewsets.ViewSet):
                 # Обычный term-фильтр
                 must_filters.append({"term": {field: value}})
 
-        query = {"query": {"bool": {"filter": must_filters}}} if must_filters else {"query": {"match_all": {}}}
+        query = (
+            {"query": {"bool": {"filter": must_filters}}}
+            if must_filters
+            else {"query": {"match_all": {}}}
+        )
         try:
             if es is None:
-                return Response({"error": "Elasticsearch is not configured"}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+                return Response(
+                    {"error": "Elasticsearch is not configured"},
+                    status=status.HTTP_503_SERVICE_UNAVAILABLE,
+                )
             res = es.search(index="way", body=query, size=100)
         except NotFoundError:
             return Response([], status=status.HTTP_200_OK)
         except Exception as e:
-            return Response({"error": f"Elasticsearch query failed: {e}"}, status=status.HTTP_502_BAD_GATEWAY)
+            return Response(
+                {"error": f"Elasticsearch query failed: {e}"},
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
 
         return Response([hit["_source"] for hit in res["hits"]["hits"]])
 
@@ -81,9 +94,10 @@ class DeviceViewSet(viewsets.ViewSet):
         global celery_client
         data = request.data
 
-        celery_client.send_task('vendor', args=[data], queue='vendor_queue')
-        return Response({'status': 'queued'}, status=status.HTTP_202_ACCEPTED)
-    
+        celery_client.send_task("vendor", args=[data], queue="vendor_queue")
+        return Response({"status": "queued"}, status=status.HTTP_202_ACCEPTED)
+
+
 class WayAPIView(APIView):
     authentication_classes = [SessionAuthentication]
     permission_classes = [IsAuthenticated]
@@ -94,11 +108,10 @@ class WayAPIView(APIView):
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
         if not data.get("devices"):
-            result = celery_client.send_task('devices', args=[data], queue="info_queue")
+            result = celery_client.send_task("devices", args=[data], queue="info_queue")
         else:
-            result = celery_client.send_task('folders', args=[data], queue="info_queue")
+            result = celery_client.send_task("folders", args=[data], queue="info_queue")
         print("Ждем ответ")
         response = result.get(timeout=5)
         print("Ответ: ", response)
         return Response(response)
-    
