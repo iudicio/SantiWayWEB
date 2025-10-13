@@ -37,7 +37,6 @@ Password: admin
 2. Регистрируемся и нас сразу логинит в аккаунт
 3. Жмем кнопку New Key, вводим какое хотим имя и создаем ключ
 ## Поздравляем! Вы создали свой первый Api-Key!
-Теперь научимся делать запросы к Api с помощью Api-key
 
 # 2. Запросы к Api для получений APK файлов
 Отправляем POST запрос на эндпоинт ```http://localhost/api/apk/build/```:
@@ -175,6 +174,7 @@ except Exception:
 # 4. Получение устройств из Elasticsearch
 Авторизированный (по Api-Key) ```GET``` запрос на ```http://localhost/api/devices/``` (допускаются фильтры)
 Пример:
+
 ```
 import requests
 import json
@@ -194,6 +194,26 @@ except Exception:
     print("Response text:", response.text)
 ```
 
+Пример с фильтрами:
+
+```
+import requests
+import json
+
+URL = "http://localhost/api/devices/?is_alert=true"
+HEADERS = {
+    "Content-Type": "application/json",
+    "Authorization": "Api-Key c8c65d46-2ccb-46a2-9c7d-6329614459ed",
+}
+
+response = requests.get(URL, headers=HEADERS)
+
+print("Status code:", response.status_code)
+try:
+    print("Response:", response.json())
+except Exception:
+    print("Response text:", response.text)
+```
 В результате вернется 200 код и json со списком устройств, соответствующих фильтрам в формате:
 
 ```
