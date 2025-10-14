@@ -4,22 +4,57 @@ document.addEventListener("DOMContentLoaded", () => {
   const openModalBtn = document.getElementById('openModalBtn');
   const timeToCheck = 20000; // Запрос к серверу каждые 20 секунд
   let firstAlert = true;
+  const APK_URL = "http://127.0.0.1/api/apk/build/";
+  const API_URL = "/api/api-key/";
 
 
   // Вешаем фукнцияю создания апи ключа на кнопку
   if (openModalBtn) {
     openModalBtn.addEventListener('click', function () {
       // Используем prompt для ввода названия ключа
-      const keyName = prompt('Enter a name for your new API key:', 'My API Key');
+      let modal = showModal({
+        title: "Создание API-ключа",
+        body: `
+          <div class="form-group">
+            <label for="apiName">Название API-ключа:</label>
+            <input type="text" id="apiName" placeholder="Введите название API-ключа" value="My API Key">
+            <div class="error" id="apiError"></div>
+          </div>
+        `,
+        footer: "<button class='btn-primary'>Создать</button>",
+        onOpen: (overlay) => {
+          const apiName = overlay.querySelector('#apiName');
+          const error = overlay.querySelector('#apiError');
+          const btnOk = overlay.querySelector('.btn-primary');
 
-      // Если пользователь не отменил ввод и ввел не пустую строку
-      if (keyName !== null && keyName.trim() !== '') {
-        // Здесь можно отправить запрос на сервер для создания ключа
-        createApiKey(keyName.trim());
-      } else if (keyName !== null) {
-        // Если введена пустая строка
-        alert('Please enter a valid name for the API key.');
-      }
+          apiName.focus();
+          apiName.select();
+
+          // Реакция на ввод
+          apiName.addEventListener('input', () => {
+            if (apiName.value.trim()) {
+              error.textContent = '';
+              btnOk.disabled = false;
+            } else {
+              error.textContent = 'Поле не может быть пустым';
+              btnOk.disabled = true;
+            }
+          });
+
+          apiName.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+              btnOk.click();
+            }
+          });
+
+          // Обработчики кнопок
+          btnOk.addEventListener('click', () => {
+            if (!apiName.value.trim()) return (error.textContent = 'Поле не может быть пустым');
+            createApiKey(apiName.value.trim())
+            modal.close();
+          });
+        }
+      })
     });
   }
 
@@ -39,7 +74,7 @@ document.addEventListener("DOMContentLoaded", () => {
     console.log('Creating API key with name:', name);
 
     // Отправляем POST запрос на сервер
-    fetch('/api/api-key/', {
+    fetch(API_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -57,7 +92,15 @@ document.addEventListener("DOMContentLoaded", () => {
       })
       .then(data => {
         // Показываем пользователю созданный API ключ
-        alert(`API key created successfully!\n\nDevice: ${data.device_name}\nAPI Key: ${data.api_key}\n\nPlease save this key - it won't be shown again!`);
+         showModal({
+          title: "API-ключ успешно создан!",
+          body: `
+            <div class="modal-info">
+              <p><strong>Device:</strong> ${data.device_name}</p>
+              <p><strong>API-ключ:</strong> <span class="mono">${data.api_key}</span></p>
+            </div>
+          `,
+        });
         console.log("Data: ", data);
         addNewDeviceRow(data.device_name, data.api_key, data.key_id);
       })
@@ -238,7 +281,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // Запрос на сборку APK на сревер
   async function startAPKBuild(apiKey) {
     try {
-      const response = await fetch("http://localhost/api/apk/build/", {
+      const response = await fetch(`${APK_URL}`, {
         method: "POST",
         headers: {
           "Authorization": `Api-Key ${apiKey}`,
@@ -274,7 +317,7 @@ document.addEventListener("DOMContentLoaded", () => {
  */
   async function checkBuildStatus(apiKey) {
     try {
-      const response = await fetch("http://localhost/api/apk/build/", {
+      const response = await fetch(APK_URL, {
         method: "GET",
         headers: {
           "Authorization": `Api-Key ${apiKey}`,
@@ -331,7 +374,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // Функция для загрузки APK при клике на кнопку
   async function downloadAPK(apiKey) {
     try {
-      const response = await fetch("http://localhost/api/apk/build/?action=download", {
+      const response = await fetch(`${APK_URL}?action=download`, {
         method: "GET",
         headers: {
           "Authorization": `Api-Key ${apiKey}`,
