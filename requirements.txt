@@ -16,3 +16,4 @@ drf-spectacular[sidecar]>=0.27
 geopy>=2.3.0
 shapely>=2.0.0
 pyproj>=3.6.0
+whitenoise==6.6.0
