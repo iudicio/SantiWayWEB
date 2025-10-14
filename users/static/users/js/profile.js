@@ -46,22 +46,57 @@ document.addEventListener("DOMContentLoaded", () => {
   const openModalBtn = document.getElementById('openModalBtn');
   const timeToCheck = 20000; // Запрос к серверу каждые 20 секунд
   let firstAlert = true;
+  const APK_URL = "http://127.0.0.1/api/apk/build/";
+  const API_URL = "/api/api-key/";
 
 
   // Вешаем фукнцияю создания апи ключа на кнопку
   if (openModalBtn) {
     openModalBtn.addEventListener('click', function () {
       // Используем prompt для ввода названия ключа
-      const keyName = prompt('Enter a name for your new API key:', 'My API Key');
+      let modal = showModal({
+        title: "Создание API-ключа",
+        body: `
+          <div class="form-group">
+            <label for="apiName">Название API-ключа:</label>
+            <input type="text" id="apiName" placeholder="Введите название API-ключа" value="My API Key">
+            <div class="error" id="apiError"></div>
+          </div>
+        `,
+        footer: "<button class='btn-primary'>Создать</button>",
+        onOpen: (overlay) => {
+          const apiName = overlay.querySelector('#apiName');
+          const error = overlay.querySelector('#apiError');
+          const btnOk = overlay.querySelector('.btn-primary');
 
-      // Если пользователь не отменил ввод и ввел не пустую строку
-      if (keyName !== null && keyName.trim() !== '') {
-        // Здесь можно отправить запрос на сервер для создания ключа
-        createApiKey(keyName.trim());
-      } else if (keyName !== null) {
-        // Если введена пустая строка
-        alert('Please enter a valid name for the API key.');
-      }
+          apiName.focus();
+          apiName.select();
+
+          // Реакция на ввод
+          apiName.addEventListener('input', () => {
+            if (apiName.value.trim()) {
+              error.textContent = '';
+              btnOk.disabled = false;
+            } else {
+              error.textContent = 'Поле не может быть пустым';
+              btnOk.disabled = true;
+            }
+          });
+
+          apiName.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+              btnOk.click();
+            }
+          });
+
+          // Обработчики кнопок
+          btnOk.addEventListener('click', () => {
+            if (!apiName.value.trim()) return (error.textContent = 'Поле не может быть пустым');
+            createApiKey(apiName.value.trim())
+            modal.close();
+          });
+        }
+      })
     });
   }
 
@@ -81,7 +116,7 @@ document.addEventListener("DOMContentLoaded", () => {
     console.log('Creating API key with name:', name);
 
     // Отправляем POST запрос на сервер
-    fetch('/api/api-key/', {
+    fetch(API_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -99,9 +134,17 @@ document.addEventListener("DOMContentLoaded", () => {
       })
       .then(data => {
         // Показываем пользователю созданный API ключ
-        alert(`API key created successfully!\n\nDevice: ${data.device_name}\nAPI Key: ${data.api_key}\n\nPlease save this key - it won't be shown again!`);
+         showModal({
+          title: "API-ключ успешно создан!",
+          body: `
+            <div class="modal-info">
+              <p><strong>Device:</strong> ${data.device_name}</p>
+              <p><strong>API-ключ:</strong> <span class="mono">${data.api_key}</span></p>
+            </div>
+          `,
+        });
         console.log("Data: ", data);
-        addNewDeviceRow(data.device_name, data.api_key, data.device_id);
+        addNewDeviceRow(data.device_name, data.api_key, data.key_id);
       })
       .catch(error => {
         console.error('Error:', error);
@@ -144,7 +187,7 @@ document.addEventListener("DOMContentLoaded", () => {
     apkBtn.textContent = 'Собрать APK';
     apkBtn.dataset.deviceId = deviceId;
     apkBtn.setAttribute("data-status", STATUSES.order);
-    apkBtn.setAttribute("api-key", apiKey);
+    apkBtn.setAttribute("data-api-key", apiKey);
     tdApk.appendChild(apkBtn);
     apkBtn.addEventListener("click", () => { changeAPKButtonState(apkBtn) });
 
@@ -166,14 +209,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Добавляем в таблицу
     tbody.appendChild(tr);
-    //    NOTE: временное решение, тк при создании api-ключа id, по которому он потом удаляется не возвращается api
-    location.reload();
   }
 // Анимация для копирования APIключа
   function copyApiKeyAnimation(element) {
     const original = element.textContent;
     element.textContent = 'Скопировано!';
-    const key = element.textContent.trim();
     navigator.clipboard.writeText(original).then(() => {
       element.classList.add("copied");
       setTimeout(() => element.classList.remove("copied"), 1500);
@@ -195,8 +235,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Функция для здаания начальных статусов APK кнопок
   async function prepareButton(button) {
-    const apiKey = button.getAttribute("api-key");
-    const row = button.closest("tr");
+    const apiKey = button.getAttribute("data-api-key");
 
     // Показываем временный "лоадер" пока идёт запрос
     setButtonLoading(button, "Проверяем статус");
@@ -204,7 +243,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (status === "pending") {
       updateButton(button, "На сборке", STATUSES.create);
-      pollBuildStatus(apiKey, button, row);
+      pollBuildStatus(apiKey, button);
     } else if (status === "success") {
       updateButton(button, "Скачать APK", STATUSES.ready);
     } else if (status === "failed") {
@@ -219,9 +258,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
 // Функция для изменения статусов APK кнопок при нажатии
   async function changeAPKButtonState(button) {
-    const apiKey = button.getAttribute("api-key");
+    const apiKey = button.getAttribute("data-api-key");
     let btnStatus = button.getAttribute("data-status");
-    let row = button.closest("tr");
 
     if (btnStatus === STATUSES.order || btnStatus === STATUSES.failed) {
       // Старт сборки
@@ -229,7 +267,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (buildData?.apk_build_id) {
         updateButton(button, "На сборке", STATUSES.create);
         // Запускаем опрос статуса
-        pollBuildStatus(apiKey, button, row);
+        pollBuildStatus(apiKey, button);
       }
     } else if (btnStatus === STATUSES.create) {
       // Ручная проверка статуса сборки
@@ -265,7 +303,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         setTimeout(() => {
           button.disabled = false;
-          pollBuildStatus(apiKey, button, row);
+          pollBuildStatus(apiKey, button);
         }, 4000);
 
       }
@@ -285,7 +323,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // Запрос на сборку APK на сревер
   async function startAPKBuild(apiKey) {
     try {
-      const response = await fetch("http://localhost/api/apk/build/", {
+      const response = await fetch(`${APK_URL}`, {
         method: "POST",
         headers: {
           "Authorization": `Api-Key ${apiKey}`,
@@ -321,7 +359,7 @@ document.addEventListener("DOMContentLoaded", () => {
  */
   async function checkBuildStatus(apiKey) {
     try {
-      const response = await fetch("http://localhost/api/apk/build/", {
+      const response = await fetch(APK_URL, {
         method: "GET",
         headers: {
           "Authorization": `Api-Key ${apiKey}`,
@@ -350,7 +388,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // Автоматический опрос каждые N секунд
-  function pollBuildStatus(apiKey, button, row) {
+  function pollBuildStatus(apiKey, button) {
     if (button._pollInterval) {
       clearInterval(button._pollInterval);
     }
@@ -378,7 +416,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // Функция для загрузки APK при клике на кнопку
   async function downloadAPK(apiKey) {
     try {
-      const response = await fetch("http://localhost/api/apk/build/?action=download", {
+      const response = await fetch(`${APK_URL}?action=download`, {
         method: "GET",
         headers: {
           "Authorization": `Api-Key ${apiKey}`,
@@ -439,7 +477,7 @@ function deleteDevice(deviceId, deviceName) {
       .then(response => {
         if (response.ok) {
           alert('Device deleted successfully!');
-          location.reload();
+          removeApiKeyFromTable(deviceId)
         } else {
           throw new Error('Failed to delete device');
         }
@@ -449,6 +487,12 @@ function deleteDevice(deviceId, deviceName) {
         alert('Error deleting device');
       });
   }
+}
+
+// Удаление строки из таблицы
+function removeApiKeyFromTable(deviceId){
+  const row = document.querySelector(`[data-device-id="${deviceId}"]`).closest("tr");
+  row.remove()
 }
 
 // Вспомогательная функция для получения CSRF токена

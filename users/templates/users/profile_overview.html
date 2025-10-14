@@ -5,11 +5,14 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <!-- Основные стили -->
-  <link rel="stylesheet" href="{% static 'users/css/main.css' %}">
+  <link rel="stylesheet" href="{% static '/css/main.css' %}">
   <link rel="stylesheet" href="{% static 'users/css/profile.css' %}">
+  <link rel="stylesheet" href="{% static 'users/css/modal.css' %}">
 
+
+  <script src="{% static 'users/js/modal.js' %}"></script>
   <script src="{% static 'users/js/profile.js' %}"></script>
-  <script src="{% static 'users/js/background.js' %}"></script>
+  <script src="{% static '/js/background.js' %}"></script>
 
   <title>Profile & API Keys</title>
 </head>
@@ -337,13 +340,13 @@
               <!-- Api ключи -->
               {% for device in devices %}
               <tr>
-                  <td>{{ device.name }}</td>
+                  <td data-device-id="{{ device.id }}">{{ device.name }}</td>
                 <td>
                   <p class="mono text-center">{{ device.api_key.key }}</p>
                 </td>
                 <td class="text-center">{{ device.api_key.created_at|date:"Y-m-d" }}</td>
                 <td class="text-center">
-                  <button class="apk-btn btn-primary" data-status="order" api-key="{{ device.api_key.key }}" data-device-id="{{ device.id }}">
+                  <button class="apk-btn btn-primary" data-status="order" data-api-key="{{ device.api_key.key }}">
                     Собрать APK
                   </button>
                 </td>
