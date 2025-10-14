@@ -1,10 +1,11 @@
 # celery_app.py
-import os
+from os import getenv
 from celery import Celery
 
-broker = os.getenv("CELERY_BROKER_URL", "amqp://guest:guest@rabbitmq:5672//")
+broker = getenv("CELERY_BROKER_URL", "amqp://celery:celerypassword@rabbitmq:5672//")
+backend = getenv("BACKEND_URL", "redis://:strongpassword@redis:6379/0")
 
-app = Celery("esWriter", broker=broker)
+app = Celery("userInfo", broker=broker, backend=backend)
 
 app.conf.update(
     task_serializer="json",

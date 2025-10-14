@@ -3,9 +3,9 @@ networks:
     external: true
     name: app-network
 services:
-  worker:
+  userinfo:
     build: .
-    container_name: vendor
+    container_name: userInfo
     networks: [appnet]
     env_file:
       - .env

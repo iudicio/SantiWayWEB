@@ -16,6 +16,7 @@
 <body>
   <!-- Canvas background -->
   <canvas id="network-canvas"></canvas>
+<<<<<<< HEAD
 
   <!-- NAV-->
   <nav class="navbar">
@@ -26,6 +27,18 @@
     </div>
   </nav>
 
+=======
+
+  <!-- NAV-->
+  <nav class="navbar">
+    <div class="nav-actions">
+      <a href="{% url 'interface:dashboard' %}" class="nav-link">Дашборд</a>
+      <a href="#" class="nav-link active">Профиль / API</a>
+      <a class="nav-link logout-link" href="{% url 'users:logout' %}">Выйти</a>
+    </div>
+  </nav>
+
+>>>>>>> origin/dev
   <main class="main">
     <!--  Левая панель - профиль -->
     <section class="sidebar">
@@ -36,6 +49,7 @@
           <label for="username">Имя</label>
           <input type="text" id="username" name="full_name" value="{{ user.get_full_name|default:user.username }}">
         </div>
+<<<<<<< HEAD
 
         <div class="form-group">
           <label>Email-адреса</label>
@@ -127,51 +141,35 @@
                     alert('Failed to copy API key');
                 });
         }
+=======
+>>>>>>> origin/dev
 
-        // Функция для удаления устройства
-        function deleteDevice(deviceId, deviceName) {
-            if (confirm(`Are you sure you want to delete the device "${deviceName}"?`)) {
-                fetch(`/api/api-key/${deviceId}/`, {
-                    method: 'DELETE',
-                    headers: {
-                        'X-CSRFToken': getCookie('csrftoken')
-                    }
-                })
-                .then(response => {
-                    if (response.ok) {
-                        alert('Device deleted successfully!');
-                        location.reload();
-                    } else {
-                        throw new Error('Failed to delete device');
-                    }
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    alert('Error deleting device');
-                });
-            }
-        }
+        <div class="form-group">
+          <label>Email-адреса</label>
+          <div class="email-list">
+            <div class="email-badge">
+              {{ user.email }} (Primary)
+              <button type="button" class="remove-btn">&#10005;</button>
+            </div>
+          </div>
+          <div class="email-actions">
+            <button type="button" class="btn-link" id="addEmailBtn">+ Добавить Email</button>
+          </div>
+        </div>
 
-        // Вспомогательная функция для получения CSRF токена
-        function getCookie(name) {
-            let cookieValue = null;
-            if (document.cookie && document.cookie !== '') {
-                const cookies = document.cookie.split(';');
-                for (let i = 0; i < cookies.length; i++) {
-                    const cookie = cookies[i].trim();
-                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                        break;
-                    }
-                }
-            }
-            return cookieValue;
-        }
+        <div class="form-group">
+          <label>Пароль</label>
+          <input type="password" value="••••••••" disabled>
+          <div><button type="button" class="btn-link" id="changePasswordBtn">Сменить пароль</button></div>
+        </div>
 
-        document.addEventListener('DOMContentLoaded', function() {
-            // Обработчик для кнопки "New Key"
-            const openModalBtn = document.getElementById('openModalBtn');
+        <div class="form-actions">
+          <button type="submit" class="btn-primary">Сохранить изменения</button>
+        </div>
+      </form>
+    </section>
 
+<<<<<<< HEAD
             if (openModalBtn) {
                 openModalBtn.addEventListener('click', function() {
                     // Используем prompt для ввода названия ключа
@@ -314,5 +312,58 @@
             }
         });
     </script>
+=======
+    <!-- Правая часть - API ключи -->
+    <section class="content">
+      <h2 class="section-title">API Ключи</h2>
+      <div class="card">
+        <div class="card-header">
+          <span class="text-muted">Ваши ключи</span>
+          <button class="btn-primary" id="openModalBtn">+ Создать ключ</button>
+        </div>
+        <div class="table-container">
+          <!-- Таблица -->
+          <table class="table" id="devicesTable">
+            <thead>
+              <tr>
+                <th>Название</th>
+                <th class="text-center">API Ключ</th>
+                <th class="text-center">Дата создания</th>
+                <th class="text-center">APK</th>
+                <th class="delete-column"></th>
+              </tr>
+            </thead>
+            <tbody>
+              <!-- Api ключи -->
+              {% for device in devices %}
+              <tr>
+                  <td>{{ device.name }}</td>
+                <td>
+                  <p class="mono text-center">{{ device.api_key.key }}</p>
+                </td>
+                <td class="text-center">{{ device.api_key.created_at|date:"Y-m-d" }}</td>
+                <td class="text-center">
+                  <button class="apk-btn btn-primary" data-status="order" api-key="{{ device.api_key.key }}" data-device-id="{{ device.id }}">
+                    Собрать APK
+                  </button>
+                </td>
+                <td class="delete-column">
+                  <button class="remove-btn delete-btn" title="Delete" onclick="deleteDevice('{{ device.id }}', '{{ device.name }}')">
+                    &#10005;
+                  </button>
+                </td>
+              </tr>
+              {% empty %}
+              <tr>
+                <td colspan="5" class="text-center text-muted">Нет созданных API ключей</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  </main>
+>>>>>>> origin/dev
 </body>
 </html>

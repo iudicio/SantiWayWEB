@@ -2,11 +2,15 @@ networks:
   appnet:
     external: true
     name: app-network
+
 services:
-  worker:
+  polygon-data-gen:
     build: .
-    container_name: vendor
+    container_name: polygon-data-gen
     networks: [appnet]
     env_file:
       - .env
     restart: unless-stopped
+    deploy:
+      replicas: 1
+
