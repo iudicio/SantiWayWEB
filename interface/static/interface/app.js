@@ -509,6 +509,7 @@ function renderPolygons(rows, colors){
           on('.js-action-start',  (id) => window.startMonitoring && window.startMonitoring(String(id)));
           on('.js-action-stop',   (id) => window.stopMonitoring && window.stopMonitoring(String(id)));
           on('.js-action-status', (id) => window.checkMonitoringStatus && window.checkMonitoringStatus(String(id)));
+          on('.js-delete-polygon', (id) => window.deletePolygon && window.deletePolygon(String(id)));
         } catch(e){ console.warn('popupopen binding error', e); }
       });
       poly.addTo(polygonsLayer);
@@ -717,6 +718,78 @@ window.checkMonitoringStatus = async function checkMonitoringStatus(polygonId) {
     console.error('Ошибка проверки статуса мониторинга:', error);
     notifications.error(`Ошибка проверки статуса: ${error.message}`);
   }
+}
+
+window.deletePolygon = async function deletePolygon(polygonId) {
+  try {
+    const response = await fetch(`${API_POLYGONS_URL}${polygonId}/`, {
+      method: 'DELETE',
+      headers: {
+        'Accept': 'application/json',
+        'Authorization': `Api-Key ${state.apiKey}`
+      }
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || errorData.detail || `HTTP ${response.status}`);
+    }
+    
+    delete state.colorForPolygon[polygonId];
+    
+    await reload();
+    
+    notifications.success(`Полигон успешно удалён`, 'Удаление завершено');
+    
+  } catch (error) {
+    console.error('Ошибка удаления полигона:', error);
+    notifications.error(`Ошибка удаления полигона: ${error.message}`);
+  }
+}
+
+// Получение цветов для всех полигонов
+async function getAllPolygonsColor(polygons) {
+  const colorForPolygon = {}; // локальный словарь
+
+  for (const p of polygons) {
+    try {
+      const res = await fetch(`${API_POLYGONS_URL}${p.id}/monitoring_status/`, {
+        headers: {
+          'Accept': 'application/json',
+          'Authorization': `Api-Key ${state.apiKey}`
+        }
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        console.log(`Status: ${data.monitoring_status}`)
+        switch (data.monitoring_status) {
+          case 'running': colorForPolygon[p.id] = POLYGON_COLORS.RUNNING; break;
+          case 'stopped': colorForPolygon[p.id] = POLYGON_COLORS.STOPPED; break;
+          case 'completed': colorForPolygon[p.id] = POLYGON_COLORS.COMPLETED; break;
+          default: colorForPolygon[p.id] = POLYGON_COLORS.DEFAULT;
+        }
+      } else {
+        colorForPolygon[p.id] = POLYGON_COLORS.DEFAULT;
+      }
+    } catch {
+      colorForPolygon[p.id] = POLYGON_COLORS.DEFAULT;
+    }
+  }
+  return colorForPolygon;
+}
+
+// Меняет цвет полигона на карте и в colorForPolygon по его ID
+function changePolygonColor(id, newColor= POLYGON_COLORS.DEFAULT){
+  state.colorForPolygon[id] = newColor;
+  let poly = polygonsLayer.getLayers().find(p => p.options._pid == id);
+    if (poly) {
+      poly.setStyle({
+        color: newColor,
+        fillColor: newColor,
+        fillOpacity: 0.15
+      });
+    }
 }
 
 // Объявляем переменную для менеджера уведомлений
