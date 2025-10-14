@@ -1,0 +1,32 @@
+PostgreSQL:
+  Host: {{ include "santiway.fullname" . }}-postgres.{{ .Release.Namespace }}.svc
+  Port: {{ .Values.postgresql.service.port }}
+  DB:   {{ .Values.postgresql.auth.database }}
+  User: {{ .Values.postgresql.auth.username }}
+  Pass: (kubectl get secret {{ include "santiway.fullname" . }}-postgres -n {{ .Release.Namespace }} -o jsonpath='{.data.password}' | base64 -d)
+
+RabbitMQ:
+  AMQP: amqp://<user>:<pass>@{{ include "santiway.fullname" . }}-rabbit.{{ .Release.Namespace }}.svc:{{ .Values.rabbitmq.service.amqpPort }}/
+  Mgmt: http://{{ include "santiway.fullname" . }}-rabbit.{{ .Release.Namespace }}.svc:{{ .Values.rabbitmq.service.managementPort }}
+  User: {{ .Values.rabbitmq.auth.username }}
+  Pass: (kubectl get secret {{ include "santiway.fullname" . }}-rabbit -n {{ .Release.Namespace }} -o jsonpath='{.data.password}' | base64 -d)
+
+Quick checks:
+  kubectl -n {{ .Release.Namespace }} get pods
+  kubectl -n {{ .Release.Namespace }} get svc
+  kubectl -n {{ .Release.Namespace }} get pvc
+
+Port-forward (локалка):
+  kubectl -n {{ .Release.Namespace }} port-forward svc/{{ include "santiway.fullname" . }}-postgres 5432:{{ .Values.postgresql.service.port }}
+  kubectl -n {{ .Release.Namespace }} port-forward svc/{{ include "santiway.fullname" . }}-rabbit   5672:{{ .Values.rabbitmq.service.amqpPort }} 15672:{{ .Values.rabbitmq.service.managementPort }}
+
+helm template santiway ./deploy/helm \
+  -n santiway \
+  -f deploy/helm/values.yaml \
+  --kube-context docker-desktop \
+  --debug
+
+# сразу удалить старый RS(пример)
+kubectl -n santiway delete rs vendor-666b66f9dd
+
+kubectl -n santiway get pods -o wide

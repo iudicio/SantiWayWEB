@@ -33,15 +33,15 @@ spec:
           image: "{{ .Values.images.eswriter.repository }}:{{ .Values.images.eswriter.tag }}"
           imagePullPolicy: {{ default "IfNotPresent" .Values.images.eswriter.pullPolicy }}
 
-          {{- with .Values.eswriter.command }}
-          command:
-            {{- toYaml . | nindent 12 }}
-          {{- end }}
-
-          {{- with .Values.eswriter.args }}
+          command: ["sh","-c"]
           args:
-            {{- toYaml . | nindent 12 }}
-          {{- end }}
+            - >
+              export CELERY_BROKER_URL="amqp://${RABBITMQ_USER}:${RABBITMQ_PASS}@{{ include "santiway.fullname" . }}-rabbit.{{ .Release.Namespace }}.svc:{{ .Values.rabbitmq.service.amqpPort }}/";
+              celery -A celery_app worker
+              -Q "$CELERY_C_QUEUE_NAME"
+              -n "$CELERY_CONSUMER_NAME"
+              -c 1
+              -l "$CELERY_LOG_LEVEL"
 
           # У воркера обычно нет входящих портов. Оставлено на случай метрик:
           {{- with .Values.eswriter.ports }}
@@ -50,34 +50,28 @@ spec:
           {{- end }}
 
           # Обязательные/общие переменные окружения
+          envFrom:
+            - configMapRef:
+                name: {{ include "santiway.fullname" . }}-eswriter-env
+            # Secret подключаем только если он реально есть и непустой
+            {{- if and (hasKey .Values.eswriter "secrets") (gt (len .Values.eswriter.secrets) 0) }}
+            - secretRef:
+                name: {{ include "santiway.fullname" . }}-eswriter-secret
+            {{- end }}
+
+          # broker собираем из секрета rabbitmq (не зависим от .env)
           env:
-            - name: RABBITMQ_URL
+            - name: RABBITMQ_USER
               valueFrom:
                 secretKeyRef:
-                  name: app-secrets
-                  key: RABBITMQ_URL
-            - name: ELASTICSEARCH_URL
+                  name: {{ include "santiway.fullname" . }}-rabbit
+                  key: username
+            - name: RABBITMQ_PASS
               valueFrom:
-                configMapKeyRef:
-                  name: web-config
-                  key: ELASTICSEARCH_URL
-          {{- with .Values.eswriter.extraEnv }}
-          {{- if . }}
-          envFrom:
-            {{- if .configMaps }}
-            {{- range .configMaps }}
-            - configMapRef:
-                name: {{ . }}
-            {{- end }}
-            {{- end }}
-            {{- if .secrets }}
-            {{- range .secrets }}
-            - secretRef:
-                name: {{ . }}
-            {{- end }}
-            {{- end }}
-          {{- end }}
-          {{- end }}
+                secretKeyRef:
+                  name: {{ include "santiway.fullname" . }}-rabbit
+                  key: password
+
 
           {{- $probes := .Values.eswriter.probes | default dict }}
           {{- if and $probes ($probes.enabled | default false) }}

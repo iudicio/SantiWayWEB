@@ -1,0 +1,16 @@
+{{- if .Values.postgresql.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "santiway.fullname" . }}-postgres
+  labels:
+    {{- include "santiway.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  ports:
+    - name: tcp-postgres
+      port: {{ .Values.postgresql.service.port }}
+      targetPort: 5432
+  selector:
+    app: {{ include "santiway.fullname" . }}-postgres
+{{- end }}

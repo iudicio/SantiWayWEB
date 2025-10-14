@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "santiway.fullname" . }}-vendor-env
+  labels:
+    {{- include "santiway.labels" . | nindent 4 }}
+data:
+{{- range $k, $v := .Values.vendor.env }}
+{{- if ne $k "CELERY_BROKER_URL" }}
+  {{ $k }}: {{ $v | quote }}
+{{- end }}
+{{- end }}

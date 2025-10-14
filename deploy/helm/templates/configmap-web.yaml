@@ -4,6 +4,8 @@ metadata:
   name: web-config
   namespace: {{ .Values.namespace }}
 data:
-  DEBUG: {{ .Values.env.DEBUG | quote }}
-  ALLOWED_HOSTS: {{ .Values.env.ALLOWED_HOSTS | quote }}
-  ELASTICSEARCH_URL: {{ .Values.env.ELASTICSEARCH_URL | quote }}
+  {{- range $k, $v := .Values.web.env }}
+  {{- if ne $k "CELERY_BROKER_URL" }}
+  {{ $k }}: {{ $v | quote }}
+  {{- end }}
+  {{- end }}

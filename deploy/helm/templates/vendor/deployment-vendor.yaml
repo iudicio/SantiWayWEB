@@ -1,0 +1,44 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vendor
+  namespace: {{ .Values.namespace }}
+spec:
+  replicas: {{ .Values.vendor.replicas }}
+  selector: { matchLabels: { app: vendor } }
+  template:
+    metadata: { labels: { app: vendor } }
+    spec:
+      containers:
+        - name: vendor
+          image: "{{ .Values.images.vendor.repository }}:{{ .Values.images.vendor.tag }}"
+          imagePullPolicy: {{ .Values.images.vendor.pullPolicy }}
+
+          command: ["sh","-c"]
+          args:
+            - >
+              export CELERY_BROKER_URL="amqp://${RABBITMQ_USER}:${RABBITMQ_PASS}@{{ include "santiway.fullname" . }}-rabbit.{{ .Release.Namespace }}.svc:{{ .Values.rabbitmq.service.amqpPort }}/";
+              celery -A celery_app worker
+              -Q "$CELERY_C_QUEUE_NAME"
+              -n "$CELERY_CONSUMER_NAME"
+              -l "$CELERY_LOG_LEVEL"
+
+          envFrom:
+            - configMapRef:
+                name: {{ include "santiway.fullname" . }}-vendor-env
+            {{- if .Values.vendor.secrets }}
+            - secretRef:
+                name: {{ include "santiway.fullname" . }}-vendor-secret
+            {{- end }}
+
+          env:
+            - name: RABBITMQ_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "santiway.fullname" . }}-rabbit
+                  key: username
+            - name: RABBITMQ_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "santiway.fullname" . }}-rabbit
+                  key: password

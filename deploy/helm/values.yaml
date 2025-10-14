@@ -19,26 +19,32 @@ images:
     tag: "latest"
     pullPolicy: IfNotPresent
 
-env:
-  # общие переменные из вашего .env.example
-  DJANGO_SECRET_KEY: "change-me"
-  DEBUG: "true"
-  ALLOWED_HOSTS: "*,localhost,127.0.0.1"
-  # URL очереди для сервисов:
-  RABBITMQ_URL: "amqp://celery:celerypassword@santiway-rabbitmq:5672//"
-  # если используете Elasticsearch — добавьте сюда адрес
-  ELASTICSEARCH_URL: "http://elasticsearch:9200"
-  DATABASE_URL: "postgresql://santi:santi@santiway-postgresql:5432/santi"
-
 web:
   replicas: 1
   port: 80            
   targetPort: 8000
+  command: ["gunicorn"]
+  args: ["SantiWayWEB.wsgi:application","--bind","0.0.0.0:8000","--workers","1"]
   env:
-    - name: UVICORN_HOST
-      value: "0.0.0.0"
-    - name: UVICORN_PORT
-      value: "8000"
+    UVICORN_HOST: "0.0.0.0"
+    UVICORN_PORT: "8000"
+
+    DEBUG: "1"
+    CSRF_TRUSTED_ORIGINS: "http://localhost,http://127.0.0.1"
+    ALLOWED_HOSTS: "*"
+    DJANGO_SETTINGS_MODULE: "SantiWayWEB.settings"
+    DJANGO_SUPERUSER_EMAIL: "admin@example.com"
+
+    ES_URL: "http://elasticsearch:9200"
+    ES_HEAP: "512m"
+
+    CELERY_WORKER_NAME: "worker"
+    CELERY_QUEUE: "process_queue"
+    CELERY_LOG_LEVEL: "info"
+    CELERY_RESULT_BACKEND: "rpc://"
+  secrets:
+    SECRET_KEY: "123dsada2e1e2dafaeq3e"
+    DJANGO_SUPERUSER_PASSWORD: "admin"
   resources: {}
   ingress:
     enabled: true
@@ -52,34 +58,80 @@ web:
 
 vendor:
   replicas: 1
+  env:
+    ELASTICSEARCH_URL: "http://elasticsearch:9200"
+    CELERY_CONSUMER_NAME: "Vendor"
+    CELERY_C_TASK_NAME: "vendor"
+    CELERY_C_QUEUE_NAME: "vendor_queue"
+    CELERY_P_TASK_NAME: "esWriter"
+    CELERY_P_QUEUE_NAME: "esWriter_queue"
+    CELERY_LOG_LEVEL: "INFO"
+  secrets: {}
+  command: ["sh","-c"]
+  args:
+    - >
+      celery -A celery_app worker
+      -Q "$CELERY_C_QUEUE_NAME"
+      -n "$CELERY_CONSUMER_NAME"
+      -l "$CELERY_LOG_LEVEL"
   resources: {}
 
 eswriter:
   replicas: 1
+  env:
+    # из .env.example
+    CELERY_CONSUMER_NAME: "esWriter"
+    CELERY_C_TASK_NAME: "esWriter"
+    CELERY_C_QUEUE_NAME: "esWriter_queue"
+    CELERY_LOG_LEVEL: "INFO"
+    ES_HOST: "http://elasticsearch:9200"
+    ES_USER: ""          # при необходимости задай
+  # Секреты — попадут в Secret
+  secrets:
+    ES_PASSWORD: ""
+  command: ["sh","-c"]
+  args:
+    - >
+      celery -A celery_app worker
+      -Q "$CELERY_C_QUEUE_NAME"
+      -n "$CELERY_CONSUMER_NAME"
+      -c 1
+      -l "$CELERY_LOG_LEVEL"
   resources: {}
   probes:
     enabled: false
 
-rabbitmq:
-  image:
-    registry: ghcr.io
-    repository: bitnami/rabbitmq
-  persistence:
-    enabled: true
-    storageClass: "hostpath"
-    size: 1Gi
+imagePullSecrets: []  # если приватные реестры — добавь сюда
+
+commonLabels: {}
+commonAnnotations: {}
+
+storageClassName: "hostpath"
 
 postgresql:
-  image:
-    registry: ghcr.io
-    repository: bitnami/postgresql
-  primary:
-    persistence:
-      enabled: true
-      storageClass: "hostpath"
-      size: 2Gi
-  volumePermissions:
-    enabled: true
-    image:
-      registry: ghcr.io
-      repository: bitnami/os-shell
+  enabled: true
+  image: "postgres:16-alpine"
+  replicas: 1
+  storage:
+    size: 5Gi
+  auth:
+    username: santi
+    password: santi 
+    database: santi
+  resources: {}
+  service:
+    port: 5432
+
+rabbitmq:
+  enabled: true
+  image: "rabbitmq:3.13-management"
+  replicas: 1
+  storage:
+    size: 2Gi
+  auth:
+    username: celery
+    password: celerypassword
+  resources: {}
+  service:
+    amqpPort: 5672
+    managementPort: 15672

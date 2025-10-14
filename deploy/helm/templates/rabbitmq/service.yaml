@@ -1,0 +1,19 @@
+{{- if .Values.rabbitmq.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "santiway.fullname" . }}-rabbit
+  labels:
+    {{- include "santiway.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  ports:
+    - name: amqp
+      port: {{ .Values.rabbitmq.service.amqpPort }}
+      targetPort: 5672
+    - name: http
+      port: {{ .Values.rabbitmq.service.managementPort }}
+      targetPort: 15672
+  selector:
+    app: {{ include "santiway.fullname" . }}-rabbit
+{{- end }}

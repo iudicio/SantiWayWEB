@@ -9,25 +9,141 @@ spec:
   template:
     metadata: { labels: { app: web } }
     spec:
+      initContainers:
+        - name: migrate
+          image: "{{ .Values.images.web.repository }}:{{ .Values.images.web.tag }}"
+          imagePullPolicy: {{ .Values.images.web.pullPolicy }}
+          command: ["python","manage.py","migrate","--noinput"]
+          envFrom:
+            - configMapRef: { name: web-config }
+            - secretRef:    { name: app-secrets }
+          env:
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "santiway.fullname" . }}-postgres
+                  key: password
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "santiway.fullname" . }}-postgres
+                  key: username
+            - name: POSTGRES_DB
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "santiway.fullname" . }}-postgres
+                  key: database
+            - name: POSTGRES_HOST
+              value: "{{ include "santiway.fullname" . }}-postgres"
+            - name: POSTGRES_PORT
+              value: "{{ .Values.postgresql.service.port }}"
+
+        - name: collectstatic
+          image: "{{ .Values.images.web.repository }}:{{ .Values.images.web.tag }}"
+          imagePullPolicy: {{ .Values.images.web.pullPolicy }}
+          command: ["python","manage.py","collectstatic","--noinput"]
+          envFrom:
+            - configMapRef: { name: web-config }
+            - secretRef:    { name: app-secrets }
+          env:
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "santiway.fullname" . }}-postgres
+                  key: password
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "santiway.fullname" . }}-postgres
+                  key: username
+            - name: POSTGRES_DB
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "santiway.fullname" . }}-postgres
+                  key: database
+            - name: POSTGRES_HOST
+              value: "{{ include "santiway.fullname" . }}-postgres"
+            - name: POSTGRES_PORT
+              value: "{{ .Values.postgresql.service.port }}"
+          volumeMounts:
+            - name: staticfiles
+              mountPath: /app/staticfiles
+
       containers:
         - name: web
           image: "{{ .Values.images.web.repository }}:{{ .Values.images.web.tag }}"
           imagePullPolicy: {{ .Values.images.web.pullPolicy }}
+          
+          {{- with .Values.web.command }}
+          command:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.web.args }}
+          args:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+
           ports:
             - name: http
               containerPort: {{ .Values.web.targetPort | default 8000 }}
           envFrom:
             - configMapRef: { name: web-config }
             - secretRef: { name: app-secrets }
-          {{- if .Values.web.env }}
+          
           env:
-            {{- toYaml .Values.web.env | nindent 12 }}
-          {{- end }}
+            {{- if .Values.web.env }}
+            {{- range $k, $v := .Values.web.env }}
+            - name: {{ $k }}
+              value: {{ $v | quote }}
+            {{- end }}
+            {{- end }}
+
+          # === Postgres из секрета чарта ===
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "santiway.fullname" . }}-postgres
+                  key: password
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "santiway.fullname" . }}-postgres
+                  key: username
+            - name: POSTGRES_DB
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "santiway.fullname" . }}-postgres
+                  key: database
+            - name: POSTGRES_HOST
+              value: "{{ include "santiway.fullname" . }}-postgres"
+            - name: POSTGRES_PORT
+              value: "{{ .Values.postgresql.service.port }}"
+
+            # === RabbitMQ: собираем CELERY_BROKER_URL динамически ===
+            - name: RABBITMQ_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "santiway.fullname" . }}-rabbit
+                  key: username
+            - name: RABBITMQ_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "santiway.fullname" . }}-rabbit
+                  key: password
+            - name: CELERY_BROKER_URL
+              value: >-
+                amqp://$(RABBITMQ_USER):$(RABBITMQ_PASSWORD)@{{ include "santiway.fullname" . }}-rabbit.{{ .Release.Namespace }}.svc:{{ .Values.rabbitmq.service.amqpPort }}/
+          volumeMounts:
+            - name: staticfiles
+              mountPath: /app/staticfiles
           readinessProbe:
-            httpGet: { path: /healthz, port: http }
+            exec: { command: ["sh","-c","test -f /proc/1/status"] }
             initialDelaySeconds: 10
             periodSeconds: 10
           livenessProbe:
-            httpGet: { path: /healthz, port: http }
+            exec: { command: ["sh","-c","test -f /proc/1/status"] }
             initialDelaySeconds: 30
             periodSeconds: 20
+      volumes:
+        - name: staticfiles
+          emptyDir: {}
