@@ -65,15 +65,35 @@ class PolygonViewSet(viewsets.ModelViewSet):
         serializer.save()
 
     def perform_destroy(self, instance):
+        """Удаление полигона с остановкой всех связанных задач"""
+        from celery import current_app
+        from django.utils import timezone as dj_tz
+        from django.db import transaction
+        
         user = self.get_user_from_request()
         if not user:
             raise PermissionDenied("Authentication required")
         if instance.user_id != user.id:
             raise PermissionDenied("Not your polygon")
-            
-        stop_all_polygon_actions.delay(str(instance.id))
         
-        instance.delete()
+        with transaction.atomic():
+            active_actions = PolygonAction.objects.filter(
+                polygon=instance,
+                status__in=['running', 'pending', 'paused']
+            ).select_for_update()
+            
+            for action in active_actions:
+                if action.task_id:
+                    try:
+                        current_app.control.revoke(action.task_id, terminate=True)
+                    except Exception:
+                        pass
+                
+                action.status = 'stopped'
+                action.completed_at = dj_tz.now()
+                action.save(update_fields=['status', 'completed_at'])
+            
+            instance.delete()
 
     @action(detail=True, methods=['post'])
     def search(self, request, pk=None):
@@ -260,7 +280,6 @@ class PolygonViewSet(viewsets.ModelViewSet):
                 {'error': f'Ошибка получения статуса: {str(e)}'}, 
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
-
 
 class AnomalyDetectionViewSet(viewsets.ReadOnlyModelViewSet):
     """ViewSet для просмотра обнаруженных аномалий"""
@@ -453,7 +472,13 @@ class NotificationTargetViewSet(viewsets.ModelViewSet):
         if polygon_action.polygon.user != user:
             raise PermissionDenied("Not your polygon action")
         
-        serializer.save()
+        try:
+            serializer.save()
+        except IntegrityError:
+            # Нарушение уникальности (polygon_action, target_type, target_value)
+            raise serializers.ValidationError({
+                'non_field_errors': ['Такая цель уже существует для этого действия полигона']
+            })
 
     def perform_update(self, serializer):
         instance = self.get_object()
