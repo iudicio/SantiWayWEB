@@ -3,25 +3,17 @@
    - логика «кастомных select» (создание обёртки и списка опций)
    - логика меню столбцов таблицы (создание чекбоксов, скрыть/показать столбцы)
    - выделение строки таблицы и отображение выбранного Device ID
-<<<<<<< HEAD
-   - логика раскрывающегося списка API
-=======
    - логика раскрывающихся списков
->>>>>>> origin/dev
 */
 
 document.addEventListener("DOMContentLoaded", ()=>{
   initCustomSelects();
   initColumnsMenu();
   initRowSelection();
-<<<<<<< HEAD
-  initCollapsibleApiList();
-=======
   initCollapsibleList("apiList");
   initCollapsibleList("deviceList");
   initCollapsibleList("folderList");
 
->>>>>>> origin/dev
 
   function initCustomSelects() {
     document.querySelectorAll("select.custom-select").forEach(select => {
@@ -36,12 +28,7 @@ document.addEventListener("DOMContentLoaded", ()=>{
       const display = document.createElement("div");
       display.className = "custom-select-display";
       display.tabIndex = 0;
-<<<<<<< HEAD
-      const selectedText = select.options[select.selectedIndex]?.text || "Выберите";
-      display.textContent = selectedText;
-=======
       display.textContent = select.options[select.selectedIndex]?.text || "Выберите";
->>>>>>> origin/dev
 
       // список опций
       const options = document.createElement("div");
@@ -193,18 +180,6 @@ document.addEventListener("DOMContentLoaded", ()=>{
   }
 
 //   Создание раскрывающегося списка apiList.
-<<<<<<< HEAD
-  function initCollapsibleApiList() {
-    const container = document.getElementById("apiList");
-    const wrapper = container.parentElement;
-    const header = wrapper.querySelector(".collapsible-header");
-    const selectAll = document.getElementById("__all__");
-    const status = header.querySelector(".selection-status");
-    const total = container.querySelectorAll("input[type='checkbox']:not([value='__all__'])").length;
-
-    // обновление статуса при нажатии на selectAll-чекбокс
-    function updateStatus() {
-=======
   function initCollapsibleList(id) {
     const container = document.getElementById(id);
     const wrapper = container.parentElement;
@@ -215,7 +190,6 @@ document.addEventListener("DOMContentLoaded", ()=>{
     // обновление статуса при нажатии на selectAll-чекбокс
     function updateStatus() {
       const total = container.querySelectorAll("input[type='checkbox']").length - 1;
->>>>>>> origin/dev
       const count = container.querySelectorAll("input[type='checkbox']:not([value='__all__']):checked").length;
       status.textContent = `Выбрано: ${count}`;
       selectAll.checked = (count === total);
@@ -237,8 +211,4 @@ document.addEventListener("DOMContentLoaded", ()=>{
       wrapper.classList.toggle("open");
     });
   }
-<<<<<<< HEAD
 });
-=======
-});
->>>>>>> origin/dev

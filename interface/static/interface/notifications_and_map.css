@@ -364,8 +364,6 @@
   color: var(--color-gray-medium);
 }
 
-<<<<<<< HEAD
-=======
 .status-badge.small {
   display: inline-flex;
   align-items: center;
@@ -402,7 +400,6 @@
   border-color: rgba(156, 163, 175, 0.3);
 }
 
->>>>>>> origin/dev
 /* Загрузка */
 .loading {
   display: inline-flex;
@@ -461,7 +458,6 @@
   .leaflet-popup-content {
     margin: 12px !important;
   }
-<<<<<<< HEAD
 }
 
 /* ===== ПАНЕЛЬ УВЕДОМЛЕНИЙ ===== */
@@ -682,6 +678,4 @@
 .notifications-overlay.show {
   opacity: 1;
   visibility: visible;
-=======
->>>>>>> origin/dev
 }
