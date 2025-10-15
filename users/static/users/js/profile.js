@@ -34,18 +34,16 @@ document.addEventListener("DOMContentLoaded", () => {
     el.addEventListener("click", () => { copyApiKey(el.textContent); copyApiKeyAnimation(el) });
   });
 
-  // Функция для создания API ключа
   function createApiKey(name) {
     console.log('Creating API key with name:', name);
 
-    // Отправляем POST запрос на сервер
-    fetch('/api/api-key/', {
+    fetch('/api/keys/', { // если у тебя эндпоинт другой — оставь свой URL
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'X-CSRFToken': getCookie('csrftoken')
       },
-      body: JSON.stringify({ name: name })
+      body: JSON.stringify({ name })
     })
       .then(response => {
         if (!response.ok) {
@@ -56,10 +54,26 @@ document.addEventListener("DOMContentLoaded", () => {
         return response.json();
       })
       .then(data => {
-        // Показываем пользователю созданный API ключ
-        alert(`API key created successfully!\n\nDevice: ${data.device_name}\nAPI Key: ${data.api_key}\n\nPlease save this key - it won't be shown again!`);
-        console.log("Data: ", data);
-        addNewDeviceRow(data.device_name, data.api_key, data.device_id);
+        // Ожидаем формат: { key_id, api_key, name, created_at }
+        // Небольшая защита, если бэк по старому отдаёт device_name:
+        const keyId = data.key_id || data.id;
+        const keyName = data.name || data.device_name || 'Без названия';
+        const keyValue = data.api_key;
+        const createdAt = data.created_at || new Date().toISOString();
+
+        alert(
+          `API-ключ создан!\n\n` +
+          `Название: ${keyName}\n` +
+          `Ключ: ${keyValue}\n\n` +
+          `Сохрани его — он может не отображаться повторно!`
+        );
+
+        addNewApiKeyRow({
+          key_id: keyId,
+          name: keyName,
+          api_key: keyValue,
+          created_at: createdAt
+        });
       })
       .catch(error => {
         console.error('Error:', error);
