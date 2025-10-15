@@ -85,11 +85,8 @@
             <tbody>
               <!-- Api ключи -->
               {% for api_key in api_keys %}
-              <tr>
-                  <a href="{% url 'users:api_key_detail' api_key.id %}">{{ api_key.name }}</a>
-                <td>
-                  <p class="mono text-center">{{ api_key.key }}</p>
-                </td>
+                <td>{{ api_key.name }}</td>
+                <td><p class="mono">{{ api_key.key }}</p></td>
                 <td class="text-center">{{ api_key.created_at|date:"Y-m-d" }}</td>
                 <td class="text-center">
                   <button
@@ -102,7 +99,7 @@
                   </button>
                 </td>
                 <td class="delete-column">
-                  <button class="remove-btn delete-btn" title="Delete" onclick="deleteDevice('{{ device.id }}', '{{ device.name }}')">
+                  <button class="remove-btn delete-btn" title="Delete" onclick="deleteDevice('{{ api_key.id }}', '{{ api_key.name }}')">
                     &#10005;
                   </button>
                 </td>

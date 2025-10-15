@@ -37,7 +37,7 @@ document.addEventListener("DOMContentLoaded", () => {
   function createApiKey(name) {
     console.log('Creating API key with name:', name);
 
-    fetch('/api/keys/', { // если у тебя эндпоинт другой — оставь свой URL
+    fetch('/api/api-key/', { // если у тебя эндпоинт другой — оставь свой URL
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -59,8 +59,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const keyId = data.key_id || data.id;
         const keyName = data.name || data.device_name || 'Без названия';
         const keyValue = data.api_key;
-        const createdAt = data.created_at || new Date().toISOString();
-
+        const createdAt = (data.created_at || new Date().toISOString()).split("T")[0];
         alert(
           `API-ключ создан!\n\n` +
           `Название: ${keyName}\n` +
@@ -68,12 +67,7 @@ document.addEventListener("DOMContentLoaded", () => {
           `Сохрани его — он может не отображаться повторно!`
         );
 
-        addNewApiKeyRow({
-          key_id: keyId,
-          name: keyName,
-          api_key: keyValue,
-          created_at: createdAt
-        });
+        addNewApiKeyRow(keyName, keyValue, keyId, createdAt);
       })
       .catch(error => {
         console.error('Error:', error);
@@ -81,7 +75,7 @@ document.addEventListener("DOMContentLoaded", () => {
       });
   }
 
-  function addNewDeviceRow(deviceName, apiKey, deviceId) {
+  function addNewApiKeyRow(apiName, apiKey, apiId, created_at) {
     const tbody = document.querySelector('#devicesTable tbody');
 
     // Убираем "Нет созданных API ключей"
@@ -94,19 +88,19 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Название устройства
     const tdName = document.createElement('td');
-    tdName.textContent = deviceName;
+    tdName.textContent = apiName;
 
     // API ключ
     const tdKey = document.createElement('td');
     const pKey = document.createElement('p');
-    pKey.className = 'mono text-center';
+    pKey.className = 'text-center';
     pKey.textContent = apiKey;
     tdKey.appendChild(pKey);
 
     // Дата создания
     const tdDate = document.createElement('td');
     tdDate.className = 'text-center';
-    tdDate.textContent = new Date().toISOString().split('T')[0];
+    tdDate.textContent = created_at;
 
     // Кнопка APK
     const tdApk = document.createElement('td');
@@ -114,7 +108,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const apkBtn = document.createElement('button');
     apkBtn.className = 'apk-btn btn-primary';
     apkBtn.textContent = 'Собрать APK';
-    apkBtn.dataset.deviceId = deviceId;
+    apkBtn.dataset.deviceId = apiId;
     apkBtn.setAttribute("data-status", STATUSES.order);
     apkBtn.setAttribute("api-key", apiKey);
     tdApk.appendChild(apkBtn);
@@ -126,7 +120,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const deleteBtn = document.createElement('button');
     deleteBtn.className = 'remove-btn delete-btn';
     deleteBtn.innerHTML = '&#10005;';
-    deleteBtn.onclick = function () { deleteDevice(deviceId, deviceName); };
+    deleteBtn.onclick = function () { deleteDevice(apiId, apiName); };
     tdDelete.appendChild(deleteBtn);
 
     // Собираем строку
@@ -138,8 +132,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Добавляем в таблицу
     tbody.appendChild(tr);
-    //    NOTE: временное решение, тк при создании api-ключа id, по которому он потом удаляется не возвращается api
-    location.reload();
   }
 // Анимация для копирования APIключа
   function copyApiKeyAnimation(element) {
