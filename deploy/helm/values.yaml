@@ -8,8 +8,8 @@ global:
 images:
   web:
     repository: ghcr.io/iudicio/santiway-web
-    tag: "latest"
-    pullPolicy: IfNotPresent
+    tag: v0.2.1
+    pullPolicy: Always
   vendor:
     repository: ghcr.io/iudicio/santiway-vendor
     tag: "latest"
