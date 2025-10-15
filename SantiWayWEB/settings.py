@@ -59,6 +59,7 @@ AUTH_USER_MODEL = "users.User"
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
+    "corsheaders.middleware.CorsMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
@@ -67,8 +68,6 @@ MIDDLEWARE = [
     "django.middleware.csrf.CsrfViewMiddleware",  # Раскомментить/закоментить, если проблемы с созданим api_key
     "users.middleware.RedirectToLoginMiddleware",
 ]
-
-MIDDLEWARE.insert(0, "corsheaders.middleware.CorsMiddleware")
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
