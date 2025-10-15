@@ -763,6 +763,12 @@ function changePolygonColor(id, newColor= POLYGON_COLORS.DEFAULT){
     }
 }
 
+async function initLists(){
+  const apiKeys = await getApiKeys();
+  const devices = await getDevices();
+  fillList("apiList", apiKeys);
+}
+
 // Инициализация
 ;(function init(){
   console.log('Initializing app...');
@@ -772,4 +778,5 @@ function changePolygonColor(id, newColor= POLYGON_COLORS.DEFAULT){
   console.log('Calling reload...');
   reload();
   console.log('App initialized');
+  initLists()
 })();

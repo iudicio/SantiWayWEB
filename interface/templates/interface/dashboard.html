@@ -25,6 +25,7 @@
       API_KEY: "{{ API_KEY|default:'' }}"
     };
   </script>
+  <script src="{% static 'interface/get-devices.js' %}"></script>
   <script defer src="{% static 'interface/app.js' %}?v=3"></script>
   <script src="{% static 'interface/custom-elements.js' %}"></script>
   <script src="{% static '/js/background.js' %}"></script>
