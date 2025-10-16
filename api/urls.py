@@ -2,6 +2,7 @@ from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 
 from apkbuilder.views import APKBuildCreateView
+from filtering.views import FilteringViewSet
 from .views import DeviceViewSet, WayAPIView
 from users.views import APIKeyViewSet
 from drf_spectacular.views import (
@@ -11,10 +12,12 @@ from drf_spectacular.views import (
 )
 from polygons.views import PolygonViewSet
 
+
 router = DefaultRouter()
 router.register(r"devices", DeviceViewSet, basename="devices")
 router.register(r"api-key", APIKeyViewSet, basename="api-key")
 router.register(r"polygons", PolygonViewSet, basename="polygons")
+router.register(r"filtering", FilteringViewSet, basename="filtering")
 
 app_name = "api"
 
