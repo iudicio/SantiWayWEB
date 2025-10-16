@@ -32,6 +32,7 @@ CSRF_TRUSTED_ORIGINS = ["http://localhost", "http://127.0.0.1"]
 # Application definition
 
 INSTALLED_APPS = [
+    'daphne',
     'users',
     'apkbuilder',
     'api',
@@ -48,6 +49,7 @@ INSTALLED_APPS = [
     'corsheaders',
     "drf_spectacular",
     "drf_spectacular_sidecar",  # статические ассеты Swagger UI
+    'channels',
     'django_crontab', # для периодических задач
 ]
 
@@ -128,6 +130,17 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'SantiWayWEB.wsgi.application'
+ASGI_APPLICATION = 'SantiWayWEB.asgi.application'
+
+# Channels configuration
+CHANNEL_LAYERS = {
+    'default': {
+        'BACKEND': 'channels_redis.core.RedisChannelLayer',
+        'CONFIG': {
+            "hosts": [os.getenv('REDIS_URL', 'redis://redis:6379/0')],
+        },
+    },
+}
 
 
 # Database

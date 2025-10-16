@@ -1,4 +1,5 @@
 const API_BASE = (window.APP_CONFIG && window.APP_CONFIG.API_BASE) || '/api';
+const API_KEY = (window.APP_CONFIG && window.APP_CONFIG.API_KEY) || '';
 const API_DEVICES_URL = `${API_BASE}/devices/`;
 const API_POLYGONS_URL = `${API_BASE}/polygons/`;
 
@@ -66,8 +67,19 @@ const state = {
   search: '',
   filters: { network: 'any', deviceid: '', mac: '', alert: false, ignore: false },
   selectedId: null,
-  apiKey: (window.APP_CONFIG && window.APP_CONFIG.API_KEY) || ''
+  apiKey: (window.APP_CONFIG && window.APP_CONFIG.API_KEY) || '',
+  colorForPolygon: {} // Используется как хранилище цветов, чтобы при каждом reload() не слать запросы на сервер
 };
+
+// Цвета полигонов в зависимости от статуса
+const POLYGON_COLORS = {
+  DEFAULT: "#ef4444",   // Неактивный/неизвестный
+  RUNNING: "#0b60de",   // Мониторинг идет
+  COMPLETED: "#22c55e", // Завершен
+  STOPPED: "#9ca3af"    // Остановлен
+};
+
+if (!state.apiKey){alert('Для корректной работы сайта создайте API-ключ в профиле и перезагрузите эту страницу');}
 
 function normalize(v){ return String(v ?? '').trim(); }
 function toBool(v){ return v ? 'true' : 'false'; }
@@ -176,6 +188,9 @@ function ensureDrawTools(){
         body: JSON.stringify(payload)
       });
       if(!res.ok) throw new Error(`API ${res.status}`);
+      // Получение id и добавление его в объект colorForPolygon
+      const data = await res.json();
+      state.colorForPolygon[data.id] = POLYGON_COLORS.DEFAULT;
       await reload();
     } catch(err){ console.error('Polygon create failed', err); }
   });
@@ -288,7 +303,6 @@ function flyTo(id){
 // Таблица/пагинация 
 const tbody = document.querySelector('#devicesTable tbody');
 const showing = document.getElementById('showing');
-//const pagination = document.getElementById('pagination');
 
 function renderTable(){
   tbody.innerHTML = state.rows.map(d => `
@@ -319,12 +333,10 @@ function renderTable(){
   showing.textContent = `Отображено ${start} до ${end} из ${state.total} записей`;
 
   const totalPages = Math.max(1, Math.ceil(state.total / state.pageSize));
-//  pagination.innerHTML = '';
 
   const prev = document.getElementById('prevPage');
-  prev.textContent = 'Предыдущая'; prev.className = 'page'; prev.disabled = state.page===1;
+  prev.textContent = 'Предыдущая'; prev.disabled = state.page===1;
   prev.onclick = ()=>{ state.page = Math.max(1, state.page-1); reload(); };
-//  pagination.appendChild(prev);
 
   const pages = [];
   const startPage = Math.max(1, state.page-3);
@@ -341,13 +353,11 @@ function renderTable(){
       if(p === state.page) b.classList.add('active');
       b.onclick = ()=>{ state.page = p; reload(); };
     }
-//    pagination.appendChild(b);
   });
 
   const next = document.getElementById('nextPage');
-  next.textContent = 'Следующая'; next.className = 'page'; next.disabled = state.page===totalPages;
+  next.textContent = 'Следующая'; next.disabled = state.page===totalPages;
   next.onclick = ()=>{ state.page = Math.min(totalPages, state.page+1); reload(); };
-//  pagination.appendChild(next);
 }
 
 function selectRow(id, fly=false){
@@ -375,7 +385,7 @@ function buildQuery(){
   return qs.toString();
 }
 
-async function fetchDevices(){
+async function fetchDevices() {
   const url = `${API_DEVICES_URL}?${buildQuery()}`;
   const res = await fetch(url, { 
     headers: { 
@@ -403,10 +413,13 @@ async function reload(){
   try{
     const { rows, total } = await fetchDevices();
     const polygons = await fetchPolygons();
+    // Шлем на сервер запросы только при загрузке страницы в первый раз
+    if (Object.keys(state.colorForPolygon).length === 0){ state.colorForPolygon= await getAllPolygonsColor(polygons);}
+
     state.rows = rows;
     state.total = total;
     renderMarkers(rows);
-    renderPolygons(polygons);
+    renderPolygons(polygons, state.colorForPolygon);
     renderTable();
     if(rows.length){ selectRow(rows[0].device_id); }
     else { selectRow(null); }
@@ -414,7 +427,6 @@ async function reload(){
     console.error(e);
     tbody.innerHTML = `<tr><td colspan="13">Ошибка загрузки данных: ${e.message}</td></tr>`;
     showing.textContent = '';
-//    pagination.innerHTML = '';
     markersLayer.clearLayers();
   }
 }
@@ -453,7 +465,7 @@ async function fetchPolygons(){
   return await res.json();
 }
 
-function renderPolygons(rows){
+function renderPolygons(rows, colors){
   polygonsLayer.clearLayers();
   if(!Array.isArray(rows)) return;
   rows.forEach(p => {
@@ -465,9 +477,9 @@ function renderPolygons(rows){
       if(ring.length < 4) return;
       const latlngs = ring.map(([lon,lat]) => [lat,lon]);
           const poly = L.polygon(latlngs, {
-            color: '#ef4444',
+            color: colors[p.id],
             weight: 2,
-            fillColor: '#ef4444',
+            fillColor: colors[p.id],
             fillOpacity: 0.15,
             _pid: p.id
           }).bindPopup(`
@@ -497,6 +509,7 @@ function renderPolygons(rows){
           on('.js-action-start',  (id) => window.startMonitoring && window.startMonitoring(String(id)));
           on('.js-action-stop',   (id) => window.stopMonitoring && window.stopMonitoring(String(id)));
           on('.js-action-status', (id) => window.checkMonitoringStatus && window.checkMonitoringStatus(String(id)));
+          on('.js-delete-polygon', (id) => window.deletePolygon && window.deletePolygon(String(id)));
         } catch(e){ console.warn('popupopen binding error', e); }
       });
       poly.addTo(polygonsLayer);
@@ -568,12 +581,13 @@ window.startMonitoring = async function startMonitoring(polygonId) {
         monitoring_interval: 300 // 5 минут
       })
     });
-    
+
     if (!response.ok) {
       const errorData = await response.json();
       throw new Error(errorData.error || `API ${response.status}`);
     }
-    
+
+    changePolygonColor(polygonId, POLYGON_COLORS.RUNNING);
     const result = await response.json();
     
     notifications.success(`Мониторинг запущен!<br/>Интервал: ${result.monitoring_interval} сек<br/>Task ID: ${result.task_id}`, 'Мониторинг активен');
@@ -598,7 +612,8 @@ window.stopMonitoring = async function stopMonitoring(polygonId) {
     if (!response.ok) {
       throw new Error(`API ${response.status}`);
     }
-    
+
+    changePolygonColor(polygonId, POLYGON_COLORS.STOPPED);
     const result = await response.json();
     
     notifications.success(`Мониторинг остановлен для полигона: ${result.polygon_name}`);
@@ -647,9 +662,9 @@ window.checkMonitoringStatus = async function checkMonitoringStatus(polygonId) {
     if (result.actions && result.actions.length > 0) {
       const lastAction = result.actions[0];
       actionsInfo = `
-        <div style="margin-top: 12px; padding: 12px; background: #f8fafc; border-radius: 8px;">
+        <div class="card">
           <strong>Последнее действие:</strong><br/>
-          Статус: <span class="status-indicator ${lastAction.status === 'running' ? 'running' : 'stopped'}">
+          Статус: <span class="status-badge small ${lastAction.status === 'running' ? 'running' : 'stopped'}">
             <span class="status-dot"></span>
             ${lastAction.status === 'running' ? 'Активен' : 'Остановлен'}
           </span><br/>
@@ -705,6 +720,323 @@ window.checkMonitoringStatus = async function checkMonitoringStatus(polygonId) {
   }
 }
 
+window.deletePolygon = async function deletePolygon(polygonId) {
+  try {
+    const response = await fetch(`${API_POLYGONS_URL}${polygonId}/`, {
+      method: 'DELETE',
+      headers: {
+        'Accept': 'application/json',
+        'Authorization': `Api-Key ${state.apiKey}`
+      }
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || errorData.detail || `HTTP ${response.status}`);
+    }
+    
+    delete state.colorForPolygon[polygonId];
+    
+    await reload();
+    
+    notifications.success(`Полигон успешно удалён`, 'Удаление завершено');
+    
+  } catch (error) {
+    console.error('Ошибка удаления полигона:', error);
+    notifications.error(`Ошибка удаления полигона: ${error.message}`);
+  }
+}
+
+// Получение цветов для всех полигонов
+async function getAllPolygonsColor(polygons) {
+  const colorForPolygon = {}; // локальный словарь
+
+  for (const p of polygons) {
+    try {
+      const res = await fetch(`${API_POLYGONS_URL}${p.id}/monitoring_status/`, {
+        headers: {
+          'Accept': 'application/json',
+          'Authorization': `Api-Key ${state.apiKey}`
+        }
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        console.log(`Status: ${data.monitoring_status}`)
+        switch (data.monitoring_status) {
+          case 'running': colorForPolygon[p.id] = POLYGON_COLORS.RUNNING; break;
+          case 'stopped': colorForPolygon[p.id] = POLYGON_COLORS.STOPPED; break;
+          case 'completed': colorForPolygon[p.id] = POLYGON_COLORS.COMPLETED; break;
+          default: colorForPolygon[p.id] = POLYGON_COLORS.DEFAULT;
+        }
+      } else {
+        colorForPolygon[p.id] = POLYGON_COLORS.DEFAULT;
+      }
+    } catch {
+      colorForPolygon[p.id] = POLYGON_COLORS.DEFAULT;
+    }
+  }
+  return colorForPolygon;
+}
+
+// Меняет цвет полигона на карте и в colorForPolygon по его ID
+function changePolygonColor(id, newColor= POLYGON_COLORS.DEFAULT){
+  state.colorForPolygon[id] = newColor;
+  let poly = polygonsLayer.getLayers().find(p => p.options._pid == id);
+    if (poly) {
+      poly.setStyle({
+        color: newColor,
+        fillColor: newColor,
+        fillOpacity: 0.15
+      });
+    }
+}
+
+// Объявляем переменную для менеджера уведомлений
+let notificationManager;
+
+// Класс для управления уведомлениями
+class NotificationManager {
+  constructor() {
+    this.notifications = [];
+    this.unreadCount = 0;
+    this.isPolling = false;
+    this.pollInterval = null;
+    
+    this.initElements();
+    this.bindEvents();
+    this.startPolling();
+  }
+
+  initElements() {
+    this.notificationsBtn = document.getElementById('notificationsBtn');
+    this.notificationsBadge = document.getElementById('notificationsBadge');
+    this.notificationsPanel = document.getElementById('notificationsPanel');
+    this.notificationsOverlay = document.getElementById('notificationsOverlay');
+    this.notificationsCloseBtn = document.getElementById('notificationsCloseBtn');
+    this.notificationsBody = document.getElementById('notificationsBody');
+    this.notificationsEmpty = document.getElementById('notificationsEmpty');
+  }
+
+  bindEvents() {
+    if (this.notificationsBtn) {
+      this.notificationsBtn.addEventListener('click', () => this.togglePanel());
+    }
+    if (this.notificationsCloseBtn) {
+      this.notificationsCloseBtn.addEventListener('click', () => this.closePanel());
+    }
+    if (this.notificationsOverlay) {
+      this.notificationsOverlay.addEventListener('click', () => this.closePanel());
+    }
+  }
+
+  togglePanel() {
+    if (this.notificationsPanel.classList.contains('open')) {
+      this.closePanel();
+    } else {
+      this.openPanel();
+    }
+  }
+
+  openPanel() {
+    this.notificationsPanel.classList.add('open');
+    this.notificationsOverlay.classList.add('show');
+    this.loadNotifications();
+  }
+
+  closePanel() {
+    this.notificationsPanel.classList.remove('open');
+    this.notificationsOverlay.classList.remove('show');
+  }
+
+  async loadNotifications() {
+    try {
+      const response = await fetch(`${API_BASE}/notifications/`, {
+        headers: {
+          'Authorization': `Api-Key ${API_KEY}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      const data = await response.json();
+      this.notifications = data.results || data;
+      this.renderNotifications();
+    } catch (error) {
+      console.error('Ошибка загрузки уведомлений:', error);
+      notifications.error('Не удалось загрузить уведомления');
+    }
+  }
+
+  async checkUnreadCount() {
+    try {
+      const response = await fetch(`${API_BASE}/notifications/unread_count/`, {
+        headers: {
+          'Authorization': `Api-Key ${API_KEY}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      const data = await response.json();
+      this.updateUnreadCount(data.unread_count);
+    } catch (error) {
+      console.error('Ошибка проверки непрочитанных уведомлений:', error);
+    }
+  }
+
+  updateUnreadCount(count) {
+    this.unreadCount = count;
+    
+    if (count > 0) {
+      this.notificationsBadge.textContent = count > 99 ? '99+' : count;
+      this.notificationsBadge.style.display = 'flex';
+      this.notificationsBtn.classList.add('has-new');
+    } else {
+      this.notificationsBadge.style.display = 'none';
+      this.notificationsBtn.classList.remove('has-new');
+    }
+  }
+
+  renderNotifications() {
+    if (!this.notifications || this.notifications.length === 0) {
+      this.notificationsEmpty.style.display = 'block';
+      return;
+    }
+
+    this.notificationsEmpty.style.display = 'none';
+    
+    const notificationsHtml = this.notifications.map(notification => {
+      const isUnread = ['pending', 'sent', 'delivered'].includes(notification.status);
+      const timeAgo = this.formatTimeAgo(notification.created_at);
+      
+      return `
+        <div class="notification-item ${isUnread ? 'unread' : ''}" 
+             data-id="${notification.id}" 
+             onclick="notificationManager.markAsRead('${notification.id}')">
+          <div class="notification-item-header">
+            <h4 class="notification-item-title">${notification.title}</h4>
+            <span class="notification-item-time">${timeAgo}</span>
+          </div>
+          <p class="notification-item-message">${notification.message}</p>
+          <div class="notification-item-meta">
+            <span class="notification-badge severity-${notification.anomaly_details?.severity || 'medium'}">
+              ${this.getSeverityText(notification.anomaly_details?.severity)}
+            </span>
+            <span class="notification-badge type">
+              ${this.getAnomalyTypeText(notification.anomaly_details?.anomaly_type)}
+            </span>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    this.notificationsBody.innerHTML = notificationsHtml;
+  }
+
+  async markAsRead(notificationId) {
+    try {
+      const response = await fetch(`${API_BASE}/notifications/${notificationId}/mark_as_read/`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Api-Key ${API_KEY}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const notification = this.notifications.find(n => n.id === notificationId);
+        if (notification) {
+          notification.status = 'read';
+        }
+        
+        this.renderNotifications();
+        this.checkUnreadCount();
+      }
+    } catch (error) {
+      console.error('Ошибка отметки уведомления как прочитанного:', error);
+    }
+  }
+
+  getSeverityText(severity) {
+    const severityMap = {
+      'low': 'Низкая',
+      'medium': 'Средняя', 
+      'high': 'Высокая',
+      'critical': 'Критическая'
+    };
+    return severityMap[severity] || 'Средняя';
+  }
+
+  getAnomalyTypeText(anomalyType) {
+    const typeMap = {
+      'new_device': 'Новое устройство',
+      'suspicious_activity': 'Подозрительная активность',
+      'signal_anomaly': 'Аномалия сигнала',
+      'location_anomaly': 'Аномалия местоположения',
+      'frequency_anomaly': 'Аномалия частоты',
+      'unknown_vendor': 'Неизвестный производитель'
+    };
+    return typeMap[anomalyType] || 'Аномалия';
+  }
+
+  formatTimeAgo(dateString) {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now - date;
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMins / 60);
+    const diffDays = Math.floor(diffHours / 24);
+
+    if (diffMins < 1) return 'Только что';
+    if (diffMins < 60) return `${diffMins} мин назад`;
+    if (diffHours < 24) return `${diffHours} ч назад`;
+    if (diffDays < 7) return `${diffDays} д назад`;
+    
+    return date.toLocaleDateString('ru-RU');
+  }
+
+  startPolling() {
+    if (this.isPolling) return;
+    
+    this.isPolling = true;
+    this.checkUnreadCount();
+    
+    this.pollInterval = setInterval(() => {
+      this.checkUnreadCount();
+    }, 30000); // каждые 30 секунд
+  }
+
+  stopPolling() {
+    if (this.pollInterval) {
+      clearInterval(this.pollInterval);
+      this.pollInterval = null;
+    }
+    this.isPolling = false;
+  }
+
+  showNewNotification(notification) {
+    const severity = notification.anomaly_details?.severity || 'medium';
+    const type = severity === 'critical' ? 'error' : 
+                 severity === 'high' ? 'warning' : 'info';
+    
+    notifications.show(
+      notification.message,
+      type,
+      notification.title,
+      8000
+    );
+    
+    this.checkUnreadCount();
+  }
+}
+
 // Инициализация
 ;(function init(){
   console.log('Initializing app...');
@@ -714,4 +1046,13 @@ window.checkMonitoringStatus = async function checkMonitoringStatus(polygonId) {
   console.log('Calling reload...');
   reload();
   console.log('App initialized');
+  
+  // Инициализируем менеджер уведомлений
+  if (API_KEY && API_KEY.trim() !== '') {
+    console.log('Initializing notification manager...');
+    notificationManager = new NotificationManager();
+  } else {
+    console.log('API key not available, skipping notification manager initialization');
+  }
 })();
+
