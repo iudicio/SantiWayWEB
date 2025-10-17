@@ -26,6 +26,7 @@ async function getApiKeys(){
 }
 
 async function getDevices(apiKeys){
+  console.log("API-Keys for fetch devices: ", apiKeys)
   const devicesResponse = await fetch("/api/userinfo/", {
     method: "POST",
     headers: {
@@ -41,8 +42,21 @@ async function getDevices(apiKeys){
   console.log("Devices:", devices);
 }
 
-function getFolders(devices){
+async function getFolders(api, devices){
+  const foldersResponse = await fetch("/api/userinfo/", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      'X-CSRFToken': getCookie('csrftoken')
+    },
+    body: JSON.stringify({
+      api_keys: api,
+      devices: devices
+    })
+  });
 
+  const folders = await foldersResponse.json();
+  console.log("Folders:", folders);
 }
 
 function getCookie(name){

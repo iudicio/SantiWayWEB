@@ -765,8 +765,8 @@ function changePolygonColor(id, newColor= POLYGON_COLORS.DEFAULT){
 
 async function initLists(){
   const apiKeys = await getApiKeys();
-  const devices = await getDevices();
-  fillList("apiList", apiKeys);
+  const devices = await getDevices(Object.keys(apiKeys));
+  fillList("apiList", apiKeys.keys);
 }
 
 // Инициализация
