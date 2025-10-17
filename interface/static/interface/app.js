@@ -1,4 +1,5 @@
 const API_BASE = (window.APP_CONFIG && window.APP_CONFIG.API_BASE) || '/api';
+const API_KEY = (window.APP_CONFIG && window.APP_CONFIG.API_KEY) || '';
 const API_DEVICES_URL = `${API_BASE}/devices/`;
 const API_POLYGONS_URL = `${API_BASE}/polygons/`;
 
@@ -508,6 +509,7 @@ function renderPolygons(rows, colors){
           on('.js-action-start',  (id) => window.startMonitoring && window.startMonitoring(String(id)));
           on('.js-action-stop',   (id) => window.stopMonitoring && window.stopMonitoring(String(id)));
           on('.js-action-status', (id) => window.checkMonitoringStatus && window.checkMonitoringStatus(String(id)));
+          on('.js-delete-polygon', (id) => window.deletePolygon && window.deletePolygon(String(id)));
         } catch(e){ console.warn('popupopen binding error', e); }
       });
       poly.addTo(polygonsLayer);
@@ -718,6 +720,33 @@ window.checkMonitoringStatus = async function checkMonitoringStatus(polygonId) {
   }
 }
 
+window.deletePolygon = async function deletePolygon(polygonId) {
+  try {
+    const response = await fetch(`${API_POLYGONS_URL}${polygonId}/`, {
+      method: 'DELETE',
+      headers: {
+        'Accept': 'application/json',
+        'Authorization': `Api-Key ${state.apiKey}`
+      }
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || errorData.detail || `HTTP ${response.status}`);
+    }
+
+    delete state.colorForPolygon[polygonId];
+
+    await reload();
+
+    notifications.success(`Полигон успешно удалён`, 'Удаление завершено');
+
+  } catch (error) {
+    console.error('Ошибка удаления полигона:', error);
+    notifications.error(`Ошибка удаления полигона: ${error.message}`);
+  }
+}
+
 // Получение цветов для всех полигонов
 async function getAllPolygonsColor(polygons) {
   const colorForPolygon = {}; // локальный словарь
@@ -763,6 +792,251 @@ function changePolygonColor(id, newColor= POLYGON_COLORS.DEFAULT){
     }
 }
 
+// Объявляем переменную для менеджера уведомлений
+let notificationManager;
+
+// Класс для управления уведомлениями
+class NotificationManager {
+  constructor() {
+    this.notifications = [];
+    this.unreadCount = 0;
+    this.isPolling = false;
+    this.pollInterval = null;
+
+    this.initElements();
+    this.bindEvents();
+    this.startPolling();
+  }
+
+  initElements() {
+    this.notificationsBtn = document.getElementById('notificationsBtn');
+    this.notificationsBadge = document.getElementById('notificationsBadge');
+    this.notificationsPanel = document.getElementById('notificationsPanel');
+    this.notificationsOverlay = document.getElementById('notificationsOverlay');
+    this.notificationsCloseBtn = document.getElementById('notificationsCloseBtn');
+    this.notificationsBody = document.getElementById('notificationsBody');
+    this.notificationsEmpty = document.getElementById('notificationsEmpty');
+  }
+
+  bindEvents() {
+    if (this.notificationsBtn) {
+      this.notificationsBtn.addEventListener('click', () => this.togglePanel());
+    }
+    if (this.notificationsCloseBtn) {
+      this.notificationsCloseBtn.addEventListener('click', () => this.closePanel());
+    }
+    if (this.notificationsOverlay) {
+      this.notificationsOverlay.addEventListener('click', () => this.closePanel());
+    }
+  }
+
+  togglePanel() {
+    if (this.notificationsPanel.classList.contains('open')) {
+      this.closePanel();
+    } else {
+      this.openPanel();
+    }
+  }
+
+  openPanel() {
+    this.notificationsPanel.classList.add('open');
+    this.notificationsOverlay.classList.add('show');
+    this.loadNotifications();
+  }
+
+  closePanel() {
+    this.notificationsPanel.classList.remove('open');
+    this.notificationsOverlay.classList.remove('show');
+  }
+
+  async loadNotifications() {
+    try {
+      const response = await fetch(`${API_BASE}/notifications/`, {
+        headers: {
+          'Authorization': `Api-Key ${API_KEY}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      const data = await response.json();
+      this.notifications = data.results || data;
+      this.renderNotifications();
+    } catch (error) {
+      console.error('Ошибка загрузки уведомлений:', error);
+      notifications.error('Не удалось загрузить уведомления');
+    }
+  }
+
+  async checkUnreadCount() {
+    try {
+      const response = await fetch(`${API_BASE}/notifications/unread_count/`, {
+        headers: {
+          'Authorization': `Api-Key ${API_KEY}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      const data = await response.json();
+      this.updateUnreadCount(data.unread_count);
+    } catch (error) {
+      console.error('Ошибка проверки непрочитанных уведомлений:', error);
+    }
+  }
+
+  updateUnreadCount(count) {
+    this.unreadCount = count;
+
+    if (count > 0) {
+      this.notificationsBadge.textContent = count > 99 ? '99+' : count;
+      this.notificationsBadge.style.display = 'flex';
+      this.notificationsBtn.classList.add('has-new');
+    } else {
+      this.notificationsBadge.style.display = 'none';
+      this.notificationsBtn.classList.remove('has-new');
+    }
+  }
+
+  renderNotifications() {
+    if (!this.notifications || this.notifications.length === 0) {
+      this.notificationsEmpty.style.display = 'block';
+      return;
+    }
+
+    this.notificationsEmpty.style.display = 'none';
+
+    const notificationsHtml = this.notifications.map(notification => {
+      const isUnread = ['pending', 'sent', 'delivered'].includes(notification.status);
+      const timeAgo = this.formatTimeAgo(notification.created_at);
+
+      return `
+        <div class="notification-item ${isUnread ? 'unread' : ''}" 
+             data-id="${notification.id}" 
+             onclick="notificationManager.markAsRead('${notification.id}')">
+          <div class="notification-item-header">
+            <h4 class="notification-item-title">${notification.title}</h4>
+            <span class="notification-item-time">${timeAgo}</span>
+          </div>
+          <p class="notification-item-message">${notification.message}</p>
+          <div class="notification-item-meta">
+            <span class="notification-badge severity-${notification.anomaly_details?.severity || 'medium'}">
+              ${this.getSeverityText(notification.anomaly_details?.severity)}
+            </span>
+            <span class="notification-badge type">
+              ${this.getAnomalyTypeText(notification.anomaly_details?.anomaly_type)}
+            </span>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    this.notificationsBody.innerHTML = notificationsHtml;
+  }
+
+  async markAsRead(notificationId) {
+    try {
+      const response = await fetch(`${API_BASE}/notifications/${notificationId}/mark_as_read/`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Api-Key ${API_KEY}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const notification = this.notifications.find(n => n.id === notificationId);
+        if (notification) {
+          notification.status = 'read';
+        }
+
+        this.renderNotifications();
+        this.checkUnreadCount();
+      }
+    } catch (error) {
+      console.error('Ошибка отметки уведомления как прочитанного:', error);
+    }
+  }
+
+  getSeverityText(severity) {
+    const severityMap = {
+      'low': 'Низкая',
+      'medium': 'Средняя',
+      'high': 'Высокая',
+      'critical': 'Критическая'
+    };
+    return severityMap[severity] || 'Средняя';
+  }
+
+  getAnomalyTypeText(anomalyType) {
+    const typeMap = {
+      'new_device': 'Новое устройство',
+      'suspicious_activity': 'Подозрительная активность',
+      'signal_anomaly': 'Аномалия сигнала',
+      'location_anomaly': 'Аномалия местоположения',
+      'frequency_anomaly': 'Аномалия частоты',
+      'unknown_vendor': 'Неизвестный производитель'
+    };
+    return typeMap[anomalyType] || 'Аномалия';
+  }
+
+  formatTimeAgo(dateString) {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now - date;
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMins / 60);
+    const diffDays = Math.floor(diffHours / 24);
+
+    if (diffMins < 1) return 'Только что';
+    if (diffMins < 60) return `${diffMins} мин назад`;
+    if (diffHours < 24) return `${diffHours} ч назад`;
+    if (diffDays < 7) return `${diffDays} д назад`;
+
+    return date.toLocaleDateString('ru-RU');
+  }
+
+  startPolling() {
+    if (this.isPolling) return;
+
+    this.isPolling = true;
+    this.checkUnreadCount();
+
+    this.pollInterval = setInterval(() => {
+      this.checkUnreadCount();
+    }, 30000); // каждые 30 секунд
+  }
+
+  stopPolling() {
+    if (this.pollInterval) {
+      clearInterval(this.pollInterval);
+      this.pollInterval = null;
+    }
+    this.isPolling = false;
+  }
+
+  showNewNotification(notification) {
+    const severity = notification.anomaly_details?.severity || 'medium';
+    const type = severity === 'critical' ? 'error' :
+                 severity === 'high' ? 'warning' : 'info';
+
+    notifications.show(
+      notification.message,
+      type,
+      notification.title,
+      8000
+    );
+
+    this.checkUnreadCount();
+  }
+}
+
 async function initLists(){
   const apiKeys = await getApiKeys();
   const devices = await getDevices(Object.keys(apiKeys));
@@ -778,5 +1052,14 @@ async function initLists(){
   console.log('Calling reload...');
   reload();
   console.log('App initialized');
+
+  // Инициализируем менеджер уведомлений
+  if (API_KEY && API_KEY.trim() !== '') {
+    console.log('Initializing notification manager...');
+    notificationManager = new NotificationManager();
+  } else {
+    console.log('API key not available, skipping notification manager initialization');
+  }
   initLists()
 })();
+

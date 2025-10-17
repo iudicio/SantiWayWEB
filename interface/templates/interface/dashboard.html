@@ -39,6 +39,10 @@
     <div class="nav-actions">
       <a href="#" class="nav-link active">Дашборд</a>
       <a href="{%url 'users:profile_overview' %}" class="nav-link">Профиль / API</a>
+      <button class="notifications-btn" id="notificationsBtn">
+        🔔
+        <span class="notifications-badge" id="notificationsBadge" style="display: none;">0</span>
+      </button>
       <a href="{% url 'users:logout' %}" class="nav-link logout-link">Выйти</a>
     </div>
   </nav>
@@ -240,6 +244,22 @@
 
 <!-- Контейнер для уведомлений -->
 <div class="notification-container" id="notificationContainer"></div>
+
+<!-- Панель уведомлений -->
+<div class="notifications-overlay" id="notificationsOverlay"></div>
+
+<div class="notifications-panel" id="notificationsPanel">
+  <div class="notifications-header">
+    <h3>Уведомления</h3>
+    <button class="notifications-close" id="notificationsCloseBtn">×</button>
+  </div>
+  <div class="notifications-body" id="notificationsBody">
+    <div class="notifications-empty" id="notificationsEmpty">
+      <div class="notifications-empty-icon">🔔</div>
+      <p>Нет уведомлений</p>
+    </div>
+  </div>
+</div>
 
 </body>
 </html>

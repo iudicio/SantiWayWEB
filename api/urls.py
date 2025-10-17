@@ -9,12 +9,15 @@ from drf_spectacular.views import (
     SpectacularSwaggerView,
     SpectacularRedocView,
 )
-from polygons.views import PolygonViewSet
+from polygons.views import PolygonViewSet, AnomalyDetectionViewSet, NotificationViewSet, NotificationTargetViewSet
 
 router = DefaultRouter()
 router.register(r"devices", DeviceViewSet, basename="devices")
 router.register(r"api-key", APIKeyViewSet, basename="api-key")
 router.register(r"polygons", PolygonViewSet, basename="polygons")
+router.register(r"anomalies", AnomalyDetectionViewSet, basename="anomalies")
+router.register(r"notifications", NotificationViewSet, basename="notifications")
+router.register(r"notification-targets", NotificationTargetViewSet, basename="notification-targets")
 
 app_name = "api"
 
