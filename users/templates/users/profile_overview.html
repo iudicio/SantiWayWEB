@@ -9,6 +9,10 @@
   <link rel="stylesheet" href="{% static 'users/css/profile.css' %}">
   <link rel="stylesheet" href="{% static 'users/css/modal.css' %}">
 
+  <script>
+    const API_URL = "{% url 'api:api-key-list' %}";
+    const APK_URL = "{% url 'api:apk-build-create' %}"
+  </script>
 
   <script src="{% static 'users/js/modal.js' %}"></script>
   <script src="{% static 'users/js/profile.js' %}"></script>
