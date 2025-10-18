@@ -4,8 +4,6 @@ document.addEventListener("DOMContentLoaded", () => {
   const openModalBtn = document.getElementById('openModalBtn');
   const timeToCheck = 20000; // Запрос к серверу каждые 20 секунд
   let firstAlert = true;
-  const APK_URL = "http://127.0.0.1/api/apk/build/";
-  const API_URL = "/api/api-key/";
 
 
   // Вешаем фукнцияю создания апи ключа на кнопку
@@ -426,7 +424,7 @@ document.addEventListener("DOMContentLoaded", () => {
 // Функция для удаления устройства
 function deleteDevice(deviceId, deviceName) {
   if (confirm(`Are you sure you want to delete the device "${deviceName}"?`)) {
-    fetch(`/api/api-key/${deviceId}/`, {
+    fetch(`${API_URL}${deviceId}/`, {
       method: 'DELETE',
       headers: {
         'X-CSRFToken': getCookie('csrftoken')
