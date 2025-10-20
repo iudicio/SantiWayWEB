@@ -5,7 +5,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const timeToCheck = 20000; // Запрос к серверу каждые 20 секунд
   let firstAlert = true;
 
-  const APK_HOST = "http://127.0.0.1/api/apk/build/"
+  const APK_HOST = "http://10.8.0.4/api/apk/build/"
 
 
   // Вешаем фукнцияю создания апи ключа на кнопку

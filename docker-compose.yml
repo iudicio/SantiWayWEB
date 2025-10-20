@@ -23,7 +23,6 @@ services:
       - ./apkbuilder/migrations:/app/apkbuilder/migrations
       - ./polygons/migrations:/app/polygons/migrations
       - ./filtering/migrations:/app/filtering/migrations
-      - ./media:/app/media
     restart: unless-stopped
 
   celery-worker:
@@ -53,14 +52,7 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-    command: >
-      bash -lc "
-        python manage.py crontab remove || true &&
-        python manage.py crontab add &&
-        printenv | sed 's/^\(.*\)$/export \1/g' > /etc/profile.d/env.sh &&
-        chmod +x /etc/profile.d/env.sh &&
-        cron -f
-      "
+    command: ["/bin/bash", "-c", "python manage.py crontab remove || true; python manage.py crontab add; cron -f"]
     restart: unless-stopped
 
   nginx:
