@@ -29,5 +29,4 @@ db.sqlite3-journal
 android-prefs/
 artifacts/
 gradle-cache/
-keystore/
 logs/
