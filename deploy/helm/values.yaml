@@ -8,7 +8,7 @@ global:
 images:
   web:
     repository: ghcr.io/iudicio/santiway-web
-    tag: v0.2.1
+    tag: "latest"
     pullPolicy: Always
   vendor:
     repository: ghcr.io/iudicio/santiway-vendor
