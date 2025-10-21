@@ -51,4 +51,4 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 USER celery
 
 # ---- команда запуска ----
-CMD ["sh", "-c", "celery -A celery_app worker -Q apkbuilder -n apkbuilder@%h -l info"]
+CMD ["sh", "-c", "celery -A celery_app worker -Q apkbuilder -n apkbuilder@%h -l info -c 1"]
