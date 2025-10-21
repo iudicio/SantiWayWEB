@@ -134,14 +134,14 @@ WSGI_APPLICATION = 'SantiWayWEB.wsgi.application'
 ASGI_APPLICATION = 'SantiWayWEB.asgi.application'
 
 # Channels configuration
-CHANNEL_LAYERS = {
-    'default': {
-        'BACKEND': 'channels_redis.core.RedisChannelLayer',
-        'CONFIG': {
-            "hosts": [os.getenv('REDIS_URL', 'redis://redis:6379/0')],
-        },
-    },
-}
+#CHANNEL_LAYERS = {
+#    'default': {
+#        'BACKEND': 'channels_redis.core.RedisChannelLayer',
+#        'CONFIG': {
+#           "hosts": [os.getenv('REDIS_URL', 'redis://redis:6379/0')],
+#        },
+#    },
+#}
 
 
 # Database
