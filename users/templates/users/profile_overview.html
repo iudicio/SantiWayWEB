@@ -88,7 +88,7 @@
             <tbody>
               <!-- Api ключи -->
               {% for api_key in api_keys %}
-                <td>{{ api_key.name }}</td>
+                <td data-key-id="{{ api_key.id }}">{{ api_key.name }}</td>
                 <td><p class="mono">{{ api_key.key }}</p></td>
                 <td class="text-center">{{ api_key.created_at|date:"Y-m-d" }}</td>
                 <td class="text-center">
@@ -96,7 +96,6 @@
                     class="apk-btn btn-primary"
                     data-status="order"
                     data-api-key="{{ api_key.key }}"
-                    data-key-id="{{ api_key.id }}"
                   >
                     Собрать APK
                   </button>
