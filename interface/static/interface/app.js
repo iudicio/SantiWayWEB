@@ -1,5 +1,6 @@
 const API_BASE = (window.APP_CONFIG && window.APP_CONFIG.API_BASE) || '/api';
 const API_KEY = (window.APP_CONFIG && window.APP_CONFIG.API_KEY) || '';
+const API_USER_INFO = window.APP_CONFIG.API_USER_INFO
 const API_DEVICES_URL = `${API_BASE}/devices/`;
 const API_POLYGONS_URL = `${API_BASE}/polygons/`;
 
@@ -1040,7 +1041,10 @@ class NotificationManager {
 async function initLists(){
   const apiKeys = await getApiKeys();
   const devices = await getDevices(Object.keys(apiKeys));
-  fillList("apiList", apiKeys.keys);
+  const folders = await getFolders(Object.keys(apiKeys), devices)
+  fillCollapsibleList("apiList", apiKeys);
+  fillCollapsibleList("deviceList", devices);
+  fillCollapsibleList("folderList", folders);
 }
 
 // Инициализация

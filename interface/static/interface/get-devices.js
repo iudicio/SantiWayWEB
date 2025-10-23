@@ -1,17 +1,24 @@
 
-function fillList(id, elements){
-  const list = document.getElementById(id);
+async function postUserInfo(body){
+  try {
+    const response = await fetch(API_USER_INFO, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        'X-CSRFToken': getCookie('csrftoken')
+      },
+      body: JSON.stringify(body)
+    });
 
-  for (let key in elements) {
-    let label = document.createElement("label");
-    label.classList = "custom-checkbox";
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(`Ошибка ${response.status}: ${text}`);
+    }
 
-    let checkbox = document.createElement("input");
-    checkbox.type = "checkbox";
-    checkbox.value = key;
-    label.appendChild(checkbox);
-    label.appendChild(document.createTextNode(elements[key]));
-    list.appendChild(label)
+    return await response.json();
+  } catch (err) {
+    console.error("Ошибка запроса postUserInfo:", err);
+    throw err;
   }
 }
 
@@ -26,37 +33,18 @@ async function getApiKeys(){
 }
 
 async function getDevices(apiKeys){
-  console.log("API-Keys for fetch devices: ", apiKeys)
-  const devicesResponse = await fetch("/api/userinfo/", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      'X-CSRFToken': getCookie('csrftoken')
-    },
-    body: JSON.stringify({
-      api_keys: apiKeys
-    })
-  });
-
-  const devices = await devicesResponse.json();
-  console.log("Devices:", devices);
+  if (!Array.isArray(apiKeys)) apiKeys = [apiKeys];
+  const devices = await postUserInfo({api_keys: apiKeys});
+  console.log("Количество полученных устройств: ", devices.length);
+  return devices;
 }
 
-async function getFolders(api, devices){
-  const foldersResponse = await fetch("/api/userinfo/", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      'X-CSRFToken': getCookie('csrftoken')
-    },
-    body: JSON.stringify({
-      api_keys: api,
-      devices: devices
-    })
-  });
-
-  const folders = await foldersResponse.json();
-  console.log("Folders:", folders);
+async function getFolders(apiKeys, devices){
+  if (!Array.isArray(apiKeys)) apiKeys = [apiKeys];
+  if (!Array.isArray(devices)) devices = [devices];
+  const folders = await postUserInfo({api_keys: apiKeys, devices: devices});
+  console.log("Количество полученных папок: ", folders.length);
+  return folders
 }
 
 function getCookie(name){
