@@ -87,20 +87,21 @@
             </thead>
             <tbody>
               <!-- Api ключи -->
-              {% for device in devices %}
-              <tr>
-                  <td data-device-id="{{ device.id }}">{{ device.name }}</td>
-                <td>
-                  <p class="mono text-center">{{ device.api_key.key }}</p>
-                </td>
-                <td class="text-center">{{ device.api_key.created_at|date:"Y-m-d" }}</td>
+              {% for api_key in api_keys %}
+                <td data-key-id="{{ api_key.id }}">{{ api_key.name }}</td>
+                <td><p class="mono">{{ api_key.key }}</p></td>
+                <td class="text-center">{{ api_key.created_at|date:"Y-m-d" }}</td>
                 <td class="text-center">
-                  <button class="apk-btn btn-primary" data-status="order" data-api-key="{{ device.api_key.key }}">
+                  <button
+                    class="apk-btn btn-primary"
+                    data-status="order"
+                    data-api-key="{{ api_key.key }}"
+                  >
                     Собрать APK
                   </button>
                 </td>
                 <td class="delete-column">
-                  <button class="remove-btn delete-btn" title="Delete" onclick="deleteDevice('{{ device.id }}', '{{ device.name }}')">
+                  <button class="remove-btn delete-btn" title="Delete" onclick="deleteDevice('{{ api_key.id }}', '{{ api_key.name }}')">
                     &#10005;
                   </button>
                 </td>

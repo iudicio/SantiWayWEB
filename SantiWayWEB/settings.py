@@ -38,6 +38,7 @@ INSTALLED_APPS = [
     'api',
     'interface',
     'polygons',
+    'filtering',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -49,11 +50,24 @@ INSTALLED_APPS = [
     "drf_spectacular",
     "drf_spectacular_sidecar",  # статические ассеты Swagger UI
     'channels',
+    'django_crontab', # для периодических задач
+]
+
+
+CRONJOBS = [
+    ('*/30 * * * *', 'apkbuilder.cron.delete_background_task', '> /proc/1/fd/1 2>&1'),
 ]
 
 
 AUTH_USER_MODEL = 'users.User'
 
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost",
+    "http://127.0.0.1",
+    "http://localhost:8000",
+    "http://127.0.0.1:8000",
+    "http://10.8.0.4",
+]
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
@@ -120,14 +134,14 @@ WSGI_APPLICATION = 'SantiWayWEB.wsgi.application'
 ASGI_APPLICATION = 'SantiWayWEB.asgi.application'
 
 # Channels configuration
-CHANNEL_LAYERS = {
-    'default': {
-        'BACKEND': 'channels_redis.core.RedisChannelLayer',
-        'CONFIG': {
-            "hosts": [os.getenv('REDIS_URL', 'redis://redis:6379/0')],
-        },
-    },
-}
+#CHANNEL_LAYERS = {
+#    'default': {
+#        'BACKEND': 'channels_redis.core.RedisChannelLayer',
+#        'CONFIG': {
+#           "hosts": [os.getenv('REDIS_URL', 'redis://redis:6379/0')],
+#        },
+#    },
+#}
 
 
 # Database
@@ -169,7 +183,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = 'en-us'
 
-TIME_ZONE = 'UTC'
+TIME_ZONE = 'Europe/Moscow'
 
 USE_I18N = True
 

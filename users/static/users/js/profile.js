@@ -4,11 +4,11 @@ document.addEventListener("DOMContentLoaded", () => {
   const openModalBtn = document.getElementById('openModalBtn');
   const timeToCheck = 20000; // Запрос к серверу каждые 20 секунд
   let firstAlert = true;
-  const APK_URL = "http://127.0.0.1/api/apk/build/";
+  const APK_URL = "/api/apk/build/";
   const API_URL = "/api/api-key/";
 
 
-  // Вешаем фукнцияю создания апи ключа на кнопку
+  // Вешаем функцию создания апи ключа на кнопку
   if (openModalBtn) {
     openModalBtn.addEventListener('click', function () {
       // Используем prompt для ввода названия ключа
@@ -66,7 +66,7 @@ document.addEventListener("DOMContentLoaded", () => {
   })
 
   document.querySelectorAll(".mono").forEach(el => {
-    el.addEventListener("click", () => { copyApiKey(el.textContent); copyApiKeyAnimation(el) });
+    el.addEventListener("click", () => { copyApiKey(el) });
   });
 
   // Функция для создания API ключа
@@ -80,7 +80,7 @@ document.addEventListener("DOMContentLoaded", () => {
         'Content-Type': 'application/json',
         'X-CSRFToken': getCookie('csrftoken')
       },
-      body: JSON.stringify({ name: name })
+      body: JSON.stringify({ name })
     })
       .then(response => {
         if (!response.ok) {
@@ -91,18 +91,24 @@ document.addEventListener("DOMContentLoaded", () => {
         return response.json();
       })
       .then(data => {
+        // Ожидаем формат: { key_id, api_key, name, created_at }
+        // Небольшая защита, если бэк по старому отдаёт device_name:
+        const keyId = data.key_id || data.id;
+        const keyName = data.name || data.device_name || 'Без названия';
+        const keyValue = data.api_key;
+        const createdAt = (data.created_at || new Date().toISOString()).split("T")[0];
         // Показываем пользователю созданный API ключ
          showModal({
           title: "API-ключ успешно создан!",
           body: `
             <div class="modal-info">
-              <p><strong>Device:</strong> ${data.device_name}</p>
-              <p><strong>API-ключ:</strong> <span class="mono">${data.api_key}</span></p>
+              <p><strong>Device:</strong> ${keyName}</p>
+              <p><strong>API-ключ:</strong> <span class="mono">${keyValue}</span></p>
             </div>
           `,
         });
         console.log("Data: ", data);
-        addNewDeviceRow(data.device_name, data.api_key, data.key_id);
+        addNewApiKeyRow(keyName, keyValue, keyId, createdAt);
       })
       .catch(error => {
         console.error('Error:', error);
@@ -110,7 +116,7 @@ document.addEventListener("DOMContentLoaded", () => {
       });
   }
 
-  function addNewDeviceRow(deviceName, apiKey, deviceId) {
+  function addNewApiKeyRow(apiName, apiKey, apiId, created_at) {
     const tbody = document.querySelector('#devicesTable tbody');
 
     // Убираем "Нет созданных API ключей"
@@ -123,19 +129,21 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Название устройства
     const tdName = document.createElement('td');
-    tdName.textContent = deviceName;
+    tdName.textContent = apiName;
 
     // API ключ
     const tdKey = document.createElement('td');
     const pKey = document.createElement('p');
-    pKey.className = 'mono text-center';
+    pKey.className = 'mono';
     pKey.textContent = apiKey;
+    pKey.setAttribute("data-key-id", apiId)
+    pKey.addEventListener("click", () => { copyApiKey(pKey) });
     tdKey.appendChild(pKey);
 
     // Дата создания
     const tdDate = document.createElement('td');
     tdDate.className = 'text-center';
-    tdDate.textContent = new Date().toISOString().split('T')[0];
+    tdDate.textContent = created_at;
 
     // Кнопка APK
     const tdApk = document.createElement('td');
@@ -143,7 +151,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const apkBtn = document.createElement('button');
     apkBtn.className = 'apk-btn btn-primary';
     apkBtn.textContent = 'Собрать APK';
-    apkBtn.dataset.deviceId = deviceId;
     apkBtn.setAttribute("data-status", STATUSES.order);
     apkBtn.setAttribute("data-api-key", apiKey);
     tdApk.appendChild(apkBtn);
@@ -155,7 +162,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const deleteBtn = document.createElement('button');
     deleteBtn.className = 'remove-btn delete-btn';
     deleteBtn.innerHTML = '&#10005;';
-    deleteBtn.onclick = function () { deleteDevice(deviceId, deviceName); };
+    deleteBtn.onclick = function () { deleteDevice(apiId, apiName); };
     tdDelete.appendChild(deleteBtn);
 
     // Собираем строку
@@ -168,27 +175,48 @@ document.addEventListener("DOMContentLoaded", () => {
     // Добавляем в таблицу
     tbody.appendChild(tr);
   }
-// Анимация для копирования APIключа
-  function copyApiKeyAnimation(element) {
+
+  // Анимация для копирования API-ключа
+  function copyApiKey(element) {
     const original = element.textContent;
-    element.textContent = 'Скопировано!';
-    navigator.clipboard.writeText(original).then(() => {
-      element.classList.add("copied");
-      setTimeout(() => element.classList.remove("copied"), 1500);
-      setTimeout(() => element.textContent = original, 1500);
-    });
+    if (original.trim() === "Скопировано!") return;
+
+    // Делаем через современный способ
+    if (navigator.clipboard){
+      navigator.clipboard.writeText(original)
+        .then(() => {
+         apiKeyCopyAnimation(element, original);
+        })
+        .catch(err => {
+          console.error('Ошибка копирования API-ключа: ', err);
+          alert('Ошибка копирования API ключа');
+        });
+      return
+    }
+
+    // Если не помогло - классика
+    const textarea = document.createElement('textarea');
+    textarea.value = element.textContent;
+    textarea.style.position = 'fixed';
+    textarea.style.opacity = '0';
+    document.body.appendChild(textarea);
+    textarea.select();
+    const successful = document.execCommand('copy');
+    document.body.removeChild(textarea);
+
+    if (successful) {
+      apiKeyCopyAnimation(element, original);
+    }
   }
 
-  // Функция для копирования API ключа
-  function copyApiKey(key) {
-    navigator.clipboard.writeText(key)
-      .then(() => {
-        alert('API key copied to clipboard!');
-      })
-      .catch(err => {
-        console.error('Failed to copy: ', err);
-        alert('Failed to copy API key');
-      });
+  // Анимация текста на "скопировано" и обратно
+  function apiKeyCopyAnimation(element, originalText){
+    element.textContent = 'Скопировано!';
+    element.classList.add("copied");
+    setTimeout(() => {
+      element.classList.remove("copied");
+      element.textContent = originalText
+    }, 1500);
   }
 
   // Функция для здаания начальных статусов APK кнопок
@@ -267,7 +295,7 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     } else if (btnStatus === STATUSES.ready) {
       // Скачивание APK
-      downloadAPK(apiKey);
+      downloadAPK(apiKey, button);
     }
   }
 
@@ -281,7 +309,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // Запрос на сборку APK на сревер
   async function startAPKBuild(apiKey) {
     try {
-      const response = await fetch(`${APK_URL}`, {
+      const response = await fetch(APK_URL, {
         method: "POST",
         headers: {
           "Authorization": `Api-Key ${apiKey}`,
@@ -372,7 +400,15 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // Функция для загрузки APK при клике на кнопку
-  async function downloadAPK(apiKey) {
+  async function downloadAPK(apiKey, button = null) {
+    const startTime = performance.now(); // время начала функции
+
+    // Анимация - заглушка на всякий случай
+    if (button){
+      button.disabled = true;
+      setButtonLoading(button, "Загрузка");
+    }
+
     try {
       const response = await fetch(`${APK_URL}?action=download`, {
         method: "GET",
@@ -383,10 +419,14 @@ document.addEventListener("DOMContentLoaded", () => {
         }
       });
 
+      console.log('Fetch completed', performance.now() - startTime, 'ms');
       if (!response.ok) throw new Error(`Download failed: ${response.status}`);
       const blob = await response.blob();
+      console.log('Blob created', performance.now() - startTime, 'ms');
 
       const url = window.URL.createObjectURL(blob);
+      console.log('Object URL created', performance.now() - startTime, 'ms');
+
       const a = document.createElement("a");
       a.href = url;
       a.download = "app.apk";
@@ -394,9 +434,16 @@ document.addEventListener("DOMContentLoaded", () => {
       a.click();
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
+      console.log('Download triggered', performance.now() - startTime, 'ms');
+
     } catch (error) {
       console.error("Download error:", error);
       alert("Ошибка при скачивании: " + error.message);
+    } finally {
+      if (button){
+        clearButtonLoading(button, "Скачать APK");
+        button.disabled = false;
+      }
     }
   }
 
@@ -424,9 +471,9 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 // Функция для удаления устройства
-function deleteDevice(deviceId, deviceName) {
-  if (confirm(`Are you sure you want to delete the device "${deviceName}"?`)) {
-    fetch(`/api/api-key/${deviceId}/`, {
+function deleteDevice(keyId, keyName) {
+  if (confirm(`Are you sure you want to delete the device "${keyName}"?`)) {
+    fetch(`/api/api-key/${keyId}/`, {
       method: 'DELETE',
       headers: {
         'X-CSRFToken': getCookie('csrftoken')
@@ -435,7 +482,7 @@ function deleteDevice(deviceId, deviceName) {
       .then(response => {
         if (response.ok) {
           alert('Device deleted successfully!');
-          removeApiKeyFromTable(deviceId)
+          removeApiKeyFromTable(keyId)
         } else {
           throw new Error('Failed to delete device');
         }
@@ -448,8 +495,8 @@ function deleteDevice(deviceId, deviceName) {
 }
 
 // Удаление строки из таблицы
-function removeApiKeyFromTable(deviceId){
-  const row = document.querySelector(`[data-device-id="${deviceId}"]`).closest("tr");
+function removeApiKeyFromTable(keyId){
+  const row = document.querySelector(`[data-key-id="${keyId}"]`).closest("tr");
   row.remove()
 }
 

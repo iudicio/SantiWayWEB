@@ -3,9 +3,89 @@ import shutil
 import subprocess
 from pathlib import Path
 from celery.utils.log import get_task_logger
+from xml.etree import ElementTree as ET
 
 
 log = get_task_logger(__name__)
+
+
+def cleanup_values_dir(values_dir: Path) -> None:
+    """Удаляет из res/values всё, что не .xml (например .bak)."""
+    if not values_dir.exists():
+        return
+    for p in values_dir.iterdir():
+        if p.is_file() and p.suffix.lower() != ".xml":
+            try:
+                p.unlink()
+            except Exception:
+                pass
+
+
+def inject_api_key_into_strings(repo_dir: Path, key: str) -> Path:
+    """
+    Гарантирует наличие <string name="default_api_key">KEY</string> в
+    SantiWayANDROID/app/src/main/res/values/strings.xml (или string.xml).
+
+    Возвращает путь к файлу strings.xml, в который был вшит ключ.
+    """
+    if not key:
+        raise ValueError("API key пустой — нечего вшивать")
+
+    # корень андроид-проекта — репозиторий SantiWayANDROID
+    values_dir = repo_dir / "app" / "src" / "main" / "res" / "values"
+    values_dir.mkdir(parents=True, exist_ok=True)
+
+    # возможные имена файла
+    strings_xml = values_dir / "strings.xml"
+    alt_xml = values_dir / "string.xml"
+    target = strings_xml if strings_xml.exists() else (alt_xml if alt_xml.exists() else strings_xml)
+
+    if not target.exists():
+        # создаём минимальный шаблон
+        log.info("[default_api_key] strings.xml отсутствует — создаём новый")
+        root = ET.Element("resources")
+    else:
+        try:
+            root = ET.parse(target).getroot()
+            if root.tag != "resources":
+                raise ET.ParseError("Корневой тег не <resources>")
+        except Exception as e:
+            # если файл битый — переименуем в .bak и начнём с чистого
+            log.warning("[default_api_key] Не удалось распарсить %s (%s). Переименовываю в .bak и пересоздаю.", target, e)
+            shutil.move(str(target), str(target.with_suffix(target.suffix + ".bak")))
+            root = ET.Element("resources")
+
+    # ищем/создаём элемент <string name="default_api_key">
+    api_el = None
+    for child in list(root):
+        if child.tag == "string" and child.attrib.get("name") == "default_api_key":
+            api_el = child
+            break
+    if api_el is None:
+        api_el = ET.SubElement(root, "string", {"name": "default_api_key"})
+
+    # ставим текст ключа
+    api_el.text = key
+
+    # делаем бэкап перед записью, если есть старый файл
+    if target.exists():
+        backup = target.with_suffix(target.suffix + ".bak")
+        try:
+            shutil.copy2(target, backup)
+        except Exception:
+            pass
+
+    # сохраняем с декларацией XML и utf-8
+    tree = ET.ElementTree(root)
+    # prettify простым переводом строк (ElementTree сам не форматирует)
+    xml_bytes = ET.tostring(root, encoding="utf-8")
+    xml_text = b'<?xml version="1.0" encoding="utf-8"?>\n' + xml_bytes
+
+    with open(target, "wb") as f:
+        f.write(xml_text)
+
+    log.info("[default_api_key] API key вшит в %s", target)
+    return target
 
 
 def run_cmd(cmd, cwd=None, env=None, log_prefix=""):
@@ -93,6 +173,17 @@ def process_apk_build(key: str, target_dir: str, android_url: str) -> str:
     repo_dir = Path(target_dir).resolve()
     app_dir = repo_dir / "app"
 
+    # Вшиваем API_KEY до сборки
+    if key:
+        try:
+            inject_api_key_into_strings(repo_dir, key)
+        except Exception as e:
+            # не падаем, а логируем — сборка всё равно может пройти, если проект ждёт -PapiKey
+            log.warning("[api_key] Не удалось вшить ключ: %s", e)
+
+    # На всякий случай ещё раз подметём мусор перед запуском Gradle
+    cleanup_values_dir(repo_dir / "app" / "src" / "main" / "res" / "values")
+
     # gradlew исполняемый
     gradlew = repo_dir / ("gradlew.bat" if os.name == "nt" else "gradlew")
     if not gradlew.exists():
@@ -101,8 +192,6 @@ def process_apk_build(key: str, target_dir: str, android_url: str) -> str:
         os.chmod(gradlew, 0o755)
     except Exception:
         pass
-
-    # TODO Вшить Api-key в приложение в secret.properties, когда будет
 
     env = os.environ.copy()
 

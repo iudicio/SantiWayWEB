@@ -8,6 +8,8 @@ networks:
 
 services:
   apkbuild_worker:
+    environment:
+      - TZ=Europe/Moscow
     build:
       context: .
       dockerfile: Dockerfile
@@ -22,3 +24,5 @@ services:
       - ./keystore:/app/keystore                  # положи сюда release.jks
       - ./gradle-cache:/app/.gradle               # быстрее сборки
       - ./android-prefs:/home/celery/.android     # сюда сохранится sdkmanager/licenses
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
