@@ -5,6 +5,8 @@ document.addEventListener("DOMContentLoaded", () => {
   const timeToCheck = 20000; // Запрос к серверу каждые 20 секунд
   let firstAlert = true;
 
+  const APK_HOST = "http://10.8.0.4/api/apk/build/"
+
 
   // Вешаем фукнцияю создания апи ключа на кнопку
   if (openModalBtn) {
@@ -34,18 +36,16 @@ document.addEventListener("DOMContentLoaded", () => {
     el.addEventListener("click", () => { copyApiKey(el.textContent); copyApiKeyAnimation(el) });
   });
 
-  // Функция для создания API ключа
   function createApiKey(name) {
     console.log('Creating API key with name:', name);
 
-    // Отправляем POST запрос на сервер
-    fetch('/api/api-key/', {
+    fetch('/api/api-key/', { // если у тебя эндпоинт другой — оставь свой URL
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'X-CSRFToken': getCookie('csrftoken')
       },
-      body: JSON.stringify({ name: name })
+      body: JSON.stringify({ name })
     })
       .then(response => {
         if (!response.ok) {
@@ -56,10 +56,20 @@ document.addEventListener("DOMContentLoaded", () => {
         return response.json();
       })
       .then(data => {
-        // Показываем пользователю созданный API ключ
-        alert(`API key created successfully!\n\nDevice: ${data.device_name}\nAPI Key: ${data.api_key}\n\nPlease save this key - it won't be shown again!`);
-        console.log("Data: ", data);
-        addNewDeviceRow(data.device_name, data.api_key, data.device_id);
+        // Ожидаем формат: { key_id, api_key, name, created_at }
+        // Небольшая защита, если бэк по старому отдаёт device_name:
+        const keyId = data.key_id || data.id;
+        const keyName = data.name || data.device_name || 'Без названия';
+        const keyValue = data.api_key;
+        const createdAt = (data.created_at || new Date().toISOString()).split("T")[0];
+        alert(
+          `API-ключ создан!\n\n` +
+          `Название: ${keyName}\n` +
+          `Ключ: ${keyValue}\n\n` +
+          `Сохрани его — он может не отображаться повторно!`
+        );
+
+        addNewApiKeyRow(keyName, keyValue, keyId, createdAt);
       })
       .catch(error => {
         console.error('Error:', error);
@@ -67,7 +77,7 @@ document.addEventListener("DOMContentLoaded", () => {
       });
   }
 
-  function addNewDeviceRow(deviceName, apiKey, deviceId) {
+  function addNewApiKeyRow(apiName, apiKey, apiId, created_at) {
     const tbody = document.querySelector('#devicesTable tbody');
 
     // Убираем "Нет созданных API ключей"
@@ -80,19 +90,19 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Название устройства
     const tdName = document.createElement('td');
-    tdName.textContent = deviceName;
+    tdName.textContent = apiName;
 
     // API ключ
     const tdKey = document.createElement('td');
     const pKey = document.createElement('p');
-    pKey.className = 'mono text-center';
+    pKey.className = 'text-center';
     pKey.textContent = apiKey;
     tdKey.appendChild(pKey);
 
     // Дата создания
     const tdDate = document.createElement('td');
     tdDate.className = 'text-center';
-    tdDate.textContent = new Date().toISOString().split('T')[0];
+    tdDate.textContent = created_at;
 
     // Кнопка APK
     const tdApk = document.createElement('td');
@@ -100,9 +110,9 @@ document.addEventListener("DOMContentLoaded", () => {
     const apkBtn = document.createElement('button');
     apkBtn.className = 'apk-btn btn-primary';
     apkBtn.textContent = 'Собрать APK';
-    apkBtn.dataset.deviceId = deviceId;
+    apkBtn.dataset.deviceId = apiId;
     apkBtn.setAttribute("data-status", STATUSES.order);
-    apkBtn.setAttribute("api-key", apiKey);
+    apkBtn.setAttribute("data-api-key", apiKey);
     tdApk.appendChild(apkBtn);
     apkBtn.addEventListener("click", () => { changeAPKButtonState(apkBtn) });
 
@@ -112,7 +122,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const deleteBtn = document.createElement('button');
     deleteBtn.className = 'remove-btn delete-btn';
     deleteBtn.innerHTML = '&#10005;';
-    deleteBtn.onclick = function () { deleteDevice(deviceId, deviceName); };
+    deleteBtn.onclick = function () { deleteDevice(apiId, apiName); };
     tdDelete.appendChild(deleteBtn);
 
     // Собираем строку
@@ -124,14 +134,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Добавляем в таблицу
     tbody.appendChild(tr);
-    //    NOTE: временное решение, тк при создании api-ключа id, по которому он потом удаляется не возвращается api
-    location.reload();
   }
 // Анимация для копирования APIключа
   function copyApiKeyAnimation(element) {
     const original = element.textContent;
     element.textContent = 'Скопировано!';
-    const key = element.textContent.trim();
     navigator.clipboard.writeText(original).then(() => {
       element.classList.add("copied");
       setTimeout(() => element.classList.remove("copied"), 1500);
@@ -153,8 +160,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Функция для здаания начальных статусов APK кнопок
   async function prepareButton(button) {
-    const apiKey = button.getAttribute("api-key");
-    const row = button.closest("tr");
+    const apiKey = button.getAttribute("data-api-key");
 
     // Показываем временный "лоадер" пока идёт запрос
     setButtonLoading(button, "Проверяем статус");
@@ -162,7 +168,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (status === "pending") {
       updateButton(button, "На сборке", STATUSES.create);
-      pollBuildStatus(apiKey, button, row);
+      pollBuildStatus(apiKey, button);
     } else if (status === "success") {
       updateButton(button, "Скачать APK", STATUSES.ready);
     } else if (status === "failed") {
@@ -177,9 +183,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
 // Функция для изменения статусов APK кнопок при нажатии
   async function changeAPKButtonState(button) {
-    const apiKey = button.getAttribute("api-key");
+    const apiKey = button.getAttribute("data-api-key");
     let btnStatus = button.getAttribute("data-status");
-    let row = button.closest("tr");
 
     if (btnStatus === STATUSES.order || btnStatus === STATUSES.failed) {
       // Старт сборки
@@ -187,7 +192,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (buildData?.apk_build_id) {
         updateButton(button, "На сборке", STATUSES.create);
         // Запускаем опрос статуса
-        pollBuildStatus(apiKey, button, row);
+        pollBuildStatus(apiKey, button);
       }
     } else if (btnStatus === STATUSES.create) {
       // Ручная проверка статуса сборки
@@ -223,7 +228,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         setTimeout(() => {
           button.disabled = false;
-          pollBuildStatus(apiKey, button, row);
+          pollBuildStatus(apiKey, button);
         }, 4000);
 
       }
@@ -243,7 +248,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // Запрос на сборку APK на сревер
   async function startAPKBuild(apiKey) {
     try {
-      const response = await fetch("http://localhost/api/apk/build/", {
+      const response = await fetch(APK_HOST, {
         method: "POST",
         headers: {
           "Authorization": `Api-Key ${apiKey}`,
@@ -279,7 +284,7 @@ document.addEventListener("DOMContentLoaded", () => {
  */
   async function checkBuildStatus(apiKey) {
     try {
-      const response = await fetch("http://localhost/api/apk/build/", {
+      const response = await fetch(APK_HOST, {
         method: "GET",
         headers: {
           "Authorization": `Api-Key ${apiKey}`,
@@ -308,7 +313,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // Автоматический опрос каждые N секунд
-  function pollBuildStatus(apiKey, button, row) {
+  function pollBuildStatus(apiKey, button) {
     if (button._pollInterval) {
       clearInterval(button._pollInterval);
     }
@@ -336,7 +341,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // Функция для загрузки APK при клике на кнопку
   async function downloadAPK(apiKey) {
     try {
-      const response = await fetch("http://localhost/api/apk/build/?action=download", {
+      const response = await fetch(`${APK_HOST}?action=download`, {
         method: "GET",
         headers: {
           "Authorization": `Api-Key ${apiKey}`,

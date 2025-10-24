@@ -18,43 +18,33 @@ class APIKeyViewSet(viewsets.ViewSet):
     permission_classes = [IsAuthenticated]
 
     def create(self, request):
-        device_name = request.data.get("name")
-        if not device_name:
-            return Response(
-                {"error": "Device name required"}, status=status.HTTP_400_BAD_REQUEST
-            )
+        key_name = request.data.get("name")
+        if not key_name:
+            return Response({"error": "API key name required"}, status=status.HTTP_400_BAD_REQUEST)
 
-        api_key = APIKey.objects.create()
-
-        device = Device.objects.create(name=device_name, api_key=api_key)
-
+        api_key = APIKey.objects.create(name=key_name)
         request.user.api_keys.add(api_key)
 
-        return Response(
-            {
-                "key_id": device.api_key.id,
-                "device_name": device.name,
-                "api_key": device.api_key.key,  # отдаём токен пользователю
-            },
-            status=status.HTTP_201_CREATED,
-        )
+        return Response({
+            "key_id": api_key.id,
+            "api_key": str(api_key.key),
+            "name": api_key.name,
+            "created_at": api_key.created_at
+        }, status=status.HTTP_201_CREATED)
 
-    # Удаление устройства
+    # Удаление ключа
     def destroy(self, request, pk=None):
-        device = get_object_or_404(Device, pk=pk)
-        # проверить, что девайс принадлежит юзеру
-        if not request.user.api_keys.filter(id=device.api_key.id).exists():
+        api_key = get_object_or_404(APIKey, pk=pk)
+        if not request.user.api_keys.filter(id=api_key.id).exists():
             return Response({"error": "Not allowed"}, status=status.HTTP_403_FORBIDDEN)
-        device.api_key.delete()
+
+        api_key.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
     # Вывод всех API ключей
     def list(self, request):
-        api_keys = request.user.api_keys.all()
-        data = dict()
-        for key in api_keys:
-            device = Device.objects.get(api_key__key=key.key)
-            data[str(key.key)] = device.name
+        api_keys = request.user.api_keys.all().only("id", "key", "name")
+        data = {str(k.key): k.name for k in api_keys}
         return Response(data, status=status.HTTP_200_OK)
 
 
@@ -115,15 +105,13 @@ def login_view(request):
 # Профиль пользователя — обзор
 def profile_overview(request):
     user = request.user
-    api_keys = user.api_keys.all()
-    devices = Device.objects.filter(api_key__in=api_keys)
+    api_keys = user.api_keys.all().only("id", "key", "name", "created_at")
     return render(
         request,
         "users/profile_overview.html",
         {
             "user": user,
             "api_keys": api_keys,
-            "devices": devices,
         },
     )
 
@@ -131,20 +119,10 @@ def profile_overview(request):
 # Детали конкретного API ключа
 def api_key_detail(request, key_id):
     api_key = get_object_or_404(APIKey, id=key_id)
-    devices = api_key.devices.all()
-    return render(
-        request, "users/api_key_detail.html", {"api_key": api_key, "devices": devices}
-    )
-
+    # Если устройства больше не используются, можно не передавать:
+    return render(request, "users/api_key_detail.html", {"api_key": api_key})
 
 # Список всех устройств (можно фильтровать по API ключу)
-def devices_list(request):
-    api_key_id = request.GET.get("api_key")
-    if api_key_id:
-        devices = Device.objects.filter(api_key__id=api_key_id)
-    else:
-        devices = Device.objects.all()
-    api_keys = request.user.api_keys.all()
-    return render(
-        request, "users/devices_list.html", {"devices": devices, "api_keys": api_keys}
-    )
+def api_keys_list(request):
+    api_keys = request.user.api_keys.all().only("id", "key", "name", "created_at")
+    return render(request, "users/devices_list.html", {"api_keys": api_keys})

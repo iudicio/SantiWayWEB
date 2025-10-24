@@ -26,7 +26,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 SECRET_KEY = os.getenv("SECRET_KEY", "change-me")
-DEBUG = False
+DEBUG = True
 ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "*").split(",")
 CSRF_TRUSTED_ORIGINS = ["http://localhost", "http://127.0.0.1"]
 
@@ -34,27 +34,43 @@ CSRF_TRUSTED_ORIGINS = ["http://localhost", "http://127.0.0.1"]
 # Application definition
 
 INSTALLED_APPS = [
-    "users",
-    "apkbuilder",
-    "api",
-    "interface",
-    "polygons",
-    "django.contrib.admin",
-    "django.contrib.auth",
-    "django.contrib.contenttypes",
-    "django.contrib.sessions",
-    "django.contrib.messages",
+    'daphne',
+    'users',
+    'apkbuilder',
+    'api',
+    'interface',
+    'polygons',
+    'filtering',
+    'django.contrib.admin',
+    'django.contrib.auth',
+    'django.contrib.contenttypes',
+    'django.contrib.sessions',
+    'django.contrib.messages',
     "whitenoise.runserver_nostatic",
-    "django.contrib.staticfiles",
-    "rest_framework",
-    "corsheaders",
+    'django.contrib.staticfiles',
+    'rest_framework',
+    'corsheaders',
     "drf_spectacular",
     "drf_spectacular_sidecar",  # статические ассеты Swagger UI
+    'channels',
+    'django_crontab', # для периодических задач
+]
+
+
+CRONJOBS = [
+    ('*/30 * * * *', 'apkbuilder.cron.delete_background_task', '> /proc/1/fd/1 2>&1'),
 ]
 
 
 AUTH_USER_MODEL = "users.User"
 
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost",
+    "http://127.0.0.1",
+    "http://localhost:8000",
+    "http://127.0.0.1:8000",
+    "http://10.8.0.4",
+]
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
@@ -116,7 +132,18 @@ TEMPLATES = [
     },
 ]
 
-WSGI_APPLICATION = "SantiWayWEB.wsgi.application"
+WSGI_APPLICATION = 'SantiWayWEB.wsgi.application'
+ASGI_APPLICATION = 'SantiWayWEB.asgi.application'
+
+# Channels configuration
+CHANNEL_LAYERS = {
+    'default': {
+        'BACKEND': 'channels_redis.core.RedisChannelLayer',
+        'CONFIG': {
+            "hosts": [os.getenv('REDIS_URL', 'redis://redis:6379/0')],
+        },
+    },
+}
 
 
 # Database
@@ -158,7 +185,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = "en-us"
 
-TIME_ZONE = "UTC"
+TIME_ZONE = 'Europe/Moscow'
 
 USE_I18N = True
 
@@ -190,10 +217,8 @@ CELERY_TIMEZONE = TIME_ZONE
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
-CELERY_BROKER_URL = os.getenv(
-    "CELERY_BROKER_URL", "amqp://celery:celerypassword@rabbitmq:5672/"
-)
-CELERY_RESULT_BACKEND = "rpc://"
-CELERY_ACCEPT_CONTENT = ["json"]
-CELERY_TASK_SERIALIZER = "json"
-CELERY_RESULT_SERIALIZER = "json"
+CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL", "amqp://celery:celerypassword@rabbitmq:5672/")
+CELERY_RESULT_BACKEND = 'rpc://'
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'

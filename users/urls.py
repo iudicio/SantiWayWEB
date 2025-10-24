@@ -11,5 +11,5 @@ urlpatterns = [
     path("logout/", LogoutView.as_view(next_page="users:login"), name="logout"),
     path("profile/", views.profile_overview, name="profile_overview"),
     path("api-key/<int:key_id>/", views.api_key_detail, name="api_key_detail"),
-    path("devices/", views.devices_list, name="devices_list"),
+    path("devices/", views.api_keys_list, name="devices_list"),
 ]

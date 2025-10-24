@@ -6,10 +6,11 @@ from django.db import models
 
 class APIKey(models.Model):
     key = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    name = models.CharField(max_length=100, blank=False, null=False)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return str(self.key)
+        return f"{self.name} ({self.key})"
 
 
 class Device(models.Model):
@@ -50,6 +51,14 @@ class User(AbstractUser):
     api_keys = models.ManyToManyField(APIKey, blank=True)
     last_login_date = models.DateTimeField(null=True, blank=True)
     search_queries = models.ManyToManyField(SearchQuery, blank=True)
+
+    # новое поле кредитов
+    credits = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=0,
+        help_text="Баланс для оплаты услуг"
+    )
 
     def __str__(self):
         return self.username
