@@ -72,6 +72,11 @@ const state = {
   colorForPolygon: {} // Используется как хранилище цветов, чтобы при каждом reload() не слать запросы на сервер
 };
 
+const cache = {
+  devices: {},
+  folders: {}
+}
+
 // Цвета полигонов в зависимости от статуса
 const POLYGON_COLORS = {
   DEFAULT: "#ef4444",   // Неактивный/неизвестный
@@ -1040,11 +1045,20 @@ class NotificationManager {
 
 async function initLists(){
   const apiKeys = await getApiKeys();
-  const devices = await getDevices(Object.keys(apiKeys));
-  const folders = await getFolders(Object.keys(apiKeys), devices)
   fillCollapsibleList("apiList", apiKeys);
-  fillCollapsibleList("deviceList", devices);
-  fillCollapsibleList("folderList", folders);
+
+  const cascade = new CascadeController([
+    { id: "api", parent: null, containerId: "apiList" },
+    { id: "device", parent: "api", containerId: "deviceList" },
+    { id: "folder", parent: "device", containerId: "folderList" },
+  ], async (level, state) => {
+    if (level === "api") return await getApiKeys();
+    if (level === "device") return await getDevices(state.api);
+    if (level === "folder") return await getFolders(state.api, state.device);
+    return [];
+  });
+
+  cascade.init();
 }
 
 // Инициализация

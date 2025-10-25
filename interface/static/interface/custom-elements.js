@@ -11,8 +11,8 @@ document.addEventListener("DOMContentLoaded", ()=>{
   initColumnsMenu();
   initRowSelection();
   initCollapsibleList("apiList");
-  initCollapsibleList("deviceList");
-  initCollapsibleList("folderList");
+  initCollapsibleList("deviceList", true);
+  initCollapsibleList("folderList", true);
 })
 
 function initCustomSelects() {
@@ -180,12 +180,16 @@ function initRowSelection() {
 }
 
 //   Создание раскрывающегося списка apiList.
-function initCollapsibleList(id) {
+function initCollapsibleList(id, disabled=false) {
   const container = document.getElementById(id);
   const wrapper = container.parentElement;
   const header = wrapper.querySelector(".collapsible-header");
   const selectAll = container.querySelector("input[value='__all__']");
-  const status = header.querySelector(".selection-status");
+  const status = header.querySelector(".selection-status")
+
+  if (disabled) {
+    setCollapsibleDisabled(id, disabled);
+  }
 
   // обновление статуса при нажатии на selectAll-чекбокс
   function updateStatus() {
@@ -208,26 +212,54 @@ function initCollapsibleList(id) {
 
   // Переключение по клику на header
   header.addEventListener("click", () => {
+    if (wrapper.classList.contains("disabled")) return;
     wrapper.classList.toggle("open");
   });
 }
 
+function setCollapsibleDisabled(id, disabled) {
+  const container = document.getElementById(id);
+  if (!container) return;
 
-function fillCollapsibleList(id, elements){
-  const list = document.getElementById(id);
+  const wrapper = container.parentElement;
+  const header = wrapper.querySelector(".collapsible-header");
 
-  if (Array.isArray(elements)){
-    elements.forEach(value => {
-      list.appendChild(createCustomCheckbox(value))
-    })
+  if (disabled) {
+    if (wrapper.classList.contains("open")) wrapper.classList.toggle("open");
+    container.querySelector("input[value='__all__']").checked = false;
+    wrapper.classList.add("disabled");
+    header.querySelector(".selection-status").textContent = "Выбрано: 0";
   } else {
-    for (let key in elements) {
-      list.appendChild(createCustomCheckbox(key, elements[key]))
-    }
+    wrapper.classList.remove("disabled");
   }
 }
 
-function createCustomCheckbox(checkboxValue, labelText){
+
+function fillCollapsibleList(id, elements, parents = null){
+  const container = document.getElementById(id);
+  if (!container) return;
+
+
+    // Удаляем все чекбоксы, кроме "__all__"
+  Array.from(container.querySelectorAll("input[type='checkbox']"))
+    .forEach(cb => {
+      if (cb.value !== "__all__") cb.closest("label").remove();
+    });
+
+  if (Array.isArray(elements)) {
+    elements.forEach((el, idx) => {
+      const parent = parents[idx];
+      container.appendChild(createCustomCheckbox(el, el, parent));
+    });
+  } else if (typeof elements === "object" && elements !== null) {
+    // объект (API)
+    Object.entries(elements).forEach(([key, label]) => {
+      container.appendChild(createCustomCheckbox(key, label)); // parent не нужен
+    });
+  }
+}
+
+function createCustomCheckbox(checkboxValue, labelText, dataParent=null){
   labelText = labelText ? labelText : checkboxValue;
 
   let label = document.createElement("label");
@@ -236,8 +268,187 @@ function createCustomCheckbox(checkboxValue, labelText){
   let checkbox = document.createElement("input");
   checkbox.type = "checkbox";
   checkbox.value = checkboxValue;
+
+  if (dataParent)
+    checkbox.setAttribute("data-parent", dataParent);
+
   label.appendChild(checkbox);
   label.appendChild(document.createTextNode(labelText));
 
   return label
 }
+
+class CascadeController {
+  constructor(structure, dataProvider) {
+    this.structure = structure;
+    this.dataProvider = dataProvider;
+    this.state = {}; // выбранные значения
+    this.cache = {};
+  }
+
+  init() {
+    this.structure.forEach(level => {
+      const container = document.getElementById(level.containerId);
+      if (!container) return;
+      container.addEventListener("change", (e) => {
+        this.handleChange(level, e);
+      });
+    });
+  }
+
+  async handleChange(level, e) {
+    const selected = this.getSelected(level.containerId);
+    const prevSelected = this.state[level.id] || [];
+    this.state[level.id] = selected;
+
+    const nextLevel = this.getNextLevel(level.id);
+    if (!nextLevel) return;
+    const nextContainer = document.getElementById(nextLevel.containerId);
+
+    // Обработка снятия выделения с чекбокса и удаляем “осиротевшие” элементы
+    const removed = prevSelected.filter(x => !selected.includes(x));
+    if (removed.length) {
+      console.log("Удаляем")
+      // удаляем потомков для снятых элементов
+      if (removed.length === 1){
+       this.removeChildren(level.id, removed[0]);
+      } else {
+        this.clearAllNextLists(level.id)
+      }
+    }
+
+    // Добавление новых элементов
+    const newlySelected = selected.filter(x => !prevSelected.includes(x));
+    if (newlySelected.length === 0) return;
+
+    for (const newSelect of newlySelected) {
+      let data = [];
+      let parents = [];
+
+      if (level.id === "api" && nextLevel.id === "device") {
+        if (this.cache[newSelect] && Object.keys(this.cache[newSelect]).length > 0) {
+          console.log(`[CACHE] Devices for API ${newSelect} — from cache`);
+          data = Object.keys(this.cache[newSelect]);
+        } else {
+          // для девайсов: передаём только новый API
+          data = await this.dataProvider("device", { api: [newSelect] });
+
+          // гарантируем, что у API есть место в иерархии
+          if (!this.cache[newSelect]) {
+            this.cache[newSelect] = {};
+          }
+
+          data.forEach(device => {
+            this.cache[newSelect][device] = [];
+          })
+        }
+      } else if (level.id === "device" && nextLevel.id === "folder") {
+        let foundInCache = false;
+        Object.keys(this.cache).forEach(api => {
+          if (this.cache[api]?.[newSelect]?.length > 0) {
+            console.log(`[CACHE] Folders for device ${newSelect} from API ${api}`);
+            data = this.cache[api][newSelect];
+            foundInCache = true;
+          }
+        });
+
+        if (!foundInCache) {
+          // для папок: передаём новый девайс + все выбранные API
+          data = await this.dataProvider("folder", {device: [newSelect], api: this.state["api"] ||  []});
+
+          Object.keys(this.cache).forEach(api => {
+            if (this.cache[api]?.[newSelect]) this.cache[api][newSelect] = data;
+          })
+        }
+      }
+      parents = data.map(() => newSelect);
+
+      // добавляем новые элементы в список
+      data.forEach((el, idx) => {
+        if (!nextContainer.querySelector(`input[value="${el}"][data-parent="${newSelect}"]`)) {
+          nextContainer.appendChild(createCustomCheckbox(el, el, parents[idx]));
+        }
+      });
+    }
+
+    // Включаем список, если есть элементы (-1 тк _all_ не учитывается)
+    this.changeCollapsibleState(nextLevel.containerId);
+  }
+
+  removeChildren(levelId, parentKey) {
+    const levelIdx = this.structure.findIndex(l => l.id === levelId);
+    const nextLevel = this.structure[levelIdx + 1];
+    if (!nextLevel) return;
+
+    const nextContainer = document.getElementById(nextLevel.containerId);
+    //
+    // ищем детей исходя из уровня
+    let children = [];
+
+    if (levelId === "api") {
+      // parentKey = имя API
+      const devices = this.cache[parentKey] ? Object.keys(this.cache[parentKey]) : [];
+      children = devices;
+
+    } else if (levelId === "device") {
+      // parentKey = имя девайса; ищем в каком API он находится
+      for (const api in this.cache) {
+        if (this.cache[api]?.[parentKey]) {
+          children = this.cache[api][parentKey];
+          break;
+        }
+      }
+    }
+
+    children.forEach(child => {
+      const cb = nextContainer.querySelector(`input[value="${child}"][data-parent="${parentKey}"]`);
+      if (cb) cb.closest("label").remove();
+      this.removeChildren(nextLevel.id, child); // рекурсивно удаляем потомков
+    });
+
+    // блокируем следующий уровень, если пусто
+    this.changeCollapsibleState(nextLevel.containerId);
+
+    // обновляем state
+    this.state[nextLevel.id] = this.getSelected(nextLevel.containerId);
+  }
+
+  clearAllNextLists(levelId) {
+    const idx = this.structure.findIndex(l => l.id === levelId);
+    for (let i = idx + 1; i < this.structure.length; i++) {
+      const child = this.structure[i];
+      const container = document.getElementById(child.containerId);
+      if (!container) continue;
+
+      // Удаляем все чекбоксы, кроме "__all__"
+      Array.from(container.querySelectorAll("input[type='checkbox']"))
+        .forEach(cb => {
+          if (cb.value !== "__all__") cb.closest("label").remove();
+        });
+
+      // Сбрасываем состояние
+      this.state[child.id] = [];
+
+      // Блокируем раскрытие
+      setCollapsibleDisabled(child.containerId, true);
+    }
+  }
+
+  changeCollapsibleState(nextLevelId){
+    const hasChildren = document.getElementById(nextLevelId).querySelectorAll("input[type='checkbox']").length - 1 > 0;
+    setCollapsibleDisabled(nextLevelId, !hasChildren);
+  }
+
+  getNextLevel(levelId) {
+    const idx = this.structure.findIndex(l => l.id === levelId);
+    return this.structure[idx + 1] || null;
+  }
+
+  getSelected(containerId) {
+    return Array.from(
+      document.querySelectorAll(`#${containerId} input[type='checkbox']:checked`)
+    ).filter(cb => cb.value !== "__all__").map(cb => cb.value);
+  }
+}
+
+

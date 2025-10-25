@@ -39,12 +39,27 @@ async function getDevices(apiKeys){
   return devices;
 }
 
-async function getFolders(apiKeys, devices){
-  if (!Array.isArray(apiKeys)) apiKeys = [apiKeys];
-  if (!Array.isArray(devices)) devices = [devices];
-  const folders = await postUserInfo({api_keys: apiKeys, devices: devices});
-  console.log("Количество полученных папок: ", folders.length);
-  return folders
+async function getFolders(apiKeys, devices) {
+  if (!Array.isArray(apiKeys)) apiKeys = apiKeys ? [apiKeys] : [];
+  if (!Array.isArray(devices)) devices = devices ? [devices] : [];
+
+  // Проверка на пустые массивы
+  if (apiKeys.length === 0) {
+    console.warn("getFolders: Запрос получения папок отменён — список API пустой");
+    return [];
+  }
+
+  if (devices.length === 0) {
+    console.warn("getFolders: Запрос получения отменён — список устройств пустой");
+    return [];
+  }
+
+  try {
+    return await postUserInfo({api_keys: apiKeys, devices});
+  } catch (err) {
+    console.error("getFolders: Ошибка при получении папок:", err);
+    return [];
+  }
 }
 
 function getCookie(name){
