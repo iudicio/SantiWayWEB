@@ -3,9 +3,9 @@ import shutil
 import stat
 import subprocess
 from pathlib import Path
-from xml.etree import ElementTree as ET
 
 from celery.utils.log import get_task_logger
+from defusedxml import ElementTree as ET
 
 log = get_task_logger(__name__)
 

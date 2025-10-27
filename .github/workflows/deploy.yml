@@ -17,6 +17,8 @@ jobs:
       IMAGE_WEB: ghcr.io/iudicio/santiway-web
       IMAGE_VENDOR: ghcr.io/iudicio/santiway-vendor
       IMAGE_ESWRITER: ghcr.io/iudicio/santiway-eswriter
+      IMAGE_APKBUILDE: ghcr.io/iudicio/santiway-apkbuilde
+      IMAGE_WORKER: ghcr.io/iudicio/santiway-worker
       TAG: latest
 
     steps:
@@ -56,3 +58,21 @@ jobs:
           push: true
           tags: |
             ${{ env.IMAGE_ESWRITER }}:${{ env.TAG }}
+      
+      - name: Build & push ApkBuilde
+        uses: docker/build-push-action@v6
+        with:
+          context: ./microservices/ApkBuilde
+          file: ./microservices/ApkBuilde/Dockerfile
+          push: true
+          tags: |
+            ${{ env.IMAGE_APKBUILDE }}:${{ env.TAG }}
+
+      - name: Build & push worker
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile.worker
+          push: true
+          tags: |
+            ${{ env.IMAGE_WORKER }}:${{ env.TAG }}

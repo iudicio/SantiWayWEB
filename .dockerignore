@@ -1,0 +1,14 @@
+.git
+**/__pycache__/
+**/*.pyc
+node_modules
+infra/
+docs/
+examples/
+nginx/
+apkbuilder/
+microservices/
+deploy/
+docker/
+*.log
+*.sqlite3
