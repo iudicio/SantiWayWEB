@@ -1,0 +1,30 @@
+{{- if .Values.apkbuilder.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "santiway.fullname" . }}-apkbuilde
+  labels:
+    app.kubernetes.io/name: apkbuilde
+    app.kubernetes.io/part-of: {{ include "santiway.name" . }}
+spec:
+  replicas: {{ .Values.apkbuilder.replicas }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: apkbuilde
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: apkbuilde
+    spec:
+      containers:
+        - name: apkbuilde
+          image: "{{ .Values.images.apkbuilde.repository }}:{{ .Values.images.apkbuilde.tag }}"
+          imagePullPolicy: {{ .Values.images.apkbuilde.pullPolicy }}
+          env:
+            {{- range $k, $v := .Values.apkbuilder.env }}
+            - name: {{ $k }}
+              value: "{{ $v }}"
+            {{- end }}
+          resources:
+            {{- toYaml .Values.apkbuilder.resources | nindent 12 }}
+{{- end }}

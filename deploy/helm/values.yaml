@@ -9,7 +9,7 @@ images:
   web:
     repository: ghcr.io/iudicio/santiway-web
     tag: "latest"
-    pullPolicy: Always
+    pullPolicy: IfNotPresent
   vendor:
     repository: ghcr.io/iudicio/santiway-vendor
     tag: "latest"
@@ -17,6 +17,10 @@ images:
   eswriter:
     repository: ghcr.io/iudicio/santiway-eswriter
     tag: "latest"
+    pullPolicy: IfNotPresent
+  apkbuilde:
+    repository: ghcr.io/iudicio/santiway-apkbuilde
+    tag: latest
     pullPolicy: IfNotPresent
 
 web:
@@ -101,11 +105,42 @@ eswriter:
   probes:
     enabled: false
 
-imagePullSecrets: []  # если приватные реестры — добавь сюда
+apkbuilde:
+  enabled: true
+  replicas: 1
+  env:
+    # --- Celery / RabbitMQ ---
+    CELERY_BROKER_URL: "amqp://celery:celerypassword@rabbitmq:5672//"
+    CELERY_WORKER_NAME: "ApkBuild"
+    SERVICE_NAME: "apkbuild"
+    # --- Репозиторий Android ---
+    ANDROID_REPO_URL: "https://github.com/iudicio/SantiWayANDROID.git"
+    # --- Android SDK ---
+    ANDROID_SDK_ROOT: "/opt/android-sdk"
+    ANDROID_HOME: "/opt/android-sdk"
+    # --- Release signing ---
+    KEYSTORE_PATH: "/app/keystore/release.jks"
+    KEYSTORE_PASSWORD: "santiway"
+    KEY_ALIAS: "release"
+    KEY_PASSWORD: "santiway"
+    # --- Api-key
+    API_KEY: ""
 
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+  service:
+    enabled: false 
+
+
+imagePullSecrets: []  # если приватные реестры — добавь сюда
 commonLabels: {}
 commonAnnotations: {}
-
 storageClassName: "hostpath"
 
 postgresql:

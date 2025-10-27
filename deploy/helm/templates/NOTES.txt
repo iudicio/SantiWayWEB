@@ -20,11 +20,14 @@ Port-forward (локалка):
   kubectl -n {{ .Release.Namespace }} port-forward svc/{{ include "santiway.fullname" . }}-postgres 5432:{{ .Values.postgresql.service.port }}
   kubectl -n {{ .Release.Namespace }} port-forward svc/{{ include "santiway.fullname" . }}-rabbit   5672:{{ .Values.rabbitmq.service.amqpPort }} 15672:{{ .Values.rabbitmq.service.managementPort }}
 
-helm template santiway ./deploy/helm \
-  -n santiway \
-  -f deploy/helm/values.yaml \
+helm upgrade --install santiway ./deploy/helm \
   --kube-context docker-desktop \
-  --debug
+  -n santiway --create-namespace \
+  -f deploy/helm/values.yaml
+
+helm upgrade --install santiway ./deploy/helm \
+  --kube-context docker-desktop \
+  -n santiway -f deploy/helm/values.yaml
 
 # сразу удалить старый RS(пример)
 kubectl -n santiway delete rs vendor-666b66f9dd
