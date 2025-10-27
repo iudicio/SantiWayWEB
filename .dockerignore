@@ -9,6 +9,5 @@ nginx/
 apkbuilder/
 microservices/
 deploy/
-docker/
 *.log
 *.sqlite3
