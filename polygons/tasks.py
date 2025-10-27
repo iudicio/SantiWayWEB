@@ -2,17 +2,23 @@
 Celery задачи для работы с полигонами
 """
 
+import json
 import logging
+from collections import defaultdict
+from typing import Any, Dict, List
 
 from django.utils import timezone
 
 from celery import shared_task
-from .models import Polygon, PolygonAction, AnomalyDetection, Notification, NotificationTarget
+
+from .models import (
+    AnomalyDetection,
+    Notification,
+    NotificationTarget,
+    Polygon,
+    PolygonAction,
+)
 from .utils import search_devices_in_polygon
-import logging
-import json
-from typing import List, Dict, Any
-from collections import defaultdict
 
 logger = logging.getLogger(__name__)
 
@@ -67,31 +73,33 @@ def monitor_mac_addresses(self, polygon_id, user_api_key, monitoring_interval=30
         mac_addresses = []
         for d in devices:
             if isinstance(d, dict):
-                mac = d.get('device_id') or d.get('mac') or d.get('user_phone_mac')
+                mac = d.get("device_id") or d.get("mac") or d.get("user_phone_mac")
                 if mac:
                     mac_addresses.append(mac)
 
         anomalies_detected = detect_anomalies_in_devices.delay(
-            str(action.id), 
-            devices, 
-            action.parameters.get('previous_devices', [])
+            str(action.id), devices, action.parameters.get("previous_devices", [])
         )
 
-        action.parameters.update({
-            'last_check': timezone.now().isoformat(),
-            'devices_found': len(devices),
-            'mac_addresses': mac_addresses,
-            'last_mac_count': len(mac_addresses),
-            'previous_devices': devices  
-        })
+        action.parameters.update(
+            {
+                "last_check": timezone.now().isoformat(),
+                "devices_found": len(devices),
+                "mac_addresses": mac_addresses,
+                "last_mac_count": len(mac_addresses),
+                "previous_devices": devices,
+            }
+        )
         action.save()
 
         logger.info(
             f"Полигон {polygon.name}: найдено {len(mac_addresses)} MAC, перепланируем через {monitoring_interval}s"
         )
 
-        action_refreshed = PolygonAction.objects.filter(id=action.id).only('status').first()
-        if action_refreshed and action_refreshed.status == 'running':
+        action_refreshed = (
+            PolygonAction.objects.filter(id=action.id).only("status").first()
+        )
+        if action_refreshed and action_refreshed.status == "running":
             monitor_mac_addresses.apply_async(
                 args=[str(polygon.id), user_api_key, monitoring_interval],
                 countdown=int(monitoring_interval),
@@ -154,98 +162,110 @@ def stop_all_polygon_actions(polygon_id):
 
 
 @shared_task
-def detect_anomalies_in_devices(action_id: str, current_devices: List[Dict[str, Any]], previous_devices: List[Dict[str, Any]]):
+def detect_anomalies_in_devices(
+    action_id: str,
+    current_devices: List[Dict[str, Any]],
+    previous_devices: List[Dict[str, Any]],
+):
     """
     Обнаруживает аномалии в устройствах полигона
     """
     try:
         action = PolygonAction.objects.get(id=action_id)
-        
-        current_devices_dict = {d.get('device_id', d.get('mac', '')): d for d in current_devices if isinstance(d, dict)}
-        previous_devices_dict = {d.get('device_id', d.get('mac', '')): d for d in previous_devices if isinstance(d, dict)}
-        
+
+        current_devices_dict = {
+            d.get("device_id", d.get("mac", "")): d
+            for d in current_devices
+            if isinstance(d, dict)
+        }
+        previous_devices_dict = {
+            d.get("device_id", d.get("mac", "")): d
+            for d in previous_devices
+            if isinstance(d, dict)
+        }
+
         anomalies_found = []
-        
+
         # 1. Обнаружение новых устройств
         for device_id, device in current_devices_dict.items():
             if device_id and device_id not in previous_devices_dict:
                 anomaly = create_anomaly(
                     action=action,
-                    anomaly_type='new_device',
-                    severity='medium',
+                    anomaly_type="new_device",
+                    severity="medium",
                     device_id=device_id,
                     device_data=device,
-                    description=f"Обнаружено новое устройство: {device_id}"
+                    description=f"Обнаружено новое устройство: {device_id}",
                 )
                 anomalies_found.append(anomaly)
-        
+
         # 2. Обнаружение аномалий сигнала
         for device_id, device in current_devices_dict.items():
             if device_id in previous_devices_dict:
                 prev_device = previous_devices_dict[device_id]
-                current_signal = device.get('signal_strength', 0)
-                prev_signal = prev_device.get('signal_strength', 0)
-                
+                current_signal = device.get("signal_strength", 0)
+                prev_signal = prev_device.get("signal_strength", 0)
+
                 if abs(current_signal - prev_signal) > 30:
                     anomaly = create_anomaly(
                         action=action,
-                        anomaly_type='signal_anomaly',
-                        severity='low',
+                        anomaly_type="signal_anomaly",
+                        severity="low",
                         device_id=device_id,
                         device_data=device,
                         description=f"Резкое изменение сигнала: {prev_signal} -> {current_signal} dBm",
                         metadata={
-                            'previous_signal': prev_signal,
-                            'current_signal': current_signal,
-                            'signal_diff': abs(current_signal - prev_signal)
-                        }
+                            "previous_signal": prev_signal,
+                            "current_signal": current_signal,
+                            "signal_diff": abs(current_signal - prev_signal),
+                        },
                     )
                     anomalies_found.append(anomaly)
-        
+
         # 3. Обнаружение неизвестных производителей
         for device_id, device in current_devices_dict.items():
-            vendor = device.get('vendor', '').lower()
-            if vendor in ['unknown', '', None]:
+            vendor = device.get("vendor", "").lower()
+            if vendor in ["unknown", "", None]:
                 anomaly = create_anomaly(
                     action=action,
-                    anomaly_type='unknown_vendor',
-                    severity='low',
+                    anomaly_type="unknown_vendor",
+                    severity="low",
                     device_id=device_id,
                     device_data=device,
-                    description=f"Устройство с неизвестным производителем: {device_id}"
+                    description=f"Устройство с неизвестным производителем: {device_id}",
                 )
                 anomalies_found.append(anomaly)
-        
+
         # 4. Обнаружение подозрительной активности (слишком много устройств одного типа)
         vendor_counts = defaultdict(int)
         for device in current_devices:
             if isinstance(device, dict):
-                vendor = device.get('vendor', 'Unknown')
+                vendor = device.get("vendor", "Unknown")
                 vendor_counts[vendor] += 1
-        
+
         for vendor, count in vendor_counts.items():
-            if count > 10 and vendor.lower() != 'unknown':
-                sample_device = next(d for d in current_devices if d.get('vendor') == vendor)
+            if count > 10 and vendor.lower() != "unknown":
+                sample_device = next(
+                    d for d in current_devices if d.get("vendor") == vendor
+                )
                 anomaly = create_anomaly(
                     action=action,
-                    anomaly_type='suspicious_activity',
-                    severity='high',
+                    anomaly_type="suspicious_activity",
+                    severity="high",
                     device_id=f"multiple_{vendor}",
                     device_data=sample_device,
                     description=f"Подозрительная активность: {count} устройств производителя {vendor}",
-                    metadata={
-                        'vendor': vendor,
-                        'device_count': count,
-                        'threshold': 10
-                    }
+                    metadata={"vendor": vendor, "device_count": count, "threshold": 10},
                 )
                 anomalies_found.append(anomaly)
-        
+
         if anomalies_found:
-            logger.info(f"Обнаружено {len(anomalies_found)} аномалий в полигоне {action.polygon.name}")
-        
+            logger.info(
+                f"Обнаружено {len(anomalies_found)} аномалий в полигоне {action.polygon.name}"
+            )
+
         return len(anomalies_found)
-        
+
     except PolygonAction.DoesNotExist:
         logger.error(f"Действие с ID {action_id} не найдено")
         return 0
@@ -254,9 +274,15 @@ def detect_anomalies_in_devices(action_id: str, current_devices: List[Dict[str, 
         raise
 
 
-def create_anomaly(action: PolygonAction, anomaly_type: str, severity: str, 
-                  device_id: str, device_data: Dict[str, Any], description: str, 
-                  metadata: Dict[str, Any] = None) -> AnomalyDetection:
+def create_anomaly(
+    action: PolygonAction,
+    anomaly_type: str,
+    severity: str,
+    device_id: str,
+    device_data: Dict[str, Any],
+    description: str,
+    metadata: Dict[str, Any] = None,
+) -> AnomalyDetection:
     """
     Создает запись об аномалии
     """
@@ -264,13 +290,15 @@ def create_anomaly(action: PolygonAction, anomaly_type: str, severity: str,
         polygon_action=action,
         anomaly_type=anomaly_type,
         device_id=device_id,
-        detected_at__gte=timezone.now() - timezone.timedelta(hours=1)
+        detected_at__gte=timezone.now() - timezone.timedelta(hours=1),
     ).first()
-    
+
     if recent_anomaly:
-        logger.info(f"Аномалия {anomaly_type} для устройства {device_id} уже была обнаружена недавно")
+        logger.info(
+            f"Аномалия {anomaly_type} для устройства {device_id} уже была обнаружена недавно"
+        )
         return recent_anomaly
-    
+
     anomaly = AnomalyDetection.objects.create(
         polygon_action=action,
         anomaly_type=anomaly_type,
@@ -278,10 +306,12 @@ def create_anomaly(action: PolygonAction, anomaly_type: str, severity: str,
         device_id=device_id,
         device_data=device_data,
         description=description,
-        metadata=metadata or {}
+        metadata=metadata or {},
     )
-    
-    logger.info(f"Создана аномалия {anomaly_type} для устройства {device_id} в полигоне {action.polygon.name}")
+
+    logger.info(
+        f"Создана аномалия {anomaly_type} для устройства {device_id} в полигоне {action.polygon.name}"
+    )
     return anomaly
 
 
@@ -292,9 +322,9 @@ def retry_failed_notifications():
     Используется системой для автоматической повторной отправки
     """
     from .notification_utils import retry_failed_notifications as retry_util
-    
+
     retry_count, success_count = retry_util()
-    logger.info(f"Повторно отправлено {retry_count} уведомлений, успешно: {success_count}")
-    return {'retried': retry_count, 'successful': success_count}
-
-
+    logger.info(
+        f"Повторно отправлено {retry_count} уведомлений, успешно: {success_count}"
+    )
+    return {"retried": retry_count, "successful": success_count}

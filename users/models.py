@@ -54,10 +54,7 @@ class User(AbstractUser):
 
     # новое поле кредитов
     credits = models.DecimalField(
-        max_digits=12,
-        decimal_places=2,
-        default=0,
-        help_text="Баланс для оплаты услуг"
+        max_digits=12, decimal_places=2, default=0, help_text="Баланс для оплаты услуг"
     )
 
     def __str__(self):

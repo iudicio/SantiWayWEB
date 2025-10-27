@@ -6,19 +6,24 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('users', '0002_alter_user_email_alter_user_username'),
+        ("users", "0002_alter_user_email_alter_user_username"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='apikey',
-            name='name',
-            field=models.CharField(default='test', max_length=100),
+            model_name="apikey",
+            name="name",
+            field=models.CharField(default="test", max_length=100),
             preserve_default=False,
         ),
         migrations.AddField(
-            model_name='user',
-            name='credits',
-            field=models.DecimalField(decimal_places=2, default=0, help_text='Баланс для оплаты услуг', max_digits=12),
+            model_name="user",
+            name="credits",
+            field=models.DecimalField(
+                decimal_places=2,
+                default=0,
+                help_text="Баланс для оплаты услуг",
+                max_digits=12,
+            ),
         ),
     ]

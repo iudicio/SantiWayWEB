@@ -1,26 +1,28 @@
-from os import getenv
 import logging
+from os import getenv
 
-from celery import Celery
-from rest_framework import viewsets, status
-from rest_framework.decorators import action
-from rest_framework.response import Response
 from django.conf import settings
 
+from celery import Celery
 from elasticsearch import Elasticsearch
 from elasticsearch.exceptions import NotFoundError
+from rest_framework import status, viewsets
+from rest_framework.decorators import action
+from rest_framework.response import Response
 
-from .serializers import DeviceSearchRequestSerializer, SearchQuerySerializer
-from .models import SearchQuery
 from api.auth import APIKeyAuthentication
 from api.permissions import HasAPIKey
 
+from .models import SearchQuery
+from .serializers import DeviceSearchRequestSerializer, SearchQuerySerializer
 
 log = logging.getLogger(__name__)
 
 
 # ---- НАСТРОЙКИ ES ИЗ settings/env ----
-ES_HOST = getattr(settings, "ELASTICSEARCH_DSN", getenv("ES_URL"))  # может быть URL-строкой или списком
+ES_HOST = getattr(
+    settings, "ELASTICSEARCH_DSN", getenv("ES_URL")
+)  # может быть URL-строкой или списком
 ES_USER = getenv("ES_USER")
 ES_PASSWORD = getenv("ES_PASSWORD")
 
@@ -29,7 +31,6 @@ ES_LOCATION_FIELD = getattr(settings, "ES_LOCATION_FIELD", "location")
 ES_TIMESTAMP_FIELD = getattr(settings, "ES_TIMESTAMP_FIELD", "timestamp")
 
 es = None
-
 
 
 def get_es():
@@ -85,22 +86,21 @@ def _geo_filters_from_polygons(polygons):
 
         # Elasticsearch ждёт [lat, lon] или [lon, lat]?
         # Для geo_polygon points -> [lon, lat]
-        geo_filters.append({
-            "geo_polygon": {
-                ES_LOCATION_FIELD: {"points": [{"lon": p[0], "lat": p[1]} for p in ring]}
+        geo_filters.append(
+            {
+                "geo_polygon": {
+                    ES_LOCATION_FIELD: {
+                        "points": [{"lon": p[0], "lat": p[1]} for p in ring]
+                    }
+                }
             }
-        })
+        )
 
     if len(geo_filters) == 1:
         return [geo_filters[0]]
 
     # Несколько полигонов -> объединяем через should
-    return [{
-        "bool": {
-            "should": geo_filters,
-            "minimum_should_match": 1
-        }
-    }]
+    return [{"bool": {"should": geo_filters, "minimum_should_match": 1}}]
 
 
 def _parse_polygons_from_body(request):
@@ -115,7 +115,11 @@ def _parse_polygons_from_body(request):
         pts = poly.get("points") if isinstance(poly, dict) else None
         if not pts:
             continue
-        ring = pts if (isinstance(pts, list) and pts and isinstance(pts[0][0], (int, float))) else (pts[0] if pts else [])
+        ring = (
+            pts
+            if (isinstance(pts, list) and pts and isinstance(pts[0][0], (int, float)))
+            else (pts[0] if pts else [])
+        )
         if len(ring) >= 3:
             rings.append(ring)
     return rings
@@ -130,19 +134,24 @@ def _point_in_ring(lon, lat, ring):
         return False
     # попадание на ребро
     for i in range(n):
-        x1,y1 = ring[i]; x2,y2 = ring[(i+1)%n]
-        dx,dy = x2-x1, y2-y1
-        dxp,dyp = lon-x1, lat-y1
-        cross = dx*dyp - dy*dxp
+        x1, y1 = ring[i]
+        x2, y2 = ring[(i + 1) % n]
+        dx, dy = x2 - x1, y2 - y1
+        dxp, dyp = lon - x1, lat - y1
+        cross = dx * dyp - dy * dxp
         if abs(cross) < 1e-12:
-            dot = dxp*dx + dyp*dy
-            if -1e-12 <= dot <= dx*dx + dy*dy + 1e-12:
+            dot = dxp * dx + dyp * dy
+            if -1e-12 <= dot <= dx * dx + dy * dy + 1e-12:
                 return True
     # ray casting
-    inside = False; j = n-1
+    inside = False
+    j = n - 1
     for i in range(n):
-        xi,yi = ring[i]; xj,yj = ring[j]
-        if ((yi > lat) != (yj > lat)) and (lon < (xj - xi) * (lat - yi) / (yj - yi + 1e-30) + xi):
+        xi, yi = ring[i]
+        xj, yj = ring[j]
+        if ((yi > lat) != (yj > lat)) and (
+            lon < (xj - xi) * (lat - yi) / (yj - yi + 1e-30) + xi
+        ):
             inside = not inside
         j = i
     return inside
@@ -156,7 +165,7 @@ def _build_es_filters_from_query(query_params):
     """Ровно как у тебя было, но игнорим служебные size; polygons здесь не используется вообще."""
     must_filters = []
     for field, value in query_params.items():
-        if field in ("size",):   # важно: polygons тут не ожидаем
+        if field in ("size",):  # важно: polygons тут не ожидаем
             continue
         if "__" in field:
             field_name, op = field.split("__", 1)
@@ -174,10 +183,17 @@ def _run_search_and_optional_polygon_postfilter(request, rings):
     """Общий метод: дергаем ES по query-парам, затем (если есть rings) — сужаем по полигонам."""
     es = get_es()
     if es is None:
-        return Response({"error": "Elasticsearch is not configured"}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+        return Response(
+            {"error": "Elasticsearch is not configured"},
+            status=status.HTTP_503_SERVICE_UNAVAILABLE,
+        )
 
     must_filters = _build_es_filters_from_query(request.query_params)
-    query = {"query": {"bool": {"filter": must_filters}}} if must_filters else {"query": {"match_all": {}}}
+    query = (
+        {"query": {"bool": {"filter": must_filters}}}
+        if must_filters
+        else {"query": {"match_all": {}}}
+    )
     size = min(max(int(request.query_params.get("size", 300)), 1), 10000)
 
     try:
@@ -185,7 +201,10 @@ def _run_search_and_optional_polygon_postfilter(request, rings):
     except NotFoundError:
         return Response([], status=status.HTTP_200_OK)
     except Exception as e:
-        return Response({"error": f"Elasticsearch query failed: {e}"}, status=status.HTTP_502_BAD_GATEWAY)
+        return Response(
+            {"error": f"Elasticsearch query failed: {e}"},
+            status=status.HTTP_502_BAD_GATEWAY,
+        )
 
     items = [h["_source"] for h in res["hits"]["hits"]]
 
@@ -212,6 +231,7 @@ class FilteringViewSet(viewsets.ViewSet):
     """
     Список/поиск + расширенная ручка /search с полигонами и мониторингом MAC.
     """
+
     authentication_classes = [APIKeyAuthentication]
     permission_classes = [HasAPIKey]
 

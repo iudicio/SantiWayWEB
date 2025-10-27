@@ -1,13 +1,12 @@
+import logging
 from collections import defaultdict
 from datetime import timedelta
 
 from django.db import transaction
-from django.utils import timezone
 from django.db.models import Q
+from django.utils import timezone
 
-import logging
 from apkbuilder.models import APKBuild
-
 
 log = logging.getLogger(__name__)
 
@@ -31,11 +30,10 @@ def delete_background_task():
 
     # кандидаты к удалению: есть файл, и (completed_at < cutoff) OR (completed_at is NULL and created_at < cutoff)
     candidates = (
-        APKBuild.objects
-        .filter(apk_file__isnull=False)
+        APKBuild.objects.filter(apk_file__isnull=False)
         .filter(
-            Q(completed_at__lt=cutoff_utc) |
-            (Q(completed_at__isnull=True) & Q(created_at__lt=cutoff_utc))
+            Q(completed_at__lt=cutoff_utc)
+            | (Q(completed_at__isnull=True) & Q(created_at__lt=cutoff_utc))
         )
         .only("id", "apk_file", "api_key_id", "created_at", "completed_at", "status")
         .iterator(chunk_size=500)
@@ -53,14 +51,18 @@ def delete_background_task():
             total_deleted += 1
 
     if total_deleted == 0:
-        msg = (f"[cron] {now_local:%Y-%m-%d %H:%M:%S} очистка APK: ничего не удалено "
-               f"(cutoff={cutoff_local.isoformat()}, ttl={TTL_HOURS}h)")
+        msg = (
+            f"[cron] {now_local:%Y-%m-%d %H:%M:%S} очистка APK: ничего не удалено "
+            f"(cutoff={cutoff_local.isoformat()}, ttl={TTL_HOURS}h)"
+        )
         print(msg)
         log.info(msg)
         return
 
-    lines = [f"[cron] {now_local:%Y-%m-%d %H:%M:%S} очистка APK: "
-             f"удалено всего {total_deleted} шт. (cutoff={cutoff_local.isoformat()}, ttl={TTL_HOURS}h)"]
+    lines = [
+        f"[cron] {now_local:%Y-%m-%d %H:%M:%S} очистка APK: "
+        f"удалено всего {total_deleted} шт. (cutoff={cutoff_local.isoformat()}, ttl={TTL_HOURS}h)"
+    ]
     for k, n in per_key_deleted.items():
         lines.append(f"  - api_key_id={k}: {n}")
     summary = "\n".join(lines)

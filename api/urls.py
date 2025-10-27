@@ -9,15 +9,15 @@ from rest_framework.routers import DefaultRouter
 
 from apkbuilder.views import APKBuildCreateView
 from filtering.views import FilteringViewSet
-from .views import DeviceViewSet, WayAPIView
-from users.views import APIKeyViewSet
-from drf_spectacular.views import (
-    SpectacularAPIView,
-    SpectacularSwaggerView,
-    SpectacularRedocView,
+from polygons.views import (
+    AnomalyDetectionViewSet,
+    NotificationTargetViewSet,
+    NotificationViewSet,
+    PolygonViewSet,
 )
-from polygons.views import PolygonViewSet, AnomalyDetectionViewSet, NotificationViewSet, NotificationTargetViewSet
+from users.views import APIKeyViewSet
 
+from .views import DeviceViewSet, WayAPIView
 
 router = DefaultRouter()
 router.register(r"devices", DeviceViewSet, basename="devices")
@@ -26,7 +26,9 @@ router.register(r"polygons", PolygonViewSet, basename="polygons")
 router.register(r"filtering", FilteringViewSet, basename="filtering")
 router.register(r"anomalies", AnomalyDetectionViewSet, basename="anomalies")
 router.register(r"notifications", NotificationViewSet, basename="notifications")
-router.register(r"notification-targets", NotificationTargetViewSet, basename="notification-targets")
+router.register(
+    r"notification-targets", NotificationTargetViewSet, basename="notification-targets"
+)
 
 app_name = "api"
 

@@ -1,6 +1,13 @@
 from rest_framework import serializers
-from .models import Polygon, PolygonAction, NotificationTarget, AnomalyDetection, Notification
-from .utils import validate_polygon_geometry, calculate_polygon_area
+
+from .models import (
+    AnomalyDetection,
+    Notification,
+    NotificationTarget,
+    Polygon,
+    PolygonAction,
+)
+from .utils import calculate_polygon_area, validate_polygon_geometry
 
 
 class PolygonSerializer(serializers.ModelSerializer):
@@ -83,21 +90,27 @@ class NotificationTargetSerializer(serializers.ModelSerializer):
 
     def validate_target_value(self):
         """Валидация значения цели в зависимости от типа"""
-        target_type = self.initial_data.get('target_type')
-        target_value = self.initial_data.get('target_value')
-        
-        if target_type not in ['api_key', 'device']:
-            raise serializers.ValidationError(f"Недопустимый тип цели: {target_type}. Доступны: api_key, device")
-        
+        target_type = self.initial_data.get("target_type")
+        target_value = self.initial_data.get("target_value")
+
+        if target_type not in ["api_key", "device"]:
+            raise serializers.ValidationError(
+                f"Недопустимый тип цели: {target_type}. Доступны: api_key, device"
+            )
+
         if not target_value or not isinstance(target_value, str):
-            raise serializers.ValidationError("target_value должен быть непустой строкой")
-        
+            raise serializers.ValidationError(
+                "target_value должен быть непустой строкой"
+            )
+
         return target_value
 
 
 class AnomalyDetectionSerializer(serializers.ModelSerializer):
-    polygon_name = serializers.CharField(source='polygon_action.polygon.name', read_only=True)
-    
+    polygon_name = serializers.CharField(
+        source="polygon_action.polygon.name", read_only=True
+    )
+
     class Meta:
         model = AnomalyDetection
         fields = [
@@ -124,9 +137,9 @@ class AnomalyDetectionSerializer(serializers.ModelSerializer):
 
 
 class NotificationSerializer(serializers.ModelSerializer):
-    anomaly_details = AnomalyDetectionSerializer(source='anomaly', read_only=True)
-    target_details = NotificationTargetSerializer(source='target', read_only=True)
-    
+    anomaly_details = AnomalyDetectionSerializer(source="anomaly", read_only=True)
+    target_details = NotificationTargetSerializer(source="target", read_only=True)
+
     class Meta:
         model = Notification
         fields = [
@@ -160,8 +173,9 @@ class NotificationSerializer(serializers.ModelSerializer):
 
 class PolygonActionWithTargetsSerializer(serializers.ModelSerializer):
     """Расширенный сериализатор для PolygonAction с целями уведомлений"""
+
     notification_targets = NotificationTargetSerializer(many=True, required=False)
-    
+
     class Meta:
         model = PolygonAction
         fields = [
@@ -186,15 +200,14 @@ class PolygonActionWithTargetsSerializer(serializers.ModelSerializer):
             "started_at",
             "completed_at",
         ]
-    
+
     def create(self, validated_data):
-        notification_targets_data = validated_data.pop('notification_targets', [])
+        notification_targets_data = validated_data.pop("notification_targets", [])
         polygon_action = super().create(validated_data)
-        
+
         for target_data in notification_targets_data:
             NotificationTarget.objects.create(
-                polygon_action=polygon_action,
-                **target_data
+                polygon_action=polygon_action, **target_data
             )
-        
+
         return polygon_action

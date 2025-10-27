@@ -20,17 +20,22 @@ class APIKeyViewSet(viewsets.ViewSet):
     def create(self, request):
         key_name = request.data.get("name")
         if not key_name:
-            return Response({"error": "API key name required"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"error": "API key name required"}, status=status.HTTP_400_BAD_REQUEST
+            )
 
         api_key = APIKey.objects.create(name=key_name)
         request.user.api_keys.add(api_key)
 
-        return Response({
-            "key_id": api_key.id,
-            "api_key": str(api_key.key),
-            "name": api_key.name,
-            "created_at": api_key.created_at
-        }, status=status.HTTP_201_CREATED)
+        return Response(
+            {
+                "key_id": api_key.id,
+                "api_key": str(api_key.key),
+                "name": api_key.name,
+                "created_at": api_key.created_at,
+            },
+            status=status.HTTP_201_CREATED,
+        )
 
     # Удаление ключа
     def destroy(self, request, pk=None):
@@ -121,6 +126,7 @@ def api_key_detail(request, key_id):
     api_key = get_object_or_404(APIKey, id=key_id)
     # Если устройства больше не используются, можно не передавать:
     return render(request, "users/api_key_detail.html", {"api_key": api_key})
+
 
 # Список всех устройств (можно фильтровать по API ключу)
 def api_keys_list(request):

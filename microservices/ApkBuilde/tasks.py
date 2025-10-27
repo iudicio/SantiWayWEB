@@ -97,7 +97,9 @@ def apk_build_task(messages: Dict[str, Any]):
         }
 
         send_to_queue("apkget", payload, "apkget")
-        log.info(f"APK отправлен в очередь apkget ({apk_filename}, size={apk_size} байт)")
+        log.info(
+            f"APK отправлен в очередь apkget ({apk_filename}, size={apk_size} байт)"
+        )
 
         # Удаляем временный файл
         try:

@@ -157,63 +157,232 @@ class Migration(migrations.Migration):
             },
         ),
         migrations.CreateModel(
-            name='NotificationTarget',
+            name="NotificationTarget",
             fields=[
-                ('id', models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True, serialize=False)),
-                ('target_type', models.CharField(choices=[('api_key', 'API ключ'), ('device', 'Устройство'), ('email', 'Email'), ('webhook', 'Webhook URL')], max_length=20, verbose_name='Тип цели')),
-                ('target_value', models.CharField(max_length=500, verbose_name='Значение цели')),
-                ('is_active', models.BooleanField(default=True, verbose_name='Активна')),
-                ('created_at', models.DateTimeField(auto_now_add=True, verbose_name='Создана')),
-                ('polygon_action', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='notification_targets', to='polygons.polygonaction')),
+                (
+                    "id",
+                    models.UUIDField(
+                        default=uuid.uuid4,
+                        editable=False,
+                        primary_key=True,
+                        serialize=False,
+                    ),
+                ),
+                (
+                    "target_type",
+                    models.CharField(
+                        choices=[
+                            ("api_key", "API ключ"),
+                            ("device", "Устройство"),
+                            ("email", "Email"),
+                            ("webhook", "Webhook URL"),
+                        ],
+                        max_length=20,
+                        verbose_name="Тип цели",
+                    ),
+                ),
+                (
+                    "target_value",
+                    models.CharField(max_length=500, verbose_name="Значение цели"),
+                ),
+                (
+                    "is_active",
+                    models.BooleanField(default=True, verbose_name="Активна"),
+                ),
+                (
+                    "created_at",
+                    models.DateTimeField(auto_now_add=True, verbose_name="Создана"),
+                ),
+                (
+                    "polygon_action",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="notification_targets",
+                        to="polygons.polygonaction",
+                    ),
+                ),
             ],
             options={
-                'verbose_name': 'Цель уведомления',
-                'verbose_name_plural': 'Цели уведомлений',
+                "verbose_name": "Цель уведомления",
+                "verbose_name_plural": "Цели уведомлений",
             },
         ),
         migrations.CreateModel(
-            name='AnomalyDetection',
+            name="AnomalyDetection",
             fields=[
-                ('id', models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True, serialize=False)),
-                ('anomaly_type', models.CharField(choices=[('new_device', 'Новое устройство'), ('suspicious_activity', 'Подозрительная активность'), ('signal_anomaly', 'Аномалия сигнала'), ('location_anomaly', 'Аномалия местоположения'), ('frequency_anomaly', 'Аномалия частоты'), ('unknown_vendor', 'Неизвестный производитель')], max_length=50, verbose_name='Тип аномалии')),
-                ('severity', models.CharField(choices=[('low', 'Низкая'), ('medium', 'Средняя'), ('high', 'Высокая'), ('critical', 'Критическая')], default='medium', max_length=20, verbose_name='Уровень серьезности')),
-                ('device_id', models.CharField(max_length=17, verbose_name='ID устройства')),
-                ('device_data', models.JSONField(verbose_name='Данные устройства')),
-                ('description', models.TextField(verbose_name='Описание аномалии')),
-                ('metadata', models.JSONField(default=dict, verbose_name='Дополнительные данные')),
-                ('is_resolved', models.BooleanField(default=False, verbose_name='Решена')),
-                ('resolved_at', models.DateTimeField(blank=True, null=True, verbose_name='Время решения')),
-                ('detected_at', models.DateTimeField(auto_now_add=True, verbose_name='Обнаружена')),
-                ('polygon_action', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='anomalies', to='polygons.polygonaction')),
-                ('resolved_by', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, to=settings.AUTH_USER_MODEL, verbose_name='Решена пользователем')),
+                (
+                    "id",
+                    models.UUIDField(
+                        default=uuid.uuid4,
+                        editable=False,
+                        primary_key=True,
+                        serialize=False,
+                    ),
+                ),
+                (
+                    "anomaly_type",
+                    models.CharField(
+                        choices=[
+                            ("new_device", "Новое устройство"),
+                            ("suspicious_activity", "Подозрительная активность"),
+                            ("signal_anomaly", "Аномалия сигнала"),
+                            ("location_anomaly", "Аномалия местоположения"),
+                            ("frequency_anomaly", "Аномалия частоты"),
+                            ("unknown_vendor", "Неизвестный производитель"),
+                        ],
+                        max_length=50,
+                        verbose_name="Тип аномалии",
+                    ),
+                ),
+                (
+                    "severity",
+                    models.CharField(
+                        choices=[
+                            ("low", "Низкая"),
+                            ("medium", "Средняя"),
+                            ("high", "Высокая"),
+                            ("critical", "Критическая"),
+                        ],
+                        default="medium",
+                        max_length=20,
+                        verbose_name="Уровень серьезности",
+                    ),
+                ),
+                (
+                    "device_id",
+                    models.CharField(max_length=17, verbose_name="ID устройства"),
+                ),
+                ("device_data", models.JSONField(verbose_name="Данные устройства")),
+                ("description", models.TextField(verbose_name="Описание аномалии")),
+                (
+                    "metadata",
+                    models.JSONField(
+                        default=dict, verbose_name="Дополнительные данные"
+                    ),
+                ),
+                (
+                    "is_resolved",
+                    models.BooleanField(default=False, verbose_name="Решена"),
+                ),
+                (
+                    "resolved_at",
+                    models.DateTimeField(
+                        blank=True, null=True, verbose_name="Время решения"
+                    ),
+                ),
+                (
+                    "detected_at",
+                    models.DateTimeField(auto_now_add=True, verbose_name="Обнаружена"),
+                ),
+                (
+                    "polygon_action",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="anomalies",
+                        to="polygons.polygonaction",
+                    ),
+                ),
+                (
+                    "resolved_by",
+                    models.ForeignKey(
+                        blank=True,
+                        null=True,
+                        on_delete=django.db.models.deletion.SET_NULL,
+                        to=settings.AUTH_USER_MODEL,
+                        verbose_name="Решена пользователем",
+                    ),
+                ),
             ],
             options={
-                'verbose_name': 'Обнаруженная аномалия',
-                'verbose_name_plural': 'Обнаруженные аномалии',
-                'ordering': ['-detected_at'],
+                "verbose_name": "Обнаруженная аномалия",
+                "verbose_name_plural": "Обнаруженные аномалии",
+                "ordering": ["-detected_at"],
             },
         ),
         migrations.CreateModel(
-            name='Notification',
+            name="Notification",
             fields=[
-                ('id', models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True, serialize=False)),
-                ('title', models.CharField(max_length=255, verbose_name='Заголовок')),
-                ('message', models.TextField(verbose_name='Сообщение')),
-                ('status', models.CharField(choices=[('pending', 'Ожидает отправки'), ('sent', 'Отправлено'), ('delivered', 'Доставлено'), ('failed', 'Ошибка отправки'), ('read', 'Прочитано')], default='pending', max_length=20, verbose_name='Статус')),
-                ('delivery_metadata', models.JSONField(default=dict, verbose_name='Метаданные доставки')),
-                ('created_at', models.DateTimeField(auto_now_add=True, verbose_name='Создано')),
-                ('sent_at', models.DateTimeField(blank=True, null=True, verbose_name='Отправлено')),
-                ('delivered_at', models.DateTimeField(blank=True, null=True, verbose_name='Доставлено')),
-                ('read_at', models.DateTimeField(blank=True, null=True, verbose_name='Прочитано')),
-                ('retry_count', models.IntegerField(default=0, verbose_name='Количество попыток')),
-                ('max_retries', models.IntegerField(default=3, verbose_name='Максимум попыток')),
-                ('anomaly', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='notifications', to='polygons.anomalydetection')),
-                ('target', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='notifications', to='polygons.notificationtarget')),
+                (
+                    "id",
+                    models.UUIDField(
+                        default=uuid.uuid4,
+                        editable=False,
+                        primary_key=True,
+                        serialize=False,
+                    ),
+                ),
+                ("title", models.CharField(max_length=255, verbose_name="Заголовок")),
+                ("message", models.TextField(verbose_name="Сообщение")),
+                (
+                    "status",
+                    models.CharField(
+                        choices=[
+                            ("pending", "Ожидает отправки"),
+                            ("sent", "Отправлено"),
+                            ("delivered", "Доставлено"),
+                            ("failed", "Ошибка отправки"),
+                            ("read", "Прочитано"),
+                        ],
+                        default="pending",
+                        max_length=20,
+                        verbose_name="Статус",
+                    ),
+                ),
+                (
+                    "delivery_metadata",
+                    models.JSONField(default=dict, verbose_name="Метаданные доставки"),
+                ),
+                (
+                    "created_at",
+                    models.DateTimeField(auto_now_add=True, verbose_name="Создано"),
+                ),
+                (
+                    "sent_at",
+                    models.DateTimeField(
+                        blank=True, null=True, verbose_name="Отправлено"
+                    ),
+                ),
+                (
+                    "delivered_at",
+                    models.DateTimeField(
+                        blank=True, null=True, verbose_name="Доставлено"
+                    ),
+                ),
+                (
+                    "read_at",
+                    models.DateTimeField(
+                        blank=True, null=True, verbose_name="Прочитано"
+                    ),
+                ),
+                (
+                    "retry_count",
+                    models.IntegerField(default=0, verbose_name="Количество попыток"),
+                ),
+                (
+                    "max_retries",
+                    models.IntegerField(default=3, verbose_name="Максимум попыток"),
+                ),
+                (
+                    "anomaly",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="notifications",
+                        to="polygons.anomalydetection",
+                    ),
+                ),
+                (
+                    "target",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="notifications",
+                        to="polygons.notificationtarget",
+                    ),
+                ),
             ],
             options={
-                'verbose_name': 'Уведомление',
-                'verbose_name_plural': 'Уведомления',
-                'ordering': ['-created_at'],
+                "verbose_name": "Уведомление",
+                "verbose_name_plural": "Уведомления",
+                "ordering": ["-created_at"],
             },
         ),
         migrations.AddConstraint(
@@ -225,27 +394,39 @@ class Migration(migrations.Migration):
             ),
         ),
         migrations.AlterUniqueTogether(
-            name='notificationtarget',
-            unique_together={('polygon_action', 'target_type', 'target_value')},
+            name="notificationtarget",
+            unique_together={("polygon_action", "target_type", "target_value")},
         ),
         migrations.AddIndex(
-            model_name='anomalydetection',
-            index=models.Index(fields=['polygon_action', 'anomaly_type'], name='polygons_an_polygon_144bda_idx'),
+            model_name="anomalydetection",
+            index=models.Index(
+                fields=["polygon_action", "anomaly_type"],
+                name="polygons_an_polygon_144bda_idx",
+            ),
         ),
         migrations.AddIndex(
-            model_name='anomalydetection',
-            index=models.Index(fields=['severity', 'is_resolved'], name='polygons_an_severit_45ac4b_idx'),
+            model_name="anomalydetection",
+            index=models.Index(
+                fields=["severity", "is_resolved"],
+                name="polygons_an_severit_45ac4b_idx",
+            ),
         ),
         migrations.AddIndex(
-            model_name='anomalydetection',
-            index=models.Index(fields=['detected_at'], name='polygons_an_detecte_c34309_idx'),
+            model_name="anomalydetection",
+            index=models.Index(
+                fields=["detected_at"], name="polygons_an_detecte_c34309_idx"
+            ),
         ),
         migrations.AddIndex(
-            model_name='notification',
-            index=models.Index(fields=['status', 'created_at'], name='polygons_no_status_be59ea_idx'),
+            model_name="notification",
+            index=models.Index(
+                fields=["status", "created_at"], name="polygons_no_status_be59ea_idx"
+            ),
         ),
         migrations.AddIndex(
-            model_name='notification',
-            index=models.Index(fields=['anomaly', 'target'], name='polygons_no_anomaly_047ab0_idx'),
+            model_name="notification",
+            index=models.Index(
+                fields=["anomaly", "target"], name="polygons_no_anomaly_047ab0_idx"
+            ),
         ),
     ]

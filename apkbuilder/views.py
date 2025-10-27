@@ -1,20 +1,5 @@
-from urllib.parse import quote
-
-from celery.utils.log import get_task_logger
-from django.http import FileResponse
-from rest_framework import generics, status
-from rest_framework.authentication import get_authorization_header
-from rest_framework.response import Response
-from rest_framework.parsers import MultiPartParser, JSONParser
-
-from users.models import User, APIKey
-from users.urls import app_name
-from .models import APKBuild
-from api.auth import APIKeyAuthentication
-from api.permissions import HasAPIKey
-from .serializers import APKBuildCreateSerializer
-from celery import Celery
 from os import getenv
+from urllib.parse import quote
 
 from django.http import FileResponse
 

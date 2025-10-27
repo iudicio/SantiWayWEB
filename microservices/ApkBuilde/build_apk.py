@@ -3,7 +3,6 @@ import shutil
 import stat
 import subprocess
 from pathlib import Path
-from celery.utils.log import get_task_logger
 from xml.etree import ElementTree as ET
 
 from celery.utils.log import get_task_logger
@@ -40,7 +39,11 @@ def inject_api_key_into_strings(repo_dir: Path, key: str) -> Path:
     # возможные имена файла
     strings_xml = values_dir / "strings.xml"
     alt_xml = values_dir / "string.xml"
-    target = strings_xml if strings_xml.exists() else (alt_xml if alt_xml.exists() else strings_xml)
+    target = (
+        strings_xml
+        if strings_xml.exists()
+        else (alt_xml if alt_xml.exists() else strings_xml)
+    )
 
     if not target.exists():
         # создаём минимальный шаблон
@@ -53,7 +56,11 @@ def inject_api_key_into_strings(repo_dir: Path, key: str) -> Path:
                 raise ET.ParseError("Корневой тег не <resources>")
         except Exception as e:
             # если файл битый — переименуем в .bak и начнём с чистого
-            log.warning("[api_key] Не удалось распарсить %s (%s). Переименовываю в .bak и пересоздаю.", target, e)
+            log.warning(
+                "[api_key] Не удалось распарсить %s (%s). Переименовываю в .bak и пересоздаю.",
+                target,
+                e,
+            )
             shutil.move(str(target), str(target.with_suffix(target.suffix + ".bak")))
             root = ET.Element("resources")
 
