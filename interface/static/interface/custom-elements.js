@@ -235,7 +235,7 @@ function setCollapsibleDisabled(id, disabled) {
   }
 }
 
-function fillCollapsibleList(id, elements, parents = null){
+export function fillCollapsibleList(id, elements, parents = null){
   const container = document.getElementById(id);
   if (!container) return;
 
@@ -285,7 +285,7 @@ function createCustomCheckbox(checkboxValue, labelText, dataParent=null){
 }
 
 // Управляет логикой отображения списков
-class CascadeController {
+export class CascadeController {
   constructor(structure, dataProvider) {
     this.structure = structure;
     this.dataProvider = dataProvider;
@@ -350,14 +350,14 @@ class CascadeController {
         }
       } else if (level.id === "device" && nextLevel.id === "folder") {
         let foundInCache = false;
-        Object.keys(this.cache).forEach(api => {
+        for (const api of Object.keys(this.cache)) {
           if (this.cache[api]?.[newSelect]?.length > 0) {
             console.log(`[CACHE] Folders for device ${newSelect} from API ${api}`);
             data = this.cache[api][newSelect];
             foundInCache = true;
             break;
           }
-        });
+        }
 
         if (!foundInCache) {
           // для папок: передаём новый девайс + все выбранные API

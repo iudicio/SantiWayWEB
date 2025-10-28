@@ -23,13 +23,13 @@
     window.APP_CONFIG = {
       API_BASE: "{{ API_BASE|default:'/api' }}",
       API_KEY: "{{ API_KEY|default:'' }}",
-      API_USER_INFO: "{% url 'api:userinfo' %}"
     };
+    const API_USER_INFO = "{% url 'api:userinfo' %}"
   </script>
 
   <script src="{% static 'interface/get-devices.js' %}"></script>
-  <script src="{% static 'interface/custom-elements.js' %}"></script>
-  <script defer src="{% static 'interface/app.js' %}?v=3"></script>
+  <script type="module" src="{% static 'interface/custom-elements.js' %}"></script>
+  <script type="module" src="{% static 'interface/app.js' %}?v=3"></script>
   <script src="{% static '/js/background.js' %}"></script>
   <title>Locator</title>
 </head>
