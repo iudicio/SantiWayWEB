@@ -5,11 +5,14 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <!-- Основные стили -->
-  <link rel="stylesheet" href="{% static 'users/css/main.css' %}">
+  <link rel="stylesheet" href="{% static '/css/main.css' %}">
   <link rel="stylesheet" href="{% static 'users/css/profile.css' %}">
+  <link rel="stylesheet" href="{% static 'users/css/modal.css' %}">
 
+
+  <script src="{% static 'users/js/modal.js' %}"></script>
   <script src="{% static 'users/js/profile.js' %}"></script>
-  <script src="{% static 'users/js/background.js' %}"></script>
+  <script src="{% static '/js/background.js' %}"></script>
 
   <title>Profile & API Keys</title>
 </head>
@@ -84,20 +87,21 @@
             </thead>
             <tbody>
               <!-- Api ключи -->
-              {% for device in devices %}
-              <tr>
-                  <td>{{ device.name }}</td>
-                <td>
-                  <p class="mono text-center">{{ device.api_key.key }}</p>
-                </td>
-                <td class="text-center">{{ device.api_key.created_at|date:"Y-m-d" }}</td>
+              {% for api_key in api_keys %}
+                <td data-key-id="{{ api_key.id }}">{{ api_key.name }}</td>
+                <td><p class="mono">{{ api_key.key }}</p></td>
+                <td class="text-center">{{ api_key.created_at|date:"Y-m-d" }}</td>
                 <td class="text-center">
-                  <button class="apk-btn btn-primary" data-status="order" api-key="{{ device.api_key.key }}" data-device-id="{{ device.id }}">
+                  <button
+                    class="apk-btn btn-primary"
+                    data-status="order"
+                    data-api-key="{{ api_key.key }}"
+                  >
                     Собрать APK
                   </button>
                 </td>
                 <td class="delete-column">
-                  <button class="remove-btn delete-btn" title="Delete" onclick="deleteDevice('{{ device.id }}', '{{ device.name }}')">
+                  <button class="remove-btn delete-btn" title="Delete" onclick="deleteDevice('{{ api_key.id }}', '{{ api_key.name }}')">
                     &#10005;
                   </button>
                 </td>

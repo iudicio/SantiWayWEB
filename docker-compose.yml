@@ -15,13 +15,14 @@ services:
     depends_on:
       - postgres
       - elasticsearch
+#      - redis
     volumes:
       - static_volume:/app/staticfiles
       - media_volume:/app/media
       - ./users/migrations:/app/users/migrations
       - ./apkbuilder/migrations:/app/apkbuilder/migrations
       - ./polygons/migrations:/app/polygons/migrations
-      - ./media:/app/media
+      - ./filtering/migrations:/app/filtering/migrations
     restart: unless-stopped
 
   celery-worker:
@@ -40,7 +41,18 @@ services:
     volumes:
       - ./users/migrations:/app/users/migrations
       - ./apkbuilder/migrations:/app/apkbuilder/migrations
-      - ./media:/app/media
+      - media_volume:/app/media
+    restart: unless-stopped
+
+  django-cron:
+    build: .
+    container_name: santi_django_cron
+    networks: [ appnet ]
+    env_file: .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: ["/bin/bash", "-c", "python manage.py crontab remove || true; python manage.py crontab add; cron -f"]
     restart: unless-stopped
 
   nginx:
@@ -75,6 +87,20 @@ services:
       timeout: 5s
       retries: 10
     restart: unless-stopped
+
+#  redis:
+#    image: redis:7-alpine
+#    container_name: santi_redis
+#    networks: [appnet]
+#    command: redis-server --appendonly yes
+#    volumes:
+#      - redis_data:/data
+#    healthcheck:
+#      test: ["CMD", "redis-cli", "ping"]
+#      interval: 10s
+#      timeout: 5s
+#      retries: 5
+#    restart: unless-stopped
 
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.18.1
@@ -115,6 +141,7 @@ services:
 volumes:
   pg_data:
   es_data:
+  redis_data:
   static_volume:
   media_volume:
 
