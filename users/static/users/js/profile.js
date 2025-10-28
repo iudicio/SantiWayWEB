@@ -4,9 +4,6 @@ document.addEventListener("DOMContentLoaded", () => {
   const openModalBtn = document.getElementById('openModalBtn');
   const timeToCheck = 20000; // Запрос к серверу каждые 20 секунд
   let firstAlert = true;
-  const APK_URL = "/api/apk/build/";
-  const API_URL = "/api/api-key/";
-
 
   // Вешаем функцию создания апи ключа на кнопку
   if (openModalBtn) {
@@ -219,7 +216,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }, 1500);
   }
 
-  // Функция для здаания начальных статусов APK кнопок
+  // Функция для задания начальных статусов APK кнопок
   async function prepareButton(button) {
     const apiKey = button.getAttribute("data-api-key");
 
@@ -306,7 +303,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // ЗАПРОСЫ НА СЕРВЕР 
-  // Запрос на сборку APK на сревер
+  // Запрос на сборку APK на сервер
   async function startAPKBuild(apiKey) {
     try {
       const response = await fetch(APK_URL, {
@@ -448,7 +445,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // АНИМАЦИИ ДЛЯ КНОПКИ
-  // Установка анимации с точкиами
+  // Установка анимации с точками
   function setButtonLoading(button, baseText = "Обработка") {
     let dots = 0;
     // Останавливаем старый цикл, если он был
@@ -473,7 +470,7 @@ document.addEventListener("DOMContentLoaded", () => {
 // Функция для удаления устройства
 function deleteDevice(keyId, keyName) {
   if (confirm(`Are you sure you want to delete the device "${keyName}"?`)) {
-    fetch(`/api/api-key/${keyId}/`, {
+    fetch(`${API_URL}${keyId}/`, {
       method: 'DELETE',
       headers: {
         'X-CSRFToken': getCookie('csrftoken')

@@ -1,5 +1,8 @@
+import {fillCollapsibleList, CascadeController} from "./custom-elements.js";
+
 const API_BASE = (window.APP_CONFIG && window.APP_CONFIG.API_BASE) || '/api';
 const API_KEY = (window.APP_CONFIG && window.APP_CONFIG.API_KEY) || '';
+const API_USER_INFO = window.APP_CONFIG.API_USER_INFO
 const API_DEVICES_URL = `${API_BASE}/devices/`;
 const API_POLYGONS_URL = `${API_BASE}/polygons/`;
 
@@ -70,6 +73,11 @@ const state = {
   apiKey: (window.APP_CONFIG && window.APP_CONFIG.API_KEY) || '',
   colorForPolygon: {} // Используется как хранилище цветов, чтобы при каждом reload() не слать запросы на сервер
 };
+
+const cache = {
+  devices: {},
+  folders: {}
+}
 
 // Цвета полигонов в зависимости от статуса
 const POLYGON_COLORS = {
@@ -729,18 +737,18 @@ window.deletePolygon = async function deletePolygon(polygonId) {
         'Authorization': `Api-Key ${state.apiKey}`
       }
     });
-    
+
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
       throw new Error(errorData.error || errorData.detail || `HTTP ${response.status}`);
     }
-    
+
     delete state.colorForPolygon[polygonId];
-    
+
     await reload();
-    
+
     notifications.success(`Полигон успешно удалён`, 'Удаление завершено');
-    
+
   } catch (error) {
     console.error('Ошибка удаления полигона:', error);
     notifications.error(`Ошибка удаления полигона: ${error.message}`);
@@ -802,7 +810,7 @@ class NotificationManager {
     this.unreadCount = 0;
     this.isPolling = false;
     this.pollInterval = null;
-    
+
     this.initElements();
     this.bindEvents();
     this.startPolling();
@@ -893,7 +901,7 @@ class NotificationManager {
 
   updateUnreadCount(count) {
     this.unreadCount = count;
-    
+
     if (count > 0) {
       this.notificationsBadge.textContent = count > 99 ? '99+' : count;
       this.notificationsBadge.style.display = 'flex';
@@ -911,11 +919,11 @@ class NotificationManager {
     }
 
     this.notificationsEmpty.style.display = 'none';
-    
+
     const notificationsHtml = this.notifications.map(notification => {
       const isUnread = ['pending', 'sent', 'delivered'].includes(notification.status);
       const timeAgo = this.formatTimeAgo(notification.created_at);
-      
+
       return `
         <div class="notification-item ${isUnread ? 'unread' : ''}" 
              data-id="${notification.id}" 
@@ -955,7 +963,7 @@ class NotificationManager {
         if (notification) {
           notification.status = 'read';
         }
-        
+
         this.renderNotifications();
         this.checkUnreadCount();
       }
@@ -967,7 +975,7 @@ class NotificationManager {
   getSeverityText(severity) {
     const severityMap = {
       'low': 'Низкая',
-      'medium': 'Средняя', 
+      'medium': 'Средняя',
       'high': 'Высокая',
       'critical': 'Критическая'
     };
@@ -998,16 +1006,16 @@ class NotificationManager {
     if (diffMins < 60) return `${diffMins} мин назад`;
     if (diffHours < 24) return `${diffHours} ч назад`;
     if (diffDays < 7) return `${diffDays} д назад`;
-    
+
     return date.toLocaleDateString('ru-RU');
   }
 
   startPolling() {
     if (this.isPolling) return;
-    
+
     this.isPolling = true;
     this.checkUnreadCount();
-    
+
     this.pollInterval = setInterval(() => {
       this.checkUnreadCount();
     }, 30000); // каждые 30 секунд
@@ -1023,18 +1031,36 @@ class NotificationManager {
 
   showNewNotification(notification) {
     const severity = notification.anomaly_details?.severity || 'medium';
-    const type = severity === 'critical' ? 'error' : 
+    const type = severity === 'critical' ? 'error' :
                  severity === 'high' ? 'warning' : 'info';
-    
+
     notifications.show(
       notification.message,
       type,
       notification.title,
       8000
     );
-    
+
     this.checkUnreadCount();
   }
+}
+
+async function initLists(){
+  const apiKeys = await getApiKeys();
+  fillCollapsibleList("apiList", apiKeys);
+
+  const cascade = new CascadeController([
+    { id: "api", parent: null, containerId: "apiList" },
+    { id: "device", parent: "api", containerId: "deviceList" },
+    { id: "folder", parent: "device", containerId: "folderList" },
+  ], async (level, state) => {
+    if (level === "api") return await getApiKeys();
+    if (level === "device") return await getDevices(state.api);
+    if (level === "folder") return await getFolders(state.api, state.device);
+    return [];
+  });
+
+  cascade.init();
 }
 
 // Инициализация
@@ -1046,7 +1072,7 @@ class NotificationManager {
   console.log('Calling reload...');
   reload();
   console.log('App initialized');
-  
+
   // Инициализируем менеджер уведомлений
   if (API_KEY && API_KEY.trim() !== '') {
     console.log('Initializing notification manager...');
@@ -1054,5 +1080,6 @@ class NotificationManager {
   } else {
     console.log('API key not available, skipping notification manager initialization');
   }
+  initLists()
 })();
 
