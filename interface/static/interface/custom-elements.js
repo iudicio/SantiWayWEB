@@ -1,4 +1,4 @@
-/* scripts.js
+/* custom-elements.js
    В этом файле:
    - логика «кастомных select» (создание обёртки и списка опций)
    - логика меню столбцов таблицы (создание чекбоксов, скрыть/показать столбцы)
@@ -217,6 +217,7 @@ function initCollapsibleList(id, disabled=false) {
   });
 }
 
+// Блокирует/разблокирует любой список
 function setCollapsibleDisabled(id, disabled) {
   const container = document.getElementById(id);
   if (!container) return;
@@ -234,23 +235,27 @@ function setCollapsibleDisabled(id, disabled) {
   }
 }
 
-
 function fillCollapsibleList(id, elements, parents = null){
   const container = document.getElementById(id);
   if (!container) return;
 
-
-    // Удаляем все чекбоксы, кроме "__all__"
+  // Удаляем все чекбоксы, кроме "__all__"
   Array.from(container.querySelectorAll("input[type='checkbox']"))
     .forEach(cb => {
       if (cb.value !== "__all__") cb.closest("label").remove();
     });
 
   if (Array.isArray(elements)) {
-    elements.forEach((el, idx) => {
-      const parent = parents[idx];
-      container.appendChild(createCustomCheckbox(el, el, parent));
-    });
+    if (Array.isArray(parents)){
+      elements.forEach((el, idx) => {
+        const parent = parents[idx];
+        container.appendChild(createCustomCheckbox(el, el, parent));
+      });
+    } else {
+      elements.forEach((el) => {
+        container.appendChild(createCustomCheckbox(el, el, parents));
+      });
+    }
   } else if (typeof elements === "object" && elements !== null) {
     // объект (API)
     Object.entries(elements).forEach(([key, label]) => {
@@ -259,6 +264,7 @@ function fillCollapsibleList(id, elements, parents = null){
   }
 }
 
+// Создает кастомные чекбоксы
 function createCustomCheckbox(checkboxValue, labelText, dataParent=null){
   labelText = labelText ? labelText : checkboxValue;
 
@@ -278,6 +284,7 @@ function createCustomCheckbox(checkboxValue, labelText, dataParent=null){
   return label
 }
 
+// Управляет логикой отображения списков
 class CascadeController {
   constructor(structure, dataProvider) {
     this.structure = structure;
@@ -290,13 +297,13 @@ class CascadeController {
     this.structure.forEach(level => {
       const container = document.getElementById(level.containerId);
       if (!container) return;
-      container.addEventListener("change", (e) => {
-        this.handleChange(level, e);
+      container.addEventListener("change", () => {
+        this.handleChange(level);
       });
     });
   }
 
-  async handleChange(level, e) {
+  async handleChange(level) {
     const selected = this.getSelected(level.containerId);
     const prevSelected = this.state[level.id] || [];
     this.state[level.id] = selected;
@@ -308,7 +315,6 @@ class CascadeController {
     // Обработка снятия выделения с чекбокса и удаляем “осиротевшие” элементы
     const removed = prevSelected.filter(x => !selected.includes(x));
     if (removed.length) {
-      console.log("Удаляем")
       // удаляем потомков для снятых элементов
       if (removed.length === 1){
        this.removeChildren(level.id, removed[0]);
@@ -321,9 +327,9 @@ class CascadeController {
     const newlySelected = selected.filter(x => !prevSelected.includes(x));
     if (newlySelected.length === 0) return;
 
+    const fragment = document.createDocumentFragment();
     for (const newSelect of newlySelected) {
       let data = [];
-      let parents = [];
 
       if (level.id === "api" && nextLevel.id === "device") {
         if (this.cache[newSelect] && Object.keys(this.cache[newSelect]).length > 0) {
@@ -333,7 +339,7 @@ class CascadeController {
           // для девайсов: передаём только новый API
           data = await this.dataProvider("device", { api: [newSelect] });
 
-          // гарантируем, что у API есть место в иерархии
+          // гарантируем, что у API есть место в кэше
           if (!this.cache[newSelect]) {
             this.cache[newSelect] = {};
           }
@@ -349,6 +355,7 @@ class CascadeController {
             console.log(`[CACHE] Folders for device ${newSelect} from API ${api}`);
             data = this.cache[api][newSelect];
             foundInCache = true;
+            break;
           }
         });
 
@@ -361,34 +368,35 @@ class CascadeController {
           })
         }
       }
-      parents = data.map(() => newSelect);
 
       // добавляем новые элементы в список
-      data.forEach((el, idx) => {
+      data.forEach((el) => {
         if (!nextContainer.querySelector(`input[value="${el}"][data-parent="${newSelect}"]`)) {
-          nextContainer.appendChild(createCustomCheckbox(el, el, parents[idx]));
+          fragment.appendChild(createCustomCheckbox(el, el, newSelect));
         }
       });
     }
+    // Добавляем все за 1 раз
+    nextContainer.appendChild(fragment);
 
-    // Включаем список, если есть элементы (-1 тк _all_ не учитывается)
+    // Включаем список
     this.changeCollapsibleState(nextLevel.containerId);
   }
 
+  // Рекурсивно удаляет элементы от верхних списков до нижних
   removeChildren(levelId, parentKey) {
     const levelIdx = this.structure.findIndex(l => l.id === levelId);
     const nextLevel = this.structure[levelIdx + 1];
     if (!nextLevel) return;
 
     const nextContainer = document.getElementById(nextLevel.containerId);
-    //
+
     // ищем детей исходя из уровня
     let children = [];
 
     if (levelId === "api") {
       // parentKey = имя API
-      const devices = this.cache[parentKey] ? Object.keys(this.cache[parentKey]) : [];
-      children = devices;
+      children = this.cache[parentKey] ? Object.keys(this.cache[parentKey]) : [];
 
     } else if (levelId === "device") {
       // parentKey = имя девайса; ищем в каком API он находится
@@ -398,10 +406,10 @@ class CascadeController {
           break;
         }
       }
-    }
+    } else return;
 
     children.forEach(child => {
-      const cb = nextContainer.querySelector(`input[value="${child}"][data-parent="${parentKey}"]`);
+      const cb = nextContainer.querySelector(`input[data-parent="${parentKey}"]`);
       if (cb) cb.closest("label").remove();
       this.removeChildren(nextLevel.id, child); // рекурсивно удаляем потомков
     });
@@ -413,6 +421,7 @@ class CascadeController {
     this.state[nextLevel.id] = this.getSelected(nextLevel.containerId);
   }
 
+  // Очищает все списки следующих уровней
   clearAllNextLists(levelId) {
     const idx = this.structure.findIndex(l => l.id === levelId);
     for (let i = idx + 1; i < this.structure.length; i++) {
@@ -434,16 +443,19 @@ class CascadeController {
     }
   }
 
+  // Определяет нужно ли сворачивать/раскрывать список
   changeCollapsibleState(nextLevelId){
     const hasChildren = document.getElementById(nextLevelId).querySelectorAll("input[type='checkbox']").length - 1 > 0;
     setCollapsibleDisabled(nextLevelId, !hasChildren);
   }
 
+  // Возвращает id следующего списка
   getNextLevel(levelId) {
     const idx = this.structure.findIndex(l => l.id === levelId);
     return this.structure[idx + 1] || null;
   }
 
+  // Получает все выбранные чекбоксы
   getSelected(containerId) {
     return Array.from(
       document.querySelectorAll(`#${containerId} input[type='checkbox']:checked`)
