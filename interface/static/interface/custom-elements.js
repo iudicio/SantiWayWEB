@@ -124,19 +124,6 @@ function initColumnsMenu() {
     wrapper.append(" " + labelText);
     menu.appendChild(wrapper);
   });
-
-  // назначим data-col на существующие td (если строки уже есть)
-  function syncRowTdDataCols() {
-    const rows = table.querySelectorAll("tbody tr");
-    rows.forEach(tr => {
-      Array.from(tr.children).forEach((td, i) => {
-        const th = ths[i];
-        if (th) td.dataset.col = th.dataset.col;
-      });
-    });
-  }
-  syncRowTdDataCols();
-
   // переключатель меню
   toggleBtn.addEventListener("click", (e) => {
     e.stopPropagation();
@@ -151,6 +138,23 @@ function initColumnsMenu() {
       menu.classList.add("hidden");
       toggleBtn.setAttribute("aria-expanded", "false");
     }
+  });
+}
+
+// назначим data-col на существующие td
+export function syncRowTdDataCols() {
+  const table = document.getElementById("devicesTable");
+  const ths = Array.from(table.querySelectorAll("thead th"));
+  const rows = table.querySelectorAll("tbody tr");
+  const checkedCheckboxes = getCheckboxes("columnsMenu", {onlyChecked: true})
+    .map(el => el.dataset.col);
+
+  rows.forEach(tr => {
+    Array.from(tr.children).forEach((td, i) => {
+      const th = ths[i];
+      if (th) td.dataset.col = th.dataset.col;
+      if (checkedCheckboxes.indexOf(td.dataset.col) === -1) td.style.display = "none";
+    });
   });
 }
 
@@ -282,6 +286,19 @@ function createCustomCheckbox(checkboxValue, labelText, dataParent=null){
   label.appendChild(document.createTextNode(labelText));
 
   return label
+}
+
+export function getCheckboxes(containerId, {includeAll = false, onlyChecked = false} = {}){
+  let selector = "input[type='checkbox']";
+  if (!includeAll) selector +=  ":not([value='__all__'])";
+  if (onlyChecked) selector += ":checked"
+
+  return Array.from(document.querySelectorAll(`#${containerId} ${selector}`));
+}
+
+export function getCheckboxesValues(containerId, onlyChecked = true){
+  return getCheckboxes(containerId,  {onlyChecked: onlyChecked})
+    .map(checkbox => checkbox.value);
 }
 
 // Управляет логикой отображения списков
@@ -430,10 +447,13 @@ export class CascadeController {
       if (!container) continue;
 
       // Удаляем все чекбоксы, кроме "__all__"
-      Array.from(container.querySelectorAll("input[type='checkbox']"))
-        .forEach(cb => {
-          if (cb.value !== "__all__") cb.closest("label").remove();
-        });
+      getCheckboxes(child.containerId).forEach(cb => {
+          cb.closest("label").remove();
+      });
+      // Array.from(container.querySelectorAll("input[type='checkbox']"))
+      //   .forEach(cb => {
+      //     if (cb.value !== "__all__") cb.closest("label").remove();
+      //   });
 
       // Сбрасываем состояние
       this.state[child.id] = [];
@@ -445,7 +465,7 @@ export class CascadeController {
 
   // Определяет нужно ли сворачивать/раскрывать список
   changeCollapsibleState(nextLevelId){
-    const hasChildren = document.getElementById(nextLevelId).querySelectorAll("input[type='checkbox']").length - 1 > 0;
+    const hasChildren = getCheckboxes(nextLevelId).length > 0;
     setCollapsibleDisabled(nextLevelId, !hasChildren);
   }
 
@@ -457,9 +477,7 @@ export class CascadeController {
 
   // Получает все выбранные чекбоксы
   getSelected(containerId) {
-    return Array.from(
-      document.querySelectorAll(`#${containerId} input[type='checkbox']:checked`)
-    ).filter(cb => cb.value !== "__all__").map(cb => cb.value);
+    return getCheckboxes(containerId, {onlyChecked: true}).map(cb => cb.value);
   }
 }
 
