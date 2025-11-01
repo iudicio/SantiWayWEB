@@ -25,6 +25,7 @@
       API_KEY: "{{ API_KEY|default:'' }}",
     };
     const API_USER_INFO = "{% url 'api:userinfo' %}"
+    const API_FILTERING = "{% url 'api:filtering-list' %}"
   </script>
 
   <script src="{% static 'interface/get-devices.js' %}"></script>

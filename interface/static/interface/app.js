@@ -1,10 +1,13 @@
-import {fillCollapsibleList, CascadeController, getCheckboxes, getCheckboxesValues} from "./custom-elements.js";
+import {
+  fillCollapsibleList,
+  CascadeController,
+  getCheckboxesValues,
+  syncRowTdDataCols
+} from "./custom-elements.js";
 
 const API_BASE = (window.APP_CONFIG && window.APP_CONFIG.API_BASE) || '/api';
 const API_KEY = (window.APP_CONFIG && window.APP_CONFIG.API_KEY) || '';
-const API_USER_INFO = window.APP_CONFIG.API_USER_INFO
 const API_DEVICES_URL = `${API_BASE}/devices/`;
-const API_FILTERING  = `${API_BASE}/filtering/`
 const API_POLYGONS_URL = `${API_BASE}/polygons/`;
 
 class NotificationSystem {
@@ -332,13 +335,19 @@ function renderTable(){
     </tr>
   `).join('');
 
+  // Скрыть/показать отдельные столбцы
+  syncRowTdDataCols()
+
   tbody.querySelectorAll('tr').forEach(tr => {
     tr.addEventListener('click', () => selectRow(tr.dataset.id, true));
     tr.classList.toggle('active', tr.dataset.id === state.selectedId);
   });
 
+  // Footer таблицы
   const start = state.total ? (state.page - 1) * state.pageSize + 1 : 0;
-  const end   = Math.min(state.page * state.pageSize, state.total);
+  // Пока просто заглушка, в будущем сделать реально страницы
+  const end = state.total;
+  // const end   = Math.min(state.page * state.pageSize, state.total);
   showing.textContent = `Отображено ${start} до ${end} из ${state.total} записей`;
 
   const totalPages = Math.max(1, Math.ceil(state.total / state.pageSize));

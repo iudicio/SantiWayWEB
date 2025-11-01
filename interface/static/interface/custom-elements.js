@@ -124,19 +124,6 @@ function initColumnsMenu() {
     wrapper.append(" " + labelText);
     menu.appendChild(wrapper);
   });
-
-  // назначим data-col на существующие td (если строки уже есть)
-  function syncRowTdDataCols() {
-    const rows = table.querySelectorAll("tbody tr");
-    rows.forEach(tr => {
-      Array.from(tr.children).forEach((td, i) => {
-        const th = ths[i];
-        if (th) td.dataset.col = th.dataset.col;
-      });
-    });
-  }
-  syncRowTdDataCols();
-
   // переключатель меню
   toggleBtn.addEventListener("click", (e) => {
     e.stopPropagation();
@@ -151,6 +138,23 @@ function initColumnsMenu() {
       menu.classList.add("hidden");
       toggleBtn.setAttribute("aria-expanded", "false");
     }
+  });
+}
+
+// назначим data-col на существующие td
+export function syncRowTdDataCols() {
+  const table = document.getElementById("devicesTable");
+  const ths = Array.from(table.querySelectorAll("thead th"));
+  const rows = table.querySelectorAll("tbody tr");
+  const checkedCheckboxes = getCheckboxes("columnsMenu", {onlyChecked: true})
+    .map(el => el.dataset.col);
+
+  rows.forEach(tr => {
+    Array.from(tr.children).forEach((td, i) => {
+      const th = ths[i];
+      if (th) td.dataset.col = th.dataset.col;
+      if (checkedCheckboxes.indexOf(td.dataset.col) === -1) td.style.display = "none";
+    });
   });
 }
 
