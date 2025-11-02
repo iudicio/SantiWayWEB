@@ -242,6 +242,7 @@ function setCollapsibleDisabled(id, disabled) {
 export function fillCollapsibleList(id, elements, parents = null){
   const container = document.getElementById(id);
   if (!container) return;
+  if (Object.keys(elements).length === 0) setCollapsibleDisabled(id, true);
 
   // Удаляем все чекбоксы, кроме "__all__"
   Array.from(container.querySelectorAll("input[type='checkbox']"))

@@ -78,9 +78,12 @@ const state = {
     alert: false, ignore: false
   },
   selectedId: null,
+  selectedPolygonData: null,
   apiKey: (window.APP_CONFIG && window.APP_CONFIG.API_KEY) || '',
   colorForPolygon: {} // Используется как хранилище цветов, чтобы при каждом reload() не слать запросы на сервер
 };
+
+let polygons;
 
 
 // Цвета полигонов в зависимости от статуса
@@ -413,11 +416,18 @@ function buildQuery(){
 
 async function fetchDevices() {
   const url = `${API_FILTERING}?${buildQuery()}`;
+  const body = {polygons: [{
+    points: state.selectedPolygonData ? state.selectedPolygonData.geometry.coordinates[0] : []
+  }]};
+
   const res = await fetch(url, {
+    method: "POST",
     headers: {
       'Accept': 'application/json',
-      'Authorization': `Api-Key ${state.apiKey}`
-    }
+      'Authorization': `Api-Key ${state.apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body)
   });
   if(!res.ok) throw new Error(`API ${res.status}`);
 
@@ -438,17 +448,34 @@ async function fetchDevices() {
 async function reload(){
   try{
     const { rows, total } = await fetchDevices();
-    const polygons = await fetchPolygons();
+    polygons = await fetchPolygons();
     // Шлем на сервер запросы только при загрузке страницы в первый раз
-    if (Object.keys(state.colorForPolygon).length === 0){ state.colorForPolygon= await getAllPolygonsColor(polygons);}
+    const isFirstStart = Object.keys(state.colorForPolygon).length === 0;
+    if (isFirstStart){
+      state.colorForPolygon = await getAllPolygonsColor(polygons);
+    }
 
     state.rows = rows;
     state.total = total;
-    renderMarkers(rows);
+
+    if (state.selectedPolygonData !== null) {
+      setFindingMarkers(rows);
+      state.selectedPolygonData = null;
+    } else {
+      renderMarkers(rows);
+    }
+
     renderPolygons(polygons, state.colorForPolygon);
     renderTable();
-    if(rows.length){ selectRow(rows[0].device_id); }
-    else { selectRow(null); }
+    selectRow(rows.length ? rows[0].device_id : null)
+
+    if (isFirstStart){
+      notifications.success(`Получено устройств: ${rows.length}`, 'Получение данных завершено');
+    } else if ( rows.length > 0) {
+      notifications.success(`Найдено устройств: ${rows.length}`, 'Поиск завершен');
+    } else {
+      notifications.warning('Устройства в полигоне не найдены', 'Поиск завершен');
+    }
   } catch (e){
     console.error(e);
     tbody.innerHTML = `<tr><td colspan="13">Ошибка загрузки данных: ${e.message}</td></tr>`;
@@ -458,9 +485,10 @@ async function reload(){
 }
 
 // Фильтры/события
-document.getElementById('btnApplyFilters').addEventListener('click', () => {
+document.getElementById('btnApplyFilters').addEventListener('click', ()=> {setFiltersState();});
+
+function setFiltersState(){
   state.filters.apiKeys = getCheckboxesValues("apiList");
-  console.debug("When get: ", state.filters.apiKeys.length);
   state.filters.devices = getCheckboxesValues("deviceList");
   state.filters.folders = getCheckboxesValues("folderList");
 
@@ -470,7 +498,6 @@ document.getElementById('btnApplyFilters').addEventListener('click', () => {
 
   const timeStart = document.getElementById("time-start").value;
   const timeEnd = document.getElementById("time-end").value;
-
   state.filters.timeStart = timeStart ? new Date(timeStart).toISOString() : null
   state.filters.timeEnd =  timeEnd ? new Date(timeEnd).toISOString() : null
 
@@ -478,7 +505,7 @@ document.getElementById('btnApplyFilters').addEventListener('click', () => {
   state.filters.ignore = document.getElementById('f-ignore').checked;
   state.page = 1;
   reload();
-});
+}
 
 document.getElementById('tableSearch').addEventListener('input', ()=>{
   state.search = normalize(document.getElementById('tableSearch').value);
@@ -555,56 +582,34 @@ function renderPolygons(rows, colors){
   });
 }
 
-window.searchDevicesInPolygon = async function searchDevicesInPolygon(polygonId) {
-  try {
-    const response = await fetch(`${API_POLYGONS_URL}${polygonId}/search/`, {
-      method: 'POST',
-      headers: {
-        'Accept': 'application/json',
-        'Authorization': `Api-Key ${state.apiKey}`,
-        'Content-Type': 'application/json'
-      }
-    });
-
-    if (!response.ok) {
-      throw new Error(`API ${response.status}`);
+function setFindingMarkers(data){
+  markersLayer.clearLayers();
+  data.forEach(device => {
+    console.debug("Device: ", device);
+    if (device.location) {
+      const marker = L.marker([device.latitude, device.longitude], {
+        icon: L.divIcon({
+          className: 'search-result-marker',
+          html: '🔍',
+          iconSize: [20, 20]
+        })
+      }).bindPopup(`
+        <div class="popup-title">Найденное устройство</div>
+        <div class="popup-info">
+          <strong>Device ID:</strong> ${device.device_id || 'N/A'}<br/>
+          <strong>MAC:</strong> ${device.mac || 'N/A'}<br/>
+          <strong>Время:</strong> ${device.detected_at || 'N/A'}
+        </div>
+      `);
+      marker.addTo(markersLayer);
     }
-
-    const result = await response.json();
-
-    if (result.devices && result.devices.length > 0) {
-      markersLayer.clearLayers();
-
-      result.devices.forEach(device => {
-        if (device.location && device.location.lat && device.location.lon) {
-          const marker = L.marker([device.location.lat, device.location.lon], {
-            icon: L.divIcon({
-              className: 'search-result-marker',
-              html: '🔍',
-              iconSize: [20, 20]
-            })
-          }).bindPopup(`
-            <div class="popup-title">Найденное устройство</div>
-            <div class="popup-info">
-              <strong>Device ID:</strong> ${device.device_id || 'N/A'}<br/>
-              <strong>MAC:</strong> ${device.mac || 'N/A'}<br/>
-              <strong>Время:</strong> ${device.timestamp || 'N/A'}
-            </div>
-          `);
-          marker.addTo(markersLayer);
-        }
-      });
-
-      notifications.success(`Найдено устройств: ${result.devices_found}`, 'Поиск завершен');
-    } else {
-      notifications.warning('Устройства в полигоне не найдены', 'Поиск завершен');
-    }
-
-  } catch (error) {
-    console.error('Ошибка поиска устройств:', error);
-    notifications.error(`Ошибка поиска: ${error.message}`);
-  }
+  });
 }
+
+window.searchDevicesInPolygon = async function(polygonId) {
+  state.selectedPolygonData = polygons.find(p => p.id === polygonId) ?? null;
+  setFiltersState();
+};
 
 window.startMonitoring = async function startMonitoring(polygonId) {
   try {
@@ -821,13 +826,13 @@ async function getAllPolygonsColor(polygons) {
 function changePolygonColor(id, newColor= POLYGON_COLORS.DEFAULT){
   state.colorForPolygon[id] = newColor;
   let poly = polygonsLayer.getLayers().find(p => p.options._pid == id);
-    if (poly) {
-      poly.setStyle({
-        color: newColor,
-        fillColor: newColor,
-        fillOpacity: 0.15
-      });
-    }
+  if (poly) {
+    poly.setStyle({
+      color: newColor,
+      fillColor: newColor,
+      fillOpacity: 0.15
+    });
+  }
 }
 
 // Объявляем переменную для менеджера уведомлений
