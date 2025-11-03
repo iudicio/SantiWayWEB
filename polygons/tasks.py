@@ -14,13 +14,44 @@ logger = logging.getLogger(__name__)
 
 
 @shared_task(bind=True)
-def monitor_mac_addresses(self, polygon_id, user_api_key, monitoring_interval=300):
+def monitor_mac_addresses(self, polygon_id, user_api_key=None, monitoring_interval=300, 
+                          api_keys=None, devices=None, folders=None):
     """
     Однотик мониторинга MAC-адресов: выполняет один проход и перепланирует себя,
     если действие остаётся в статусе running.
+    
+    Args:
+        polygon_id: ID полигона
+        user_api_key: API ключ пользователя (устаревший, используйте api_keys)
+        monitoring_interval: Интервал мониторинга в секундах
+        api_keys: Список API ключей для фильтрации
+        devices: Список device_id для фильтрации
+        folders: Список folder_name для фильтрации
     """
     try:
         polygon = Polygon.objects.get(id=polygon_id)
+
+        # Получаем фильтры из параметров действия, если они не переданы напрямую
+        action_params = {}
+        try:
+            existing_action = PolygonAction.objects.filter(
+                polygon=polygon,
+                action_type='mac_monitoring',
+                status='running'
+            ).first()
+            if existing_action and existing_action.parameters:
+                action_params = existing_action.parameters
+        except Exception:
+            pass
+        
+        # Используем переданные параметры или параметры из действия
+        final_api_keys = api_keys or action_params.get('api_keys') or ([user_api_key] if user_api_key else None)
+        final_devices = devices or action_params.get('devices') or None
+        final_folders = folders or action_params.get('folders') or None
+        
+        # Поддержка старого формата с user_api_key
+        if not final_api_keys and user_api_key:
+            final_api_keys = [user_api_key]
 
         action, created = PolygonAction.objects.get_or_create(
             polygon=polygon,
@@ -28,7 +59,10 @@ def monitor_mac_addresses(self, polygon_id, user_api_key, monitoring_interval=30
             defaults={
                 'parameters': {
                     'monitoring_interval': monitoring_interval,
-                    'user_api_key': user_api_key
+                    'user_api_key': user_api_key,
+                    'api_keys': final_api_keys,
+                    'devices': final_devices,
+                    'folders': final_folders
                 },
                 'status': 'running',
                 'task_id': self.request.id,
@@ -41,11 +75,24 @@ def monitor_mac_addresses(self, polygon_id, user_api_key, monitoring_interval=30
             if action.status != 'running':
                 logger.info(f"Действие {action.id} не активно ({action.status}), пропускаем тик")
                 return
-            action.save()
+            # Обновляем параметры фильтров, если они были переданы
+            if api_keys is not None or devices is not None or folders is not None:
+                if not action.parameters:
+                    action.parameters = {}
+                if api_keys is not None:
+                    action.parameters['api_keys'] = api_keys
+                if devices is not None:
+                    action.parameters['devices'] = devices
+                if folders is not None:
+                    action.parameters['folders'] = folders
+                action.save()
 
         devices = search_devices_in_polygon(
             polygon.geometry,
-            user_api_key=user_api_key
+            user_api_key=user_api_key,
+            api_keys=final_api_keys,
+            devices=final_devices,
+            folders=final_folders
         )
 
         mac_addresses = []
@@ -74,8 +121,16 @@ def monitor_mac_addresses(self, polygon_id, user_api_key, monitoring_interval=30
 
         action_refreshed = PolygonAction.objects.filter(id=action.id).only('status').first()
         if action_refreshed and action_refreshed.status == 'running':
+            # Передаем фильтры при перепланировании
             monitor_mac_addresses.apply_async(
-                args=[str(polygon.id), user_api_key, monitoring_interval],
+                args=[str(polygon.id)],
+                kwargs={
+                    'user_api_key': user_api_key,
+                    'monitoring_interval': monitoring_interval,
+                    'api_keys': final_api_keys,
+                    'devices': final_devices,
+                    'folders': final_folders
+                },
                 countdown=int(monitoring_interval)
             )
         else:
