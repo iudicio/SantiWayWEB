@@ -20,11 +20,28 @@ spec:
         - name: apkbuilde
           image: "{{ .Values.images.apkbuilde.repository }}:{{ .Values.images.apkbuilde.tag }}"
           imagePullPolicy: {{ .Values.images.apkbuilde.pullPolicy }}
+
+          command: ["sh","-c"]
+          args:
+            - >
+              export CELERY_BROKER_URL="amqp://${RABBITMQ_USER}:${RABBITMQ_PASS}@{{ include "santiway.fullname" . }}-rabbit.{{ .Release.Namespace }}.svc:{{ .Values.rabbitmq.service.amqpPort }}/";
+              celery -A celery_app worker
+              -Q apkbuilder
+              -n apkbuilder@%h
+              -l info
+              -c 1
+          
           env:
-            {{- range $k, $v := .Values.apkbuilde.env }}
-            - name: {{ $k }}
-              value: "{{ $v }}"
-            {{- end }}
+            - name: RABBITMQ_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "santiway.fullname" . }}-rabbit
+                  key: username
+            - name: RABBITMQ_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "santiway.fullname" . }}-rabbit
+                  key: password
           resources:
             {{- toYaml .Values.apkbuilde.resources | nindent 12 }}
 {{- end }}

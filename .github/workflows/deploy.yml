@@ -1,4 +1,4 @@
-name: Build & Push Docker Images
+name: Build & Deploy
 
 on:
   push:
@@ -76,3 +76,14 @@ jobs:
           push: true
           tags: |
             ${{ env.IMAGE_WORKER }}:${{ env.TAG }}
+      
+      # Установка Helm на раннер
+      - name: Setup Helm
+        uses: azure/setup-helm@v4
+      
+      - name: Helm upgrade/install santiway (docker-desktop)
+        run: |
+          helm upgrade --install santiway ./deploy/helm \
+            --kube-context docker-desktop \
+            -n santiway --create-namespace \
+            -f deploy/helm/values.yaml
