@@ -1,3 +1,10 @@
+import {
+  fillCollapsibleList,
+  CascadeController,
+  getCheckboxesValues,
+  syncRowTdDataCols
+} from "./custom-elements.js";
+
 const API_BASE = (window.APP_CONFIG && window.APP_CONFIG.API_BASE) || '/api';
 const API_KEY = (window.APP_CONFIG && window.APP_CONFIG.API_KEY) || '';
 const API_DEVICES_URL = `${API_BASE}/devices/`;
@@ -11,7 +18,7 @@ class NotificationSystem {
   show(message, type = 'info', title = '', duration = 5000) {
     const notification = document.createElement('div');
     notification.className = `notification ${type}`;
-    
+
     const icons = {
       success: '✓',
       error: '✕',
@@ -29,9 +36,9 @@ class NotificationSystem {
     `;
 
     this.container.appendChild(notification);
-    
+
     setTimeout(() => notification.classList.add('show'), 100);
-    
+
     if (duration > 0) {
       setTimeout(() => {
         notification.classList.remove('show');
@@ -65,11 +72,16 @@ const state = {
   page: 1,
   pageSize: 10,
   search: '',
-  filters: { network: 'any', deviceid: '', mac: '', alert: false, ignore: false },
+  filters: { apiKeys: [], devices: [], folders: [],
+    timeStart: null, timeEnd: null,
+    network: 'any', name: '', mac: '',
+    alert: false, ignore: false
+  },
   selectedId: null,
   apiKey: (window.APP_CONFIG && window.APP_CONFIG.API_KEY) || '',
   colorForPolygon: {} // Используется как хранилище цветов, чтобы при каждом reload() не слать запросы на сервер
 };
+
 
 // Цвета полигонов в зависимости от статуса
 const POLYGON_COLORS = {
@@ -118,12 +130,12 @@ let drawControl;
 let drawnItems = polygonsLayer;
 
 function ensureDrawTools(){
-  
+
   if (drawControl) {
     console.log('drawControl already exists, returning');
     return;
   }
-  
+
   drawControl = new L.Control.Draw({
     edit: {
       featureGroup: polygonsLayer,
@@ -156,7 +168,7 @@ function ensureDrawTools(){
     const layer = e.layer;
 
     let ring = [];
-    
+
     const latlngs = (layer.getLatLngs?.()[0]) || [];
 
     if (latlngs.length >= 3) {
@@ -164,9 +176,9 @@ function ensureDrawTools(){
       if (ring[0][0] !== ring[ring.length-1][0] || ring[0][1] !== ring[ring.length-1][1]) {
         ring.push([ring[0][0], ring[0][1]]);
       }
-      
+
     } else {
-      
+
       return;
     }
 
@@ -201,24 +213,24 @@ function ensureDrawTools(){
     const updates = [];
     layers.eachLayer(l => {
       let ring = [];
-      
+
       const latlngs = (l.getLatLngs?.()[0]) || [];
-      
+
       if (latlngs.length >= 3) {
         ring = latlngs.map(ll => [Number(ll.lng), Number(ll.lat)]);
         if (ring[0][0] !== ring[ring.length-1][0] || ring[0][1] !== ring[ring.length-1][1]) {
           ring.push([ring[0][0], ring[0][1]]);
         }
-        
+
       } else {
-        
+
         return;
       }
-      
+
       const pid = l.options && l.options._pid;
       if(pid){
         updates.push({ id: pid, geometry: { type: 'Polygon', coordinates: [ ring ] } });
-        
+
       }
     });
 
@@ -240,7 +252,7 @@ function ensureDrawTools(){
   });
 
   map.on('draw:deleted', async (e) => {
-    
+
     const layers = e.layers;
     const ids = [];
     layers.eachLayer(l => {
@@ -300,7 +312,7 @@ function flyTo(id){
   setTimeout(()=>m.openPopup(), 850);
 }
 
-// Таблица/пагинация 
+// Таблица/пагинация
 const tbody = document.querySelector('#devicesTable tbody');
 const showing = document.getElementById('showing');
 
@@ -323,13 +335,19 @@ function renderTable(){
     </tr>
   `).join('');
 
+  // Скрыть/показать отдельные столбцы
+  syncRowTdDataCols()
+
   tbody.querySelectorAll('tr').forEach(tr => {
     tr.addEventListener('click', () => selectRow(tr.dataset.id, true));
     tr.classList.toggle('active', tr.dataset.id === state.selectedId);
   });
 
+  // Footer таблицы
   const start = state.total ? (state.page - 1) * state.pageSize + 1 : 0;
-  const end   = Math.min(state.page * state.pageSize, state.total);
+  // Пока просто заглушка, в будущем сделать реально страницы
+  const end = state.total;
+  // const end   = Math.min(state.page * state.pageSize, state.total);
   showing.textContent = `Отображено ${start} до ${end} из ${state.total} записей`;
 
   const totalPages = Math.max(1, Math.ceil(state.total / state.pageSize));
@@ -370,12 +388,20 @@ function selectRow(id, fly=false){
 // Загрузка с API
 function buildQuery(){
   const qs = new URLSearchParams();
-  qs.set('page', state.page);
-  qs.set('page_size', state.pageSize);
-
+  // Функционал для этого не реализован на апи
+  // qs.set('page', state.page);
+  // qs.set('page_size', state.pageSize);
   const f = state.filters;
+
+  if (f.apiKeys.length > 0) qs.set("user_api", f.apiKeys.join(","));
+  if (f.devices.length > 0) qs.set("device_id", f.devices.join(","));
+  if (f.folders.length > 0) qs.set("folder_name", f.folders.join(","));
+
+  if (f.timeStart !== null) qs.set("detected_at__gte", f.timeStart);
+  if (f.timeEnd !== null) qs.set("detected_at__lte", f.timeEnd);
+
   if (f.network && f.network !== 'any') qs.set('network_type', f.network);
-  if (f.deviceid) qs.set('device_id', f.deviceid);
+  // if (f.name) qs.set('device_id', f.name);
   if (f.mac) qs.set('user_phone_mac', f.mac);
   if (f.alert) qs.set('is_alert', 'true');
   if (f.ignore) qs.set('is_ignored', 'true');
@@ -386,9 +412,9 @@ function buildQuery(){
 }
 
 async function fetchDevices() {
-  const url = `${API_DEVICES_URL}?${buildQuery()}`;
-  const res = await fetch(url, { 
-    headers: { 
+  const url = `${API_FILTERING}?${buildQuery()}`;
+  const res = await fetch(url, {
+    headers: {
       'Accept': 'application/json',
       'Authorization': `Api-Key ${state.apiKey}`
     }
@@ -431,13 +457,25 @@ async function reload(){
   }
 }
 
-// Фильтры/события 
+// Фильтры/события
 document.getElementById('btnApplyFilters').addEventListener('click', () => {
-  state.filters.network  = document.getElementById('f-network').value;
-  state.filters.deviceid = normalize(document.getElementById('f-deviceid').value);
-  state.filters.mac      = normalize(document.getElementById('f-mac').value);
-  state.filters.alert    = document.getElementById('f-alert').checked;
-  state.filters.ignore   = document.getElementById('f-ignore').checked;
+  state.filters.apiKeys = getCheckboxesValues("apiList");
+  console.debug("When get: ", state.filters.apiKeys.length);
+  state.filters.devices = getCheckboxesValues("deviceList");
+  state.filters.folders = getCheckboxesValues("folderList");
+
+  state.filters.network = document.getElementById('f-network').value;
+  state.filters.mac = normalize(document.getElementById('f-mac').value);
+  state.filters.name = normalize(document.getElementById('f-name').value);
+
+  const timeStart = document.getElementById("time-start").value;
+  const timeEnd = document.getElementById("time-end").value;
+
+  state.filters.timeStart = timeStart ? new Date(timeStart).toISOString() : null
+  state.filters.timeEnd =  timeEnd ? new Date(timeEnd).toISOString() : null
+
+  state.filters.alert = document.getElementById('f-alert').checked;
+  state.filters.ignore = document.getElementById('f-ignore').checked;
   state.page = 1;
   reload();
 });
@@ -503,7 +541,7 @@ function renderPolygons(rows, colors){
           const actions = container && container.querySelector('.action-buttons');
           if(!actions) return;
           const pid = String(actions.getAttribute('data-pid'));
-          
+
           const on = (sel, fn) => { const el = actions.querySelector(sel); if(el) el.onclick = () => fn(pid); };
           on('.js-action-search', (id) => window.searchDevicesInPolygon && window.searchDevicesInPolygon(String(id)));
           on('.js-action-start',  (id) => window.startMonitoring && window.startMonitoring(String(id)));
@@ -527,16 +565,16 @@ window.searchDevicesInPolygon = async function searchDevicesInPolygon(polygonId)
         'Content-Type': 'application/json'
       }
     });
-    
+
     if (!response.ok) {
       throw new Error(`API ${response.status}`);
     }
-    
+
     const result = await response.json();
-    
+
     if (result.devices && result.devices.length > 0) {
       markersLayer.clearLayers();
-      
+
       result.devices.forEach(device => {
         if (device.location && device.location.lat && device.location.lon) {
           const marker = L.marker([device.location.lat, device.location.lon], {
@@ -556,12 +594,12 @@ window.searchDevicesInPolygon = async function searchDevicesInPolygon(polygonId)
           marker.addTo(markersLayer);
         }
       });
-      
+
       notifications.success(`Найдено устройств: ${result.devices_found}`, 'Поиск завершен');
     } else {
       notifications.warning('Устройства в полигоне не найдены', 'Поиск завершен');
     }
-    
+
   } catch (error) {
     console.error('Ошибка поиска устройств:', error);
     notifications.error(`Ошибка поиска: ${error.message}`);
@@ -589,9 +627,9 @@ window.startMonitoring = async function startMonitoring(polygonId) {
 
     changePolygonColor(polygonId, POLYGON_COLORS.RUNNING);
     const result = await response.json();
-    
+
     notifications.success(`Мониторинг запущен!<br/>Интервал: ${result.monitoring_interval} сек<br/>Task ID: ${result.task_id}`, 'Мониторинг активен');
-    
+
   } catch (error) {
     console.error('Ошибка запуска мониторинга:', error);
     notifications.error(`Ошибка запуска мониторинга: ${error.message}`);
@@ -608,16 +646,16 @@ window.stopMonitoring = async function stopMonitoring(polygonId) {
         'Content-Type': 'application/json'
       }
     });
-    
+
     if (!response.ok) {
       throw new Error(`API ${response.status}`);
     }
 
     changePolygonColor(polygonId, POLYGON_COLORS.STOPPED);
     const result = await response.json();
-    
+
     notifications.success(`Мониторинг остановлен для полигона: ${result.polygon_name}`);
-    
+
   } catch (error) {
     console.error('Ошибка остановки мониторинга:', error);
     notifications.error(`Ошибка остановки мониторинга: ${error.message}`);
@@ -633,13 +671,13 @@ window.checkMonitoringStatus = async function checkMonitoringStatus(polygonId) {
         'Authorization': `Api-Key ${state.apiKey}`
       }
     });
-    
+
     if (!response.ok) {
       throw new Error(`API ${response.status}`);
     }
-    
+
     const result = await response.json();
-    
+
     let statusText = '';
     switch(result.monitoring_status) {
       case 'not_started':
@@ -713,7 +751,7 @@ window.checkMonitoringStatus = async function checkMonitoringStatus(polygonId) {
         modal.remove();
       }
     });
-    
+
   } catch (error) {
     console.error('Ошибка проверки статуса мониторинга:', error);
     notifications.error(`Ошибка проверки статуса: ${error.message}`);
@@ -729,18 +767,18 @@ window.deletePolygon = async function deletePolygon(polygonId) {
         'Authorization': `Api-Key ${state.apiKey}`
       }
     });
-    
+
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
       throw new Error(errorData.error || errorData.detail || `HTTP ${response.status}`);
     }
-    
+
     delete state.colorForPolygon[polygonId];
-    
+
     await reload();
-    
+
     notifications.success(`Полигон успешно удалён`, 'Удаление завершено');
-    
+
   } catch (error) {
     console.error('Ошибка удаления полигона:', error);
     notifications.error(`Ошибка удаления полигона: ${error.message}`);
@@ -802,7 +840,7 @@ class NotificationManager {
     this.unreadCount = 0;
     this.isPolling = false;
     this.pollInterval = null;
-    
+
     this.initElements();
     this.bindEvents();
     this.startPolling();
@@ -893,7 +931,7 @@ class NotificationManager {
 
   updateUnreadCount(count) {
     this.unreadCount = count;
-    
+
     if (count > 0) {
       this.notificationsBadge.textContent = count > 99 ? '99+' : count;
       this.notificationsBadge.style.display = 'flex';
@@ -911,11 +949,11 @@ class NotificationManager {
     }
 
     this.notificationsEmpty.style.display = 'none';
-    
+
     const notificationsHtml = this.notifications.map(notification => {
       const isUnread = ['pending', 'sent', 'delivered'].includes(notification.status);
       const timeAgo = this.formatTimeAgo(notification.created_at);
-      
+
       return `
         <div class="notification-item ${isUnread ? 'unread' : ''}" 
              data-id="${notification.id}" 
@@ -955,7 +993,7 @@ class NotificationManager {
         if (notification) {
           notification.status = 'read';
         }
-        
+
         this.renderNotifications();
         this.checkUnreadCount();
       }
@@ -967,7 +1005,7 @@ class NotificationManager {
   getSeverityText(severity) {
     const severityMap = {
       'low': 'Низкая',
-      'medium': 'Средняя', 
+      'medium': 'Средняя',
       'high': 'Высокая',
       'critical': 'Критическая'
     };
@@ -998,16 +1036,16 @@ class NotificationManager {
     if (diffMins < 60) return `${diffMins} мин назад`;
     if (diffHours < 24) return `${diffHours} ч назад`;
     if (diffDays < 7) return `${diffDays} д назад`;
-    
+
     return date.toLocaleDateString('ru-RU');
   }
 
   startPolling() {
     if (this.isPolling) return;
-    
+
     this.isPolling = true;
     this.checkUnreadCount();
-    
+
     this.pollInterval = setInterval(() => {
       this.checkUnreadCount();
     }, 30000); // каждые 30 секунд
@@ -1023,18 +1061,36 @@ class NotificationManager {
 
   showNewNotification(notification) {
     const severity = notification.anomaly_details?.severity || 'medium';
-    const type = severity === 'critical' ? 'error' : 
+    const type = severity === 'critical' ? 'error' :
                  severity === 'high' ? 'warning' : 'info';
-    
+
     notifications.show(
       notification.message,
       type,
       notification.title,
       8000
     );
-    
+
     this.checkUnreadCount();
   }
+}
+
+async function initLists(){
+  const apiKeys = await getApiKeys();
+  fillCollapsibleList("apiList", apiKeys);
+
+  const cascade = new CascadeController([
+    { id: "api", parent: null, containerId: "apiList" },
+    { id: "device", parent: "api", containerId: "deviceList" },
+    { id: "folder", parent: "device", containerId: "folderList" },
+  ], async (level, state) => {
+    if (level === "api") return await getApiKeys();
+    if (level === "device") return await getDevices(state.api);
+    if (level === "folder") return await getFolders(state.api, state.device);
+    return [];
+  });
+
+  cascade.init();
 }
 
 // Инициализация
@@ -1046,7 +1102,7 @@ class NotificationManager {
   console.log('Calling reload...');
   reload();
   console.log('App initialized');
-  
+
   // Инициализируем менеджер уведомлений
   if (API_KEY && API_KEY.trim() !== '') {
     console.log('Initializing notification manager...');
@@ -1054,5 +1110,6 @@ class NotificationManager {
   } else {
     console.log('API key not available, skipping notification manager initialization');
   }
+  initLists()
 })();
 

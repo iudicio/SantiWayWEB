@@ -24,7 +24,7 @@ def cleanup_values_dir(values_dir: Path) -> None:
 
 def inject_api_key_into_strings(repo_dir: Path, key: str) -> Path:
     """
-    Гарантирует наличие <string name="api_key">KEY</string> в
+    Гарантирует наличие <string name="default_api_key">KEY</string> в
     SantiWayANDROID/app/src/main/res/values/strings.xml (или string.xml).
 
     Возвращает путь к файлу strings.xml, в который был вшит ключ.
@@ -47,7 +47,7 @@ def inject_api_key_into_strings(repo_dir: Path, key: str) -> Path:
 
     if not target.exists():
         # создаём минимальный шаблон
-        log.info("[api_key] strings.xml отсутствует — создаём новый")
+        log.info("[default_api_key] strings.xml отсутствует — создаём новый")
         root = ET.Element("resources")
     else:
         try:
@@ -56,22 +56,18 @@ def inject_api_key_into_strings(repo_dir: Path, key: str) -> Path:
                 raise ET.ParseError("Корневой тег не <resources>")
         except Exception as e:
             # если файл битый — переименуем в .bak и начнём с чистого
-            log.warning(
-                "[api_key] Не удалось распарсить %s (%s). Переименовываю в .bak и пересоздаю.",
-                target,
-                e,
-            )
+            log.warning("[default_api_key] Не удалось распарсить %s (%s). Переименовываю в .bak и пересоздаю.", target, e)
             shutil.move(str(target), str(target.with_suffix(target.suffix + ".bak")))
             root = ET.Element("resources")
 
-    # ищем/создаём элемент <string name="api_key">
+    # ищем/создаём элемент <string name="default_api_key">
     api_el = None
     for child in list(root):
-        if child.tag == "string" and child.attrib.get("name") == "api_key":
+        if child.tag == "string" and child.attrib.get("name") == "default_api_key":
             api_el = child
             break
     if api_el is None:
-        api_el = ET.SubElement(root, "string", {"name": "api_key"})
+        api_el = ET.SubElement(root, "string", {"name": "default_api_key"})
 
     # ставим текст ключа
     api_el.text = key
@@ -93,7 +89,7 @@ def inject_api_key_into_strings(repo_dir: Path, key: str) -> Path:
     with open(target, "wb") as f:
         f.write(xml_text)
 
-    log.info("[api_key] API key вшит в %s", target)
+    log.info("[default_api_key] API key вшит в %s", target)
     return target
 
 

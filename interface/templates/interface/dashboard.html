@@ -22,11 +22,15 @@
   <script>
     window.APP_CONFIG = {
       API_BASE: "{{ API_BASE|default:'/api' }}",
-      API_KEY: "{{ API_KEY|default:'' }}"
+      API_KEY: "{{ API_KEY|default:'' }}",
     };
+    const API_USER_INFO = "{% url 'api:userinfo' %}"
+    const API_FILTERING = "{% url 'api:filtering-list' %}"
   </script>
-  <script defer src="{% static 'interface/app.js' %}?v=3"></script>
-  <script src="{% static 'interface/custom-elements.js' %}"></script>
+
+  <script src="{% static 'interface/get-devices.js' %}"></script>
+  <script type="module" src="{% static 'interface/custom-elements.js' %}"></script>
+  <script type="module" src="{% static 'interface/app.js' %}?v=3"></script>
   <script src="{% static '/js/background.js' %}"></script>
   <title>Locator</title>
 </head>
@@ -51,7 +55,7 @@
     <aside class="sidebar" aria-label="Фильтры">
       <h2 class="section-title">Фильтры</h2>
 
-      <form class="form" id="filtersForm" autocomplete="off">
+      <div class="form" id="filtersForm">
         <div class="form-group">
           <label for="apiList">Выбрать API</label>
           <div class="collapsible-wrapper">
@@ -117,7 +121,7 @@
             <option value="any">Любой</option>
             <option value="WiFi">WiFi</option>
             <option value="Bluetooth">Bluetooth</option>
-            <option value="Cellular">Cellular</option>
+            <option value="LTE">LTE</option>
           </select>
         </div>
 
@@ -145,7 +149,7 @@
         <div class="form-actions">
           <button type="submit" class="btn-primary" id="btnApplyFilters">Применить фильтры</button>
         </div>
-      </form>
+      </div>
     </aside>
 
     <!-- Правая часть — контент дашборда -->

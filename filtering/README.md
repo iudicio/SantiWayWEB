@@ -111,11 +111,11 @@ POST /api/filtering/
 
 2. Идентификаторы и связи
 
-    |Параметр|Тип|Пример|Описание|
-    |---|---|---|---|
-    |device_id-string|list (через запятую)|device_id=001A2B3C4D5E,AA:BB:CC:DD:EE:FF|Уникальный идентификатор устройства.
-    |user_api|string|user_api=8e9b2e50-0a3a-4f6e-9c17-0c6d5e1b8b2c|API-ключ пользователя, к которому привязано устройство.
-    |folder_name|string|folder_name=Warehouse/Back%20Yard|Имя папки/зоны, заданное пользователем.
+    |Параметр| Тип                          |Пример|Описание|
+    |---|------------------------------|---|---|
+    |device_id| string, list (через запятую) |device_id=001A2B3C4D5E,AA:BB:CC:DD:EE:FF|Уникальный идентификатор устройства.
+    |user_api| string                       |user_api=8e9b2e50-0a3a-4f6e-9c17-0c6d5e1b8b2c|API-ключ пользователя, к которому привязано устройство.
+    |folder_name| string                       |folder_name=Warehouse/Back%20Yard|Имя папки/зоны, заданное пользователем.
 
 
 3. Сетевые параметры
