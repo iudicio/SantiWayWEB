@@ -5,7 +5,8 @@ import subprocess
 from pathlib import Path
 
 from celery.utils.log import get_task_logger
-from defusedxml import ElementTree as ET
+import defusedxml.ElementTree as SafeET
+import xml.etree.ElementTree as ET
 
 log = get_task_logger(__name__)
 
@@ -51,9 +52,9 @@ def inject_api_key_into_strings(repo_dir: Path, key: str) -> Path:
         root = ET.Element("resources")
     else:
         try:
-            root = ET.parse(target).getroot()
+            root = SafeET.parse(target).getroot()
             if root.tag != "resources":
-                raise ET.ParseError("Корневой тег не <resources>")
+                raise SafeET.ParseError("Корневой тег не <resources>")
         except Exception as e:
             # если файл битый — переименуем в .bak и начнём с чистого
             log.warning(
