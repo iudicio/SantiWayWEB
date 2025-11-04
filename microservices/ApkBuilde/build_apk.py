@@ -56,7 +56,11 @@ def inject_api_key_into_strings(repo_dir: Path, key: str) -> Path:
                 raise ET.ParseError("Корневой тег не <resources>")
         except Exception as e:
             # если файл битый — переименуем в .bak и начнём с чистого
-            log.warning("[default_api_key] Не удалось распарсить %s (%s). Переименовываю в .bak и пересоздаю.", target, e)
+            log.warning(
+                "[default_api_key] Не удалось распарсить %s (%s). Переименовываю в .bak и пересоздаю.",
+                target,
+                e,
+            )
             shutil.move(str(target), str(target.with_suffix(target.suffix + ".bak")))
             root = ET.Element("resources")
 
