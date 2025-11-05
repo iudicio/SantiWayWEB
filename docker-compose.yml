@@ -15,7 +15,6 @@ services:
     depends_on:
       - postgres
       - elasticsearch
-#      - redis
     volumes:
       - static_volume:/app/staticfiles
       - media_volume:/app/media
@@ -23,6 +22,7 @@ services:
       - ./apkbuilder/migrations:/app/apkbuilder/migrations
       - ./polygons/migrations:/app/polygons/migrations
       - ./filtering/migrations:/app/filtering/migrations
+      - ./notifications/migrations:/app/notifications/migrations
     restart: unless-stopped
 
   celery-worker:

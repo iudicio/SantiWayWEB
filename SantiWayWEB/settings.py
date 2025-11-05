@@ -51,12 +51,14 @@ INSTALLED_APPS = [
     "drf_spectacular_sidecar",  # статические ассеты Swagger UI
     'channels',
     'django_crontab', # для периодических задач
+    'notifications',
 ]
 
 
-CRONJOBS = [
+# Фоновая таска для удаления apk, закомменчена т.к. не нужно удалять
+'''CRONJOBS = [
     ('*/30 * * * *', 'apkbuilder.cron.delete_background_task', '> /proc/1/fd/1 2>&1'),
-]
+]'''
 
 
 AUTH_USER_MODEL = 'users.User'
@@ -219,3 +221,6 @@ CELERY_RESULT_BACKEND = 'rpc://'
 CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
+
+
+GITHUB_WEBHOOK_SECRET = os.getenv('GITHUB_WEBHOOK_SECRET')
