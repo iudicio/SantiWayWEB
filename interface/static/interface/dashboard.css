@@ -9,11 +9,13 @@
   padding: 0.4rem 0.6rem;
   border-radius: 0.5rem;
   transition: background-color 0.2s ease, box-shadow 0.2s ease;
+  overflow-wrap: anywhere;
 }
 
 .custom-checkbox input[type="checkbox"] {
   appearance: none;
   -webkit-appearance: none;
+  flex-shrink: 0;
   width: 1rem;
   height: 1rem;
   border: 2px solid #6b7280;
