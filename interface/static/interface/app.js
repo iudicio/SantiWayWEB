@@ -397,7 +397,7 @@ function buildQuery(){
   const f = state.filters;
 
   if (f.apiKeys.length > 0) qs.set("user_api", f.apiKeys.join(","));
-  if (f.devices.length > 0) qs.set("device_id", f.devices.join(","));
+  if (f.devices.length > 0) qs.set("user_phone_mac", f.devices.join(","));
   if (f.folders.length > 0) qs.set("folder_name", f.folders.join(","));
 
   if (f.timeStart !== null) qs.set("detected_at__gte", f.timeStart);
@@ -405,7 +405,7 @@ function buildQuery(){
 
   if (f.network && f.network !== 'any') qs.set('network_type', f.network);
   // if (f.name) qs.set('device_id', f.name);
-  if (f.mac) qs.set('user_phone_mac', f.mac);
+  if (f.mac) qs.set('device_id', f.mac);
   if (f.alert) qs.set('is_alert', 'true');
   if (f.ignore) qs.set('is_ignored', 'true');
 
