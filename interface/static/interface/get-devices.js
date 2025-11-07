@@ -15,11 +15,30 @@ async function postUserInfo(body){
       throw new Error(`Ошибка ${response.status}: ${text}`);
     }
 
-    return await response.json();
+    const taskId = await response.json();
+
+    return await getDataByTask(taskId);
   } catch (err) {
     console.error("Ошибка запроса postUserInfo:", err);
     throw err;
   }
+}
+
+// Получает по taskID папки и устрйоства
+async function getDataByTask(taskID){
+  const response = await fetch(API_TASK_INFO.replace("task_id", taskID), {
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json",
+      'X-CSRFToken': getCookie('csrftoken')
+    },
+  })
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`Ошибка ${response.status}: ${text}`);
+  }
+
+  return await response.json()
 }
 
 // Возвращает apiKey и его имя
