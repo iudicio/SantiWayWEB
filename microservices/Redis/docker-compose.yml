@@ -1,0 +1,14 @@
+networks:
+  appnet:
+    external: true
+    name: app-network
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    networks: [appnet]
+    command: ["redis-server","--appendonly","yes","--aclfile","/etc/redis/users.acl"]
+    volumes:
+      - ./users.acl:/etc/redis/users.acl:ro
+    ports:
+      - "6379:6379"
