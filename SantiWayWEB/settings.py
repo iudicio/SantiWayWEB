@@ -202,8 +202,8 @@ MEDIA_ROOT = BASE_DIR / "media"
 ELASTICSEARCH_DSN = os.getenv("ES_URL", "http://elasticsearch:9200")
 
 # Celery Configuration
-CELERY_BROKER_URL = os.getenv('CELERY_BROKER_URL', 'amqp://guest:guest@rabbitmq:5672//')
-CELERY_RESULT_BACKEND = 'rpc://'
+CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL", "amqp://celery:celerypassword@rabbitmq:5672//")
+CELERY_RESULT_BACKEND = os.getenv("CELERY_RESULT_BACKEND", "CELERY_RESULT_BACKEND=redis://:strongpassword@redis:6379/0")
 CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
@@ -213,9 +213,3 @@ CELERY_TIMEZONE = TIME_ZONE
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
-
-CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL", "amqp://celery:celerypassword@rabbitmq:5672/")
-CELERY_RESULT_BACKEND = 'rpc://'
-CELERY_ACCEPT_CONTENT = ['json']
-CELERY_TASK_SERIALIZER = 'json'
-CELERY_RESULT_SERIALIZER = 'json'
