@@ -135,6 +135,17 @@ TEMPLATES = [
 WSGI_APPLICATION = 'SantiWayWEB.wsgi.application'
 ASGI_APPLICATION = 'SantiWayWEB.asgi.application'
 
+REDIS_CHANNEL_URL = os.getenv('CELERY_RESULT_BACKEND', 'redis://:strongpassword@redis:6379/0')
+
+CHANNEL_LAYERS = {
+    'default': {
+        'BACKEND': 'channels_redis.core.RedisChannelLayer',
+        'CONFIG': {
+           "hosts": [REDIS_CHANNEL_URL],
+        },
+    },
+}
+
 # Channels configuration
 #CHANNEL_LAYERS = {
 #    'default': {
