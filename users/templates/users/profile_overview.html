@@ -27,6 +27,7 @@
   <!-- NAV-->
   <nav class="navbar">
     <div class="nav-actions">
+      <a href="{% url 'interface:monitoring_results' %}" class="nav-link">Результаты мониторинга</a>
       <a href="{% url 'interface:dashboard' %}" class="nav-link">Дашборд</a>
       <a href="#" class="nav-link active">Профиль / API</a>
       <a class="nav-link logout-link" href="{% url 'users:logout' %}">Выйти</a>
