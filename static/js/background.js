@@ -5,7 +5,16 @@ document.addEventListener("DOMContentLoaded", () => {
   let width = canvas.width = window.innerWidth;
   let height = canvas.height = window.innerHeight;
 
-  const nodesCount = 50; // количество точек
+  // Задаём количество точек в зависимости от ширины экрана
+  let nodesCount;
+  if (width >= 1200) {
+      nodesCount = 50;  // большой экран
+  } else if (width >= 768) {
+      nodesCount = 30;  // планшет
+  } else {
+      nodesCount = 15;  // телефон
+  }
+
   const nodes = [];
 
   // Создаем точки

@@ -1,23 +1,23 @@
 :root {
   /* Основные цвета */
-  --color-bg-dark: #111827; 
-  --color-text-white: #ffffff; 
-  --color-text-gray-light: #d1d5db; 
-  --color-text-gray-medium: #9ca3af; 
-  
+  --color-bg-dark: #111827;
+  --color-text-white: #ffffff;
+  --color-text-gray-light: #d1d5db;
+  --color-text-gray-medium: #9ca3af;
+
   /* Акцентные цвета (синяя палитра) */
   --color-light-blue: #bae6fd;
-  --color-primary-300: #7dd3fc; 
-  --color-blue: #2e9bca; 
+  --color-primary-300: #7dd3fc;
+  --color-blue: #2e9bca;
 
-  --color-primary-700: #0ea5e9; 
-  --color-primary-800: #0369a1; 
-  
+  --color-primary-700: #0ea5e9;
+  --color-primary-800: #0369a1;
+
   /* Цвета формы */
-  --color-input-bg: #233c48; 
-  --color-border: #ffffff1a; 
-  --color-icon-bg: #0369a1; 
-  
+  --color-input-bg: #233c48;
+  --color-border: #ffffff1a;
+  --color-icon-bg: #0369a1;
+
   /* Эффекты */
   --shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); /* Тень */
   --backdrop-blur: blur(8px); /* Размытие фона */
@@ -42,9 +42,7 @@ body {
 /* Ошибки формы */
 .error {
     color: rgb(235, 30, 30);
-    margin-top: 0.5rem;
     font-size: 0.875rem;
-    margin: 0;
 }
 .error .errorlist {
     margin: 0 0 0.35rem 0;
@@ -106,7 +104,6 @@ body {
     border: none;
     border-radius: 0.375rem;
     padding: 1rem;
-    margin-bottom: 1.5rem;
     color: var(--color-text-white);
     font-size: 0.875rem;
     height: 3.5rem;
@@ -164,16 +161,13 @@ input:-webkit-autofill:active {
     right: 16px;
     top: 50%;
     transform: translateY(-50%);
-    background: none;
     border: none;
     cursor: pointer;
     padding: 0;
     width: 24px;
     height: 24px;
-    background-image: url("../images/eye-close.svg");
+    background: url("../images/eye-close.svg");
     background-size: contain;
-    background-repeat: no-repeat;
-    background-position: center;
 }
 
 .password-toggle:hover {
@@ -231,4 +225,72 @@ input:-webkit-autofill:active {
     border: 1px solid #c3e6cb;
     border-radius: 5px;
     margin-bottom: 20px;
+}
+
+@media (max-width: 768px) {
+    /* Форма */
+    .form-container {
+        width: 100%;
+        max-width: 100%;
+        border: none;
+        box-shadow: none;
+    }
+
+    .form-header {
+        margin-bottom: 1.5rem;
+    }
+
+    .icon-wrapper {
+        padding: 1rem;
+        margin-bottom: 0.75rem;
+    }
+
+    .title {
+        font-size: 1.5rem;
+    }
+
+    .subtitle {
+        font-size: 0.8rem;
+    }
+
+    /* Поля ввода */
+    .input-field {
+        font-size: 0.85rem;
+        height: 3rem;
+        padding: 0.75rem;
+    }
+
+    .input-label {
+        top: 0.75rem;
+        left: 0.75rem;
+    }
+
+    .password-toggle {
+        width: 20px;
+        height: 20px;
+        right: 12px;
+    }
+
+    /* Кнопка */
+    .submit-btn {
+        font-size: 0.85rem;
+        padding: 0.65rem;
+    }
+
+    /* Ссылки */
+    .login-link,
+    .registration-link {
+        font-size: 0.8rem;
+        margin-top: 1.5rem;
+    }
+
+    .login-link__text,
+    .registration-link__text {
+        font-size: 0.8rem;
+    }
+
+    .success-message {
+        font-size: 0.8rem;
+        padding: 10px;
+    }
 }
