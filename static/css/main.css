@@ -275,3 +275,61 @@ button {
   border: 1px solid transparent;
   box-sizing: border-box;
 }
+
+/* Адаптация под мобилки */
+@media (max-width: 768px) {
+
+  body {
+    overflow: auto;
+  }
+
+  .navbar {
+    padding: 0.75rem 1rem;
+    justify-content: center;
+  }
+
+  .nav-link {
+    margin: 0 0.5rem;
+    font-size: 0.85rem;
+  }
+
+  .main {
+    flex-direction: column;
+    height: auto;
+  }
+
+  .sidebar {
+    width: 100%;
+    padding: 1rem;
+    border-right: none;
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .content {
+    padding: 1rem;
+  }
+
+  .table th,
+  .table td {
+    padding: 0.5rem;
+    font-size: 0.8rem;
+  }
+
+  /* Кнопки - крупнее и удобнее */
+  button,
+  .btn-primary,
+  .btn-secondary {
+    padding: 0.75rem 1rem;
+    font-size: 0.9rem;
+  }
+
+  .form-group input {
+    padding: 0.75rem;
+    font-size: 1rem;
+  }
+
+  .card {
+    padding: 1rem;
+    width: 100%;
+  }
+}
