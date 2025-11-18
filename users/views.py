@@ -31,10 +31,19 @@ class APIKeyViewSet(viewsets.ViewSet):
 
     # Удаление ключа
     def destroy(self, request, pk=None):
+        from apkbuilder.models import APKBuild
+        
         api_key = get_object_or_404(APIKey, pk=pk)
         if not request.user.api_keys.filter(id=api_key.id).exists():
             return Response({"error": "Not allowed"}, status=status.HTTP_403_FORBIDDEN)
 
+        # Удаляем все APK файлы, связанные с этим ключом
+        builds = APKBuild.objects.filter(api_key=api_key, apk_file__isnull=False)
+        for build in builds:
+            if build.apk_file:
+                build.apk_file.delete(save=False)  # Удаляем физический файл
+        
+        # Удаляем сам ключ (APKBuild удалятся автоматически через CASCADE)
         api_key.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
     
