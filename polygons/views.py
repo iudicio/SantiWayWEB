@@ -105,15 +105,32 @@ class PolygonViewSet(viewsets.ModelViewSet):
             if hasattr(request, 'auth') and request.auth:
                 api_key_str = str(request.auth.key)
             
-            devices = search_devices_in_polygon(
+            # Получаем фильтры из запроса
+            api_keys = request.data.get('api_keys', [])
+            devices = request.data.get('devices', [])
+            folders = request.data.get('folders', [])
+            
+            # Если фильтры не переданы, но есть api_key_str, используем его для обратной совместимости
+            if not api_keys and api_key_str:
+                api_keys = [api_key_str]
+            
+            devices_result = search_devices_in_polygon(
                 polygon.geometry, 
-                user_api_key=api_key_str
+                user_api_key=api_key_str,
+                api_keys=api_keys if api_keys else None,
+                devices=devices if devices else None,
+                folders=folders if folders else None
             )
             return Response({
                 'polygon_id': str(polygon.id),
                 'polygon_name': polygon.name,
-                'devices_found': len(devices),
-                'devices': devices
+                'devices_found': len(devices_result),
+                'devices': devices_result,
+                'filters_applied': {
+                    'api_keys': api_keys,
+                    'devices': devices,
+                    'folders': folders
+                }
             })
         except Exception as e:
             return Response(
@@ -136,6 +153,15 @@ class PolygonViewSet(viewsets.ModelViewSet):
 
             monitoring_interval = request.data.get('monitoring_interval', 300)
             notify_targets = request.data.get('notify_targets', [])
+            
+            # Получаем фильтры из запроса
+            api_keys = request.data.get('api_keys', [])
+            devices = request.data.get('devices', [])
+            folders = request.data.get('folders', [])
+            
+            # Если фильтры не переданы, но есть api_key_str, используем его для обратной совместимости
+            if not api_keys and api_key_str:
+                api_keys = [api_key_str]
             
             valid_target_types = ['api_key', 'device']
             for target in notify_targets:
@@ -163,6 +189,9 @@ class PolygonViewSet(viewsets.ModelViewSet):
                     parameters={
                         'monitoring_interval': monitoring_interval,
                         'user_api_key': api_key_str,
+                        'api_keys': api_keys if api_keys else None,
+                        'devices': devices if devices else None,
+                        'folders': folders if folders else None,
                         'notify_targets': notify_targets,
                     },
                     status='running',
@@ -179,8 +208,11 @@ class PolygonViewSet(viewsets.ModelViewSet):
 
             task = monitor_mac_addresses.delay(
                 str(polygon.id),
-                api_key_str,
-                monitoring_interval
+                user_api_key=api_key_str,
+                monitoring_interval=monitoring_interval,
+                api_keys=api_keys if api_keys else None,
+                devices=devices if devices else None,
+                folders=folders if folders else None
             )
             action.task_id = task.id
             action.save(update_fields=['task_id'])
@@ -191,7 +223,12 @@ class PolygonViewSet(viewsets.ModelViewSet):
                 'polygon_name': polygon.name,
                 'task_id': task.id,
                 'monitoring_interval': monitoring_interval,
-                'action_id': str(action.id)
+                'action_id': str(action.id),
+                'filters': {
+                    'api_keys': api_keys,
+                    'devices': devices,
+                    'folders': folders
+                }
             })
 
         except Exception as e:
