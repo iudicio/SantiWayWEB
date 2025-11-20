@@ -1,0 +1,138 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="ru" xmlns="http://www.w3.org/1999/html">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+
+  <link rel="stylesheet"
+        href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+          integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
+  <link rel="stylesheet" href="{% static '/css/main.css' %}">
+  <link rel="stylesheet" href="{% static 'interface/dashboard.css' %}">
+  <link rel="stylesheet" href="{% static 'interface/notifications_and_map.css' %}"/>
+  <link rel="stylesheet" href="{% static 'interface/collapsible.css' %}">
+  <link rel="stylesheet" href="{% static 'interface/monitoring_results.css' %}">
+
+  <link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css" />
+  <script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
+
+  <script>
+    window.APP_CONFIG = {
+      API_BASE: "{{ API_BASE|default:'/api' }}",
+      API_KEY: "{{ API_KEY|default:'' }}",
+    };
+    const API_USER_INFO = "{% url 'api:userinfo' %}"
+    const API_FILTERING = "{% url 'api:filtering-list' %}"
+  </script>
+
+  <script src="{% static 'interface/get-devices.js' %}"></script>
+  <script type="module" src="{% static 'interface/custom-elements.js' %}"></script>
+  <script type="module" src="{% static 'interface/app.js' %}?v=3"></script>
+  <script src="{% static '/js/background.js' %}"></script>
+
+  <title>Результат мониторинга</title>
+</head>
+<html lang="ru">
+<body>
+  <canvas id="network-canvas"></canvas>
+  <nav class="navbar">
+    <div class="nav-actions">
+      <a href="#" class="nav-link active">Результаты мониторинга</a>
+      <a href="{% url 'interface:dashboard' %}" class="nav-link">Дашборд</a>
+      <a href="{%url 'users:profile_overview' %}" class="nav-link">Профиль / API</a>
+      <a href="{% url 'users:logout' %}" class="nav-link logout-link">Выйти</a>
+    </div>
+  </nav>
+  <main class="main">
+    <section class="sidebar sidebar50">
+       <!-- Таблица устройств -->
+      <div class="card table-card">
+        <div class="card-header">
+          <span class="text-muted">Данные устройств</span>
+        </div>
+
+        <!-- Контролы таблицы -->
+        <div class="table-controls">
+          <div class="controls-left">
+            Показывать
+            <select id="pageSize" class="custom-select">
+              <option>10</option>
+              <option>25</option>
+              <option>50</option>
+              <option>100</option>
+            </select>
+            записей
+          </div>
+
+          <div class="controls-right">
+            Быстрый поиск:
+            <input id="tableSearch" class="search-input" placeholder="Введите запрос" />
+
+            <div class="table-settings" style="position: relative;">
+              <button id="columnsToggle" class="settings-btn" type="button" aria-expanded="false" aria-controls="columnsMenu">
+                <img src="{% static 'interface/settings.png' %}" alt="Настройки столбцов" />
+              </button>
+
+              <div id="columnsMenu" class="columns-menu hidden" role="menu" aria-hidden="true"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Таблица -->
+        <div class="table-container">
+          <table id="devicesTable" class="table" aria-describedby="table-info">
+            <thead>
+              <tr>
+                <th>Device ID</th>
+                <th>User Phone MAC</th>
+                <th>Latitude</th>
+                <th>Longitude</th>
+                <th>Location</th>
+                <th>Signal Strength</th>
+                <th>Network Type</th>
+                <th>Is Ignored</th>
+                <th>Is Alert</th>
+                <th>User API</th>
+                <th>Detected At</th>
+                <th>Folder Name</th>
+                <th>System Folder Name</th>
+              </tr>
+            </thead>
+            <tbody>
+              <!-- Динамическое заполнение устройств -->
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Футер таблицы -->
+        <div class="table-footer" id="table-info">
+          <div id="showing">
+          </div>
+          <div id="pagination"></div>
+          <div class="pagination-controls">
+            <button class="page-btn" id="prevPage">&laquo; Назад</button>
+            <span id="pageNumbers" class="page-numbers"></span>
+            <button class="page-btn" id="nextPage">Вперед &raquo;</button>
+          </div>
+        </div>
+      </div>
+    </section>
+    <!-- Правая часть — контент дашборда -->
+    <section class="content">
+      <!-- Карта -->
+      <div class="card map-card">
+        <div class="card-header">
+          <span class="text-muted">Карта Локаций</span>
+          <span class="text-muted">Выбрано: <span id="selected-id">—</span></span>
+        </div>
+        <div id="map" class="map-root" role="region" aria-label="Карта локаций"></div>
+      </div>
+    </section>
+  </main>
+
+</body>
+</html>

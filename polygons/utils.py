@@ -191,13 +191,22 @@ def get_polygon_bounds(coordinates: List[List[float]]) -> Dict[str, float]:
         }
 
 
-def search_devices_in_polygon(geometry: Dict[str, Any], user_api_key: str = None) -> List[Dict[str, Any]]:
+def search_devices_in_polygon(
+    geometry: Dict[str, Any], 
+    user_api_key: str = None,
+    api_keys: List[str] = None,
+    devices: List[str] = None,
+    folders: List[str] = None
+) -> List[Dict[str, Any]]:
     """
     Поиск устройств в полигоне через Elasticsearch
     
     Args:
         geometry: GeoJSON геометрия полигона
-        user_api_key: API ключ пользователя для фильтрации
+        user_api_key: API ключ пользователя для фильтрации (устаревший параметр, используйте api_keys)
+        api_keys: Список API ключей для фильтрации (может быть несколько)
+        devices: Список device_id для фильтрации (может быть несколько)
+        folders: Список folder_name для фильтрации (может быть несколько)
     
     Returns:
         Список найденных устройств
@@ -274,16 +283,34 @@ def search_devices_in_polygon(geometry: Dict[str, Any], user_api_key: str = None
             "size": 1000
         }
         
-        if user_api_key:
+        # Добавляем фильтры в must
+        must_filters = []
+        
+        # Поддержка старого параметра user_api_key для обратной совместимости
+        if user_api_key and not api_keys:
+            api_keys = [user_api_key]
+        
+        # Фильтр по API ключам
+        if api_keys:
+            must_filters.append({"terms": {"user_api": api_keys}})
+        
+        # Фильтр по устройствам
+        if devices:
+            must_filters.append({"terms": {"device_id": [d.lower() if isinstance(d, str) else d for d in devices]}})
+        
+        # Фильтр по папкам
+        if folders:
+            must_filters.append({"terms": {"folder_name": folders}})
+        
+        # Добавляем must фильтры в запрос
+        if must_filters:
             if "must" not in query["query"]["bool"]:
                 query["query"]["bool"]["must"] = []
-            query["query"]["bool"]["must"].append({
-                "term": {"user_api.keyword": user_api_key}
-            })
+            query["query"]["bool"]["must"].extend(must_filters)
         
         response = es.search(index="way", body=query)
         
-        devices = []
+        found_devices = []
         for hit in response["hits"]["hits"]:
             device = hit["_source"]
             
@@ -297,9 +324,9 @@ def search_devices_in_polygon(geometry: Dict[str, Any], user_api_key: str = None
                 continue  # Без координат
             
             if point_in_polygon((lon, lat), outer_ring):
-                devices.append(device)
+                found_devices.append(device)
         
-        return devices
+        return found_devices
         
     except Exception as e:
         print(f"Ошибка поиска устройств в полигоне: {e}")

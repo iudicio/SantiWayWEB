@@ -104,8 +104,19 @@ r = requests.delete(f"http://localhost:8000/api/polygons/{polygon_id}/",
 
 ### Поиск устройств в полигоне
 ```python
+# Поиск без фильтров (используется API ключ из заголовка)
 r = requests.post(f"http://localhost:8000/api/polygons/{polygon_id}/search/",
     headers={"Authorization": "Api-Key YOUR_KEY"})
+
+# Поиск с фильтрами
+data = {
+    "api_keys": ["key1", "key2"],        # список API ключей (необязательно)
+    "devices": ["AA:BB:CC:DD:EE:FF"],    # список device_id (необязательно)
+    "folders": ["Папка1", "Папка2"]      # список folder_name (необязательно)
+}
+r = requests.post(f"http://localhost:8000/api/polygons/{polygon_id}/search/",
+    headers={"Authorization": "Api-Key YOUR_KEY"},
+    json=data)
 print(r.json())
 ```
 
@@ -121,11 +132,22 @@ print(r.json())
             "vendor": "Apple Inc.",
             "latitude": 55.75,
             "longitude": 37.65,
-            "signal_strength": -45
+            "signal_strength": -45,
+            "folder_name": "Папка1"
         }
-    ]
+    ],
+    "filters_applied": {
+        "api_keys": ["key1", "key2"],
+        "devices": ["AA:BB:CC:DD:EE:FF"],
+        "folders": ["Папка1", "Папка2"]
+    }
 }
 ```
+
+**Примечания:**
+- Фильтры применяются независимо друг от друга (можно использовать только один тип фильтра)
+- Если фильтры не указаны, используется API ключ из заголовка `Authorization`
+- Фильтры можно комбинировать: можно указать только `api_keys`, только `folders`, или все вместе
 
 **Ошибки:**
 - 500 - ES не работает `{"error": "Ошибка поиска: Connection refused"}`
@@ -134,11 +156,23 @@ print(r.json())
 
 ### Запустить мониторинг
 ```python
+# Базовый запуск (без фильтров, используется API ключ из заголовка)
 data = {
     "monitoring_interval": 300,  # секунды
     "notify_targets": [
         {"target_type": "api_key", "target_value": "YOUR_KEY"},
         {"target_type": "device", "target_value": "AA:BB:CC:DD:EE:FF"}
+    ]
+}
+
+# Запуск с фильтрами
+data = {
+    "monitoring_interval": 300,
+    "api_keys": ["key1", "key2"],        # список API ключей для фильтрации (необязательно)
+    "devices": ["AA:BB:CC:DD:EE:FF"],    # список device_id для фильтрации (необязательно)
+    "folders": ["Папка1", "Папка2"],     # список folder_name для фильтрации (необязательно)
+    "notify_targets": [
+        {"target_type": "api_key", "target_value": "YOUR_KEY"}
     ]
 }
 
@@ -153,10 +187,23 @@ print(r.json())
 {
     "message": "Мониторинг MAC адресов запущен",
     "polygon_id": "550e8400-...",
+    "polygon_name": "Моя зона",
     "task_id": "a1b2c3d4-...",
-    "action_id": "750e8400-..."
+    "monitoring_interval": 300,
+    "action_id": "750e8400-...",
+    "filters": {
+        "api_keys": ["key1", "key2"],
+        "devices": ["AA:BB:CC:DD:EE:FF"],
+        "folders": ["Папка1", "Папка2"]
+    }
 }
 ```
+
+**Примечания:**
+- Фильтры (`api_keys`, `devices`, `folders`) применяются независимо друг от друга
+- Фильтры сохраняются в параметрах действия и используются при перепланировании задач мониторинга
+- Если фильтры не указаны, используется API ключ из заголовка `Authorization`
+- Мониторинг будет искать устройства только из указанных API ключей/устройств/папок
 
 **Ошибки:**
 - 400 - уже запущен `{"error": "Мониторинг уже запущен", "action_id": "..."}`

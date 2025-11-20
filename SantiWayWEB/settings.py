@@ -55,10 +55,12 @@ INSTALLED_APPS = [
 ]
 
 
-# Фоновая таска для удаления apk, закомменчена т.к. не нужно удалять
-'''CRONJOBS = [
-    ('*/30 * * * *', 'apkbuilder.cron.delete_background_task', '> /proc/1/fd/1 2>&1'),
-]'''
+# CRONJOBS = [
+#     # APK файлы больше не удаляются по времени
+#     # Удаление происходит только при удалении API ключа
+#     # ('*/30 * * * *', 'apkbuilder.cron.delete_background_task', '> /proc/1/fd/1 2>&1'),
+# ]
+CRONJOBS = []
 
 
 AUTH_USER_MODEL = 'users.User'
