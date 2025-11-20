@@ -34,13 +34,6 @@ def handle_github_notification(payload):
         logger.info(f"   📝 Коммит {i}: {commit['message']}")
 
 
-def start_completion_monitoring(total_builds):
-    """Запускает мониторинг завершения всех сборок"""
-    logger.info(f"👀 МОНИТОРИНГ ЗАВЕРШЕНИЯ {total_builds} СБОРОК...")
-
-    #TODO websocket для уведомлений в андроид приложение (проверка всех записей APKBuild, если success, то отправлять уведомление)
-
-
 def rebuild_single_apk(build, latest_commit):
     """Пересобирает одну APK запись"""
     # Обновляем статус и очищаем предыдущие данные
@@ -90,18 +83,15 @@ def trigger_apk_rebuild(payload):
     logger.info(f"📊 Найдено записей для пересборки: {builds_to_rebuild.count()}")
 
     rebuilt_count = 0
+    rebuilt_ids = []
+
     for build in builds_to_rebuild:
         try:
             if rebuild_single_apk(build, latest_commit):
                 rebuilt_count += 1
+                rebuilt_ids.append(str(build.id))
         except Exception as e:
             logger.error(f"❌ Ошибка пересборки для APKBuild {build.id}: {e}")
-
-    logger.info(f"✅ УСПЕШНО ЗАПУЩЕНО ПЕРЕСБОРОК: {rebuilt_count}")
-
-    # Если были пересборки, запускаем мониторинг завершения
-    if rebuilt_count > 0:
-        start_completion_monitoring(rebuilt_count)
 
 
 @csrf_exempt #убрана проверка CSRF для вебхуков, т.к. там проверяется по подписи secret

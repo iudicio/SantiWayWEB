@@ -35,6 +35,7 @@ def _build_payload(
     text: Optional[str] = None,
     notif_type: str = "INFO",
     coords: Optional[Dict[str, Any]] = None,
+    meta: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     payload: Dict[str, Any] = {"type": "notification", "notif_type": notif_type, "notif_id": notif_id}
     if recorded_at: payload["recorded_at"] = recorded_at
@@ -44,6 +45,7 @@ def _build_payload(
     b64 = _to_b64_list(binary_contents)
     if b64:         payload["binary_contents_b64"] = b64
     if binary_types:payload["binary_types"] = binary_types
+    if meta:        payload["meta"] = meta
     return payload
 
 def send_notification_to_api_key(
@@ -56,6 +58,7 @@ def send_notification_to_api_key(
     text: Optional[str] = None,
     notif_type: str = "INFO",
     coords: Optional[Dict[str, Any]] = None,
+    meta: Optional[Dict[str, Any]] = None,
 ) -> Notification:
     """
     1) создаёт запись Notification (QUEUED),
@@ -87,6 +90,7 @@ def send_notification_to_api_key(
         text=text,
         notif_type=notif_type,
         coords=coords,
+        meta=meta,
     )
     notif.payload = payload
     notif.save(update_fields=["payload"])
