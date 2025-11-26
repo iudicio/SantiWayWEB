@@ -125,7 +125,7 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
   attribution: '&copy; OpenStreetMap contributors'
 }).addTo(map);
 
-const markersLayer = L.layerGroup().addTo(map);
+const markersLayer = L.markerClusterGroup().addTo(map);
 const polygonsLayer = L.featureGroup().addTo(map);
 
 // Рисование полигонов (Leaflet.draw)
@@ -287,21 +287,20 @@ function renderMarkers(rows){
     const lat = Number(d.latitude);
     const lon = Number(d.longitude);
     if (Number.isFinite(lat) && Number.isFinite(lon)) {
-      const style = {
-        radius: 8,
-        color: d.is_alert ? '#ef4444' : '#4f46e5',
-        fillColor: d.is_alert ? '#ef4444' : '#6366f1',
-        weight: 2,
-        fillOpacity: 0.2
-      };
-      const m = L.circleMarker([lat, lon], style)
+      const m = L.marker([lat, lon], {
+        icon: L.divIcon({
+          className: '',
+          html:  `<div class="device-marker ${d.is_alert ? 'alert' : 'normal'}"></div>`,
+          iconSize: [16, 16]
+        })
+      })
         .bindPopup(`
           <b>${d.device_id ?? '—'}</b><br/>
           ${d.location ?? '—'}<br/>
           ${d.network_type ?? '—'}<br/>
           Signal: ${d.signal_strength ?? '—'}
         `.trim())
-        .on('click', () => selectRow(d.device_id, true));
+        .on('click', () => selectRow(d.device_id, false));
       m.addTo(markersLayer);
       if (d.device_id) markerById.set(d.device_id, m);
     }
