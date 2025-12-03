@@ -327,6 +327,7 @@ function renderTable(){
       <td>${formatCoord(d.latitude)}</td>
       <td>${formatCoord(d.longitude)}</td>
       <td>${d.location ?? '—'}</td>
+      <td>${d.vendor ?? '—'}</td>
       <td>${d.signal_strength ?? '—'}</td>
       <td>${d.network_type ?? '—'}</td>
       <td>${String(!!d.is_ignored)}</td>
