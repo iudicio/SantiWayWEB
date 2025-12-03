@@ -23,8 +23,10 @@ class AnalyzeRequest(BaseModel):
     """Запрос на анализ"""
     period: str = Field(default="24h", description="Период анализа: 24h, 7d, 30d")
     detection_types: List[str] = Field(
-        default=["density", "time", "personal"],
-        description="Типы детекции: density, time, personal",
+        default=["density", "time", "stationary", "personal"],
+        description="Типы детекции: density, time, stationary, personal, "
+                    "или конкретные: density_spike, night_activity, following, "
+                    "stationary_surveillance, personal_deviation",
     )
 
 class AnomalyResponse(BaseModel):
@@ -54,6 +56,45 @@ def parse_period(period: str) -> int:
     else:
         return 24
 
+def normalize_detection_types(detection_types: List[str]) -> Dict[str, bool]:
+    """
+    Нормализация типов детекции для совместимости frontend/backend
+
+    Маппинг frontend -> backend:
+    - density_cluster -> density
+    - density_spike -> density
+    - night_activity -> time
+    - following -> personal
+    - stationary_surveillance -> stationary
+    - personal_deviation -> personal
+    """
+    normalized = {
+        "density": False,
+        "time": False,
+        "stationary": False,
+        "personal": False,
+    }
+
+    type_mapping = {
+        "density_cluster": "density",
+        "density_spike": "density",
+        "night_activity": "time",
+        "following": "personal",
+        "stationary_surveillance": "stationary",
+        "personal_deviation": "personal",
+        "density": "density",
+        "time": "time",
+        "stationary": "stationary",
+        "personal": "personal",
+    }
+
+    for dt in detection_types:
+        backend_type = type_mapping.get(dt)
+        if backend_type:
+            normalized[backend_type] = True
+
+    return normalized
+
 @router.post("/global", response_model=AnalyzeResponse)
 async def analyze_global(request: AnalyzeRequest):
     """
@@ -63,17 +104,26 @@ async def analyze_global(request: AnalyzeRequest):
     try:
         hours = parse_period(request.period)
 
+        detection_flags = normalize_detection_types(request.detection_types)
+
         detector = AnomalyDetector(ch_client, model)
 
         all_anomalies: List[Dict[str, Any]] = []
 
-        if "density" in request.detection_types:
+        if detection_flags["density"]:
             density_anomalies = await detector.detect_density_anomalies(hours)
             all_anomalies.extend(density_anomalies)
+            logger.info(f"Density anomalies: {len(density_anomalies)}")
 
-        if "time" in request.detection_types:
+        if detection_flags["time"]:
             time_anomalies = await detector.detect_time_anomalies(hours)
             all_anomalies.extend(time_anomalies)
+            logger.info(f"Time anomalies: {len(time_anomalies)}")
+
+        if detection_flags["stationary"]:
+            stationary_anomalies = await detector.detect_stationary_anomalies(hours)
+            all_anomalies.extend(stationary_anomalies)
+            logger.info(f"Stationary anomalies: {len(stationary_anomalies)}")
 
         if all_anomalies:
             await detector.save_anomalies(all_anomalies)

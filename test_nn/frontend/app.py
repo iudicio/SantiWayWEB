@@ -5,6 +5,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 import pydeck as pdk
 from datetime import datetime
+import numpy as np
 
 API_URL = "http://localhost:8000"
 
@@ -58,17 +59,25 @@ if analysis_type == "Global Analysis":
     col1, col2 = st.columns([1, 2])
 
     with col1:
+        st.markdown("**Select Anomaly Detection Types:**")
+        st.caption(
+            "• **Density Spike** - скопления устройств\n"
+            "• **Night Activity** - активность в ночное время\n"
+            "• **Stationary Surveillance** - долгое наблюдение\n"
+            "• **Following** - преследование\n"
+            "• **Personal Deviation** - индивидуальные аномалии (ML)"
+        )
+
         detection_types = st.multiselect(
             "Detection Types",
             [
-                "following",
-                "relay_surveillance",
-                "stationary_surveillance",
-                "density_cluster",
-                "dispersion",
+                "density_spike",
                 "night_activity",
+                "stationary_surveillance",
+                "following",
+                "personal_deviation",
             ],
-            default=["following", "density_cluster"],
+            default=["density_spike", "night_activity", "stationary_surveillance"],
         )
 
         if st.button("Run Analysis", type="primary"):
@@ -216,12 +225,10 @@ elif analysis_type == "View Results":
             "Filter by Type",
             [
                 "All",
-                "following",
-                "relay_surveillance",
-                "stationary_surveillance",
-                "density_cluster",
-                "dispersion",
+                "density_spike",
                 "night_activity",
+                "stationary_surveillance",
+                "following",
                 "personal_deviation",
             ],
         )
@@ -353,8 +360,6 @@ elif analysis_type == "Geo Map":
                         coords_query.append(a['device_id'])
 
                 map_df = pd.DataFrame(anomalies)
-
-                import numpy as np
                 np.random.seed(42)
 
                 if 'lat' not in map_df.columns:

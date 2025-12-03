@@ -1,4 +1,14 @@
 from pydantic_settings import BaseSettings
+import torch
+
+def get_device() -> str:
+    """Автоматическое определение доступного устройства"""
+    if torch.cuda.is_available():
+        return "cuda"
+    elif hasattr(torch.backends, 'mps') and torch.backends.mps.is_available():
+        return "mps"
+    else:
+        return "cpu"
 
 class Settings(BaseSettings):
     """Конфигурация приложения"""
@@ -34,5 +44,19 @@ class Settings(BaseSettings):
     class Config:
         env_file = ".env"
         case_sensitive = True
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        if self.DEVICE == "cpu" or self.DEVICE == "auto":
+            detected_device = get_device()
+            from pathlib import Path
+            env_path = Path(".env")
+            if env_path.exists():
+                with open(env_path, 'r') as f:
+                    env_content = f.read()
+                    if 'DEVICE=' not in env_content or 'DEVICE=auto' in env_content:
+                        self.DEVICE = detected_device
+            else:
+                self.DEVICE = detected_device
 
 settings = Settings()

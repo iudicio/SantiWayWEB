@@ -2,7 +2,7 @@ from pathlib import Path
 from typing import Any, Dict, Optional, Union
 import json
 from loguru import logger
-
+import torch
 from backend.services.model_tcn import TCN_Autoencoder, load_model
 from backend.services.model_tcn_advanced import TCN_Autoencoder_Advanced, load_advanced_model
 from backend.utils.config import settings
@@ -28,10 +28,21 @@ class ModelManager:
         input_channels = metadata.get('input_channels', settings.INPUT_CHANNELS)
         model_type = metadata.get('model_type', 'tcn_basic')
 
-        import torch
+        # Проверка соответствия количества признаков
+        if settings.INPUT_CHANNELS != input_channels:
+            logger.warning(
+                f"INPUT_CHANNELS mismatch! "
+                f"Config: {settings.INPUT_CHANNELS}, Model metadata: {input_channels}. "
+                f"Using metadata value: {input_channels}"
+            )
+
 
         if model_type == 'tcn_advanced' or 'advanced' in str(self.model_path):
             logger.info(f"Loading ADVANCED model (type: {model_type})")
+            logger.info(f"Model configuration: input_channels={input_channels}, "
+                       f"hidden_channels={metadata.get('hidden_channels', settings.HIDDEN_CHANNELS)}, "
+                       f"kernel_size={metadata.get('kernel_size', settings.KERNEL_SIZE)}, "
+                       f"use_attention={metadata.get('use_attention', settings.USE_ATTENTION)}")
 
             model = TCN_Autoencoder_Advanced(
                 input_channels=input_channels,
@@ -43,6 +54,7 @@ class ModelManager:
             )
         else:
             logger.info(f"Loading BASIC model (type: {model_type})")
+            logger.info(f"Model configuration: input_channels={input_channels}")
 
             model = TCN_Autoencoder(
                 input_channels=input_channels,
@@ -59,10 +71,20 @@ class ModelManager:
                     if isinstance(checkpoint, dict) and 'model_state_dict' in checkpoint
                     else checkpoint
                 )
-                model.load_state_dict(state_dict)
-                logger.info(f"Model loaded successfully with {input_channels} input channels")
+
+                try:
+                    model.load_state_dict(state_dict)
+                    logger.info(f" Model loaded successfully with {input_channels} input channels")
+                except RuntimeError as e:
+                    logger.error(f"Model architecture mismatch: {e}")
+                    logger.error(f"Expected input_channels: {input_channels}, but weights don't match")
+                    raise ValueError(
+                        f"Model weights don't match expected architecture. "
+                        f"Check that MODEL_PATH and INPUT_CHANNELS in .env are correct."
+                    )
             except Exception as e:
                 logger.error(f"Failed to load model weights: {e}")
+                raise
         else:
             logger.warning(f"Model file not found at {self.model_path}")
 
