@@ -319,13 +319,15 @@ const tbody = document.querySelector('#devicesTable tbody');
 const showing = document.getElementById('showing');
 
 function renderTable(){
-  tbody.innerHTML = state.rows.map(d => `
+  const visibleRows = state.rows.slice((state.page - 1) * state.pageSize,  state.page * state.pageSize);
+  tbody.innerHTML = visibleRows.map(d => `
     <tr data-id="${d.device_id ?? ''}">
       <td>${d.device_id ?? '—'}</td>
       <td>${d.user_phone_mac ?? '—'}</td>
       <td>${formatCoord(d.latitude)}</td>
       <td>${formatCoord(d.longitude)}</td>
       <td>${d.location ?? '—'}</td>
+      <td>${d.vendor ?? '—'}</td>
       <td>${d.signal_strength ?? '—'}</td>
       <td>${d.network_type ?? '—'}</td>
       <td>${String(!!d.is_ignored)}</td>
@@ -347,37 +349,19 @@ function renderTable(){
 
   // Footer таблицы
   const start = state.total ? (state.page - 1) * state.pageSize + 1 : 0;
-  // Пока просто заглушка, в будущем сделать реально страницы
-  const end = state.total;
-  // const end   = Math.min(state.page * state.pageSize, state.total);
+  const end   = Math.min(state.page * state.pageSize, state.total);
   showing.textContent = `Отображено ${start} до ${end} из ${state.total} записей`;
 
+  // Кнопки переключения страниц
   const totalPages = Math.max(1, Math.ceil(state.total / state.pageSize));
 
   const prev = document.getElementById('prevPage');
   prev.textContent = 'Предыдущая'; prev.disabled = state.page===1;
-  prev.onclick = ()=>{ state.page = Math.max(1, state.page-1); reload(); };
-
-  const pages = [];
-  const startPage = Math.max(1, state.page-3);
-  const endPage = Math.min(totalPages, state.page+3);
-  for(let p=startPage;p<=endPage;p++) pages.push(p);
-  if(startPage>1){ pages.unshift(1); if(startPage>2) pages.splice(1,0,'…'); }
-  if(endPage<totalPages){ if(endPage<totalPages-1) pages.push('…'); pages.push(totalPages); }
-
-  pages.forEach(p => {
-    const b = document.createElement('button');
-    b.className = 'page'; b.textContent = p;
-    if(p === '…'){ b.disabled = true; }
-    else {
-      if(p === state.page) b.classList.add('active');
-      b.onclick = ()=>{ state.page = p; reload(); };
-    }
-  });
+  prev.onclick = ()=>{ state.page = Math.max(1, state.page-1); renderTable(); };
 
   const next = document.getElementById('nextPage');
   next.textContent = 'Следующая'; next.disabled = state.page===totalPages;
-  next.onclick = ()=>{ state.page = Math.min(totalPages, state.page+1); reload(); };
+  next.onclick = ()=>{ state.page = Math.min(totalPages, state.page+1); renderTable(); };
 }
 
 function selectRow(id, fly=false){
@@ -512,10 +496,14 @@ document.getElementById('tableSearch').addEventListener('input', ()=>{
   reload();
 });
 
+// Реакция на смену количества отображаемых записей на странице
 document.getElementById('pageSize').addEventListener('change', (e)=>{
+  const oldPageSize = state.pageSize;
   state.pageSize = parseInt(e.target.value,10) || 10;
-  state.page = 1;
-  reload();
+  // На какой странице должен оказаться пользователь
+  state.page = Math.floor((state.page - 1) * oldPageSize / state.pageSize) + 1;
+  // Отображение таблицы на стороне клиента
+  renderTable()
 });
 
 async function fetchPolygons(){
