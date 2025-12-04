@@ -44,12 +44,12 @@ def generate_data_task(cfg: Dict[str, Any]) -> Dict[str, Any]:
     seed = cfg.get("seed")
     send_batch_size = int(cfg.get("chunk_size", 5000))
 
-    writer_task = os.getenv("ESWRITER_TASK_NAME", os.getenv("ES_WRITER_TASK_NAME", "esWriter"))
-    writer_queue = os.getenv("ESWRITER_QUEUE_NAME", os.getenv("ES_WRITER_QUEUE_NAME", "esWriter_queue"))
-    es_bulk_chunk = int(os.getenv("ESWRITER_BULK_CHUNK", "2000"))
+    writer_task = os.getenv("VENDOR_TASK_NAME", "vendor")
+    writer_queue = os.getenv("VENDOR_QUEUE_NAME", "vendor_queue")
+    es_bulk_chunk = int(os.getenv("ESWRITER_BULK_CHUNK", "2000")) 
 
     log.info(
-        "Start generation: index=%s mac=%s records=[%s,%s] in_ratio=%s -> ESWriter task=%s queue=%s",
+        "Start generation: index=%s mac=%s records=[%s,%s] in_ratio=%s -> Vendor task=%s queue=%s (then ES + CH)",
         index, mac_count, rmin, rmax, in_ratio, writer_task, writer_queue,
     )
 
@@ -71,17 +71,17 @@ def generate_data_task(cfg: Dict[str, Any]) -> Dict[str, Any]:
         buf.append(doc)
         total_docs += 1
         if len(buf) >= send_batch_size:
-            app.send_task(writer_task, args=[buf], kwargs={"chunk_size": es_bulk_chunk}, queue=writer_queue)
+            app.send_task(writer_task, args=[buf], queue=writer_queue)
             buf = []
 
     if buf:
-        app.send_task(writer_task, args=[buf], kwargs={"chunk_size": es_bulk_chunk}, queue=writer_queue)
+        app.send_task(writer_task, args=[buf], queue=writer_queue)
 
     result = {
         "mac_count": mac_count,
         "total_docs": total_docs,
-        "index": index, 
+        "index": index,
         "published_batches": max(1, (total_docs + send_batch_size - 1) // send_batch_size)
     }
-    log.info("Generation published to ESWriter: %s", result)
+    log.info("Generation published to Vendor (then ES + CH): %s", result)
     return result

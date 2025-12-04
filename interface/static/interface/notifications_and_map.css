@@ -679,3 +679,18 @@
   opacity: 1;
   visibility: visible;
 }
+
+/* Стили маркеров на карте  */
+.device-marker {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid #4f46e5;
+  background: rgba(99, 102, 241, 0.2); /* 6366f1 + 20% */
+  opacity: 0.8;
+}
+
+.device-marker.alert {
+  border: 2px solid #ef4444;
+  background: rgba(239, 68, 68, 0.2);
+}

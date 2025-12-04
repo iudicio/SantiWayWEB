@@ -137,10 +137,55 @@ services:
     restart: "no"
 
 
+  clickhouse:
+    image: clickhouse/clickhouse-server:latest
+    container_name: santi_clickhouse
+    networks: [appnet]
+    ports:
+      - "8123:8123"
+      - "9000:9000"
+    volumes:
+      - ch_data:/var/lib/clickhouse
+      - ./infra/clickhouse/schema.sql:/docker-entrypoint-initdb.d/schema.sql:ro
+    environment:
+      CLICKHOUSE_DB: santi
+      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: 1
+    healthcheck:
+      test: ["CMD", "clickhouse-client", "--query", "SELECT 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  chwriter:
+    build:
+      context: ./microservices/CHWriter
+      dockerfile: Dockerfile
+    container_name: santi_chwriter
+    networks: [appnet]
+    environment:
+      CELERY_BROKER_URL: ${CELERY_BROKER_URL}
+      CELERY_CONSUMER_NAME: chWriter
+      CELERY_C_TASK_NAME: chWriter
+      CELERY_C_QUEUE_NAME: chWriter_queue
+      CELERY_LOG_LEVEL: INFO
+      CLICKHOUSE_HOST: clickhouse
+      CLICKHOUSE_PORT: 8123
+      CLICKHOUSE_USER: default
+      CLICKHOUSE_PASSWORD: ""
+      CLICKHOUSE_DATABASE: santi
+      CLICKHOUSE_TABLE: way_data
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+    restart: unless-stopped
+
+
 
 volumes:
   pg_data:
   es_data:
+  ch_data:
   redis_data:
   static_volume:
   media_volume:
