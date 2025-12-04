@@ -35,5 +35,12 @@ class APKBuild(models.Model):
         verbose_name="APK файл"
     )
 
+    app_version = models.CharField(
+        max_length=50,
+        null=True,
+        blank=True,
+        verbose_name='Версия приложения'
+    )
+
     def __str__(self):
         return f"{self.id} - {self.status})"

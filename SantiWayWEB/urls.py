@@ -6,4 +6,5 @@ urlpatterns = [
     path("api/", include("api.urls")),
     path('users/', include('users.urls')),
     path('', include('interface.urls')),
+    path('notifications/', include('notifications.urls')),
 ]

@@ -51,6 +51,7 @@ INSTALLED_APPS = [
     "drf_spectacular_sidecar",  # статические ассеты Swagger UI
     'channels',
     'django_crontab', # для периодических задач
+    'notifications',
 ]
 
 
@@ -135,6 +136,17 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'SantiWayWEB.wsgi.application'
 ASGI_APPLICATION = 'SantiWayWEB.asgi.application'
+
+REDIS_CHANNEL_URL = os.getenv('CELERY_RESULT_BACKEND', 'redis://:strongpassword@redis:6379/0')
+
+CHANNEL_LAYERS = {
+    'default': {
+        'BACKEND': 'channels_redis.core.RedisChannelLayer',
+        'CONFIG': {
+           "hosts": [REDIS_CHANNEL_URL],
+        },
+    },
+}
 
 # Channels configuration
 #CHANNEL_LAYERS = {
@@ -222,3 +234,6 @@ CELERY_RESULT_BACKEND = 'rpc://'
 CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
+
+
+GITHUB_WEBHOOK_SECRET = os.getenv('GITHUB_WEBHOOK_SECRET')
