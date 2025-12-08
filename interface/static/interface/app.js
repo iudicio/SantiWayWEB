@@ -280,6 +280,13 @@ function ensureDrawTools(){
 
 const markerById = new Map();
 
+function createDeviceIcon(device) {
+  return L.divIcon({
+    className: `device-marker ${device.is_alert ? 'alert' : 'normal'}`,
+    iconSize: [16, 16]
+  });
+}
+
 function renderMarkers(rows){
   markersLayer.clearLayers();
   markerById.clear();
@@ -288,11 +295,7 @@ function renderMarkers(rows){
     const lon = Number(d.longitude);
     if (Number.isFinite(lat) && Number.isFinite(lon)) {
       const m = L.marker([lat, lon], {
-        icon: L.divIcon({
-          className: '',
-          html:  `<div class="device-marker ${d.is_alert ? 'alert' : 'normal'}"></div>`,
-          iconSize: [16, 16]
-        })
+        icon: createDeviceIcon(d)
       })
         .bindPopup(`
           <b>${d.device_id ?? '—'}</b><br/>
@@ -575,11 +578,7 @@ function setFindingMarkers(data){
     console.debug("Device: ", device);
     if (device.location) {
       const marker = L.marker([device.latitude, device.longitude], {
-        icon: L.divIcon({
-          className: 'search-result-marker',
-          html: '🔍',
-          iconSize: [20, 20]
-        })
+        icon: createDeviceIcon(device)
       }).bindPopup(`
         <div class="popup-title">Найденное устройство</div>
         <div class="popup-info">
