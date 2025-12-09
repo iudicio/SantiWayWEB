@@ -354,20 +354,28 @@ function renderTable(){
     tr.classList.toggle('active', tr.dataset.id === state.selectedId);
   });
 
-  // Footer таблицы
+  updateTableFooter();
+  updatePaginationControls();
+}
+
+// Обновляет информацию сколько записей выведено из скольки
+function updateTableFooter() {
   const start = state.total ? (state.page - 1) * state.pageSize + 1 : 0;
   const end   = Math.min(state.page * state.pageSize, state.total);
   showing.textContent = `Отображено ${start} до ${end} из ${state.total} записей`;
+}
 
-  // Кнопки переключения страниц
+// Обновление кнопок перелистывания страниц
+function updatePaginationControls(){
+   // Кнопки переключения страниц
   const totalPages = Math.max(1, Math.ceil(state.total / state.pageSize));
 
   const prev = document.getElementById('prevPage');
-  prev.textContent = 'Предыдущая'; prev.disabled = state.page===1;
+  prev.disabled = state.page === 1;
   prev.onclick = ()=>{ state.page = Math.max(1, state.page-1); renderTable(); };
 
   const next = document.getElementById('nextPage');
-  next.textContent = 'Следующая'; next.disabled = state.page===totalPages;
+  next.disabled = state.page === totalPages;
   next.onclick = ()=>{ state.page = Math.min(totalPages, state.page+1); renderTable(); };
 }
 
