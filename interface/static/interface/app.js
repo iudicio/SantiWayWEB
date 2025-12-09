@@ -298,14 +298,18 @@ function renderMarkers(rows){
         icon: createDeviceIcon(d)
       })
         .bindPopup(`
-          <b>${d.device_id ?? '—'}</b><br/>
-          ${d.location ?? '—'}<br/>
-          ${d.network_type ?? '—'}<br/>
-          Signal: ${d.signal_strength ?? '—'}
-        `.trim())
-        .on('click', () => selectRow(d.device_id, false));
+          <div class="popup-title">Найденное устройство</div>
+          <div class="popup-info">
+            <strong>MAC:</strong> ${d.device_id || 'N/A'}<br/>
+            <strong>Тип устройства:</strong> ${d.network_type || 'N/A'}<br/>
+            <strong>Время:</strong> ${d.detected_at || 'N/A'}
+          </div>
+        `.trim()).on('click', () => selectRow(d.device_id, false));
+
       m.addTo(markersLayer);
       if (d.device_id) markerById.set(d.device_id, m);
+    } else {
+      console.warn("Неверные координаты: ", d)
     }
   });
 }
@@ -377,9 +381,6 @@ function selectRow(id, fly=false){
 // Загрузка с API
 function buildQuery(){
   const qs = new URLSearchParams();
-  // Функционал для этого не реализован на апи
-  // qs.set('page', state.page);
-  // qs.set('page_size', state.pageSize);
   const f = state.filters;
 
   if (f.apiKeys.length > 0) qs.set("user_api", f.apiKeys.join(","));
@@ -444,13 +445,7 @@ async function reload(){
     state.rows = rows;
     state.total = total;
 
-    if (state.selectedPolygonData !== null) {
-      setFindingMarkers(rows);
-      state.selectedPolygonData = null;
-    } else {
-      renderMarkers(rows);
-    }
-
+    renderMarkers(rows);
     renderPolygons(polygons, state.colorForPolygon);
     renderTable();
     selectRow(rows.length ? rows[0].device_id : null)
@@ -569,26 +564,6 @@ function renderPolygons(rows, colors){
       });
       poly.addTo(polygonsLayer);
     } catch(e){ console.warn('polygon render error', e); }
-  });
-}
-
-function setFindingMarkers(data){
-  markersLayer.clearLayers();
-  data.forEach(device => {
-    console.debug("Device: ", device);
-    if (device.location) {
-      const marker = L.marker([device.latitude, device.longitude], {
-        icon: createDeviceIcon(device)
-      }).bindPopup(`
-        <div class="popup-title">Найденное устройство</div>
-        <div class="popup-info">
-          <strong>Device ID:</strong> ${device.device_id || 'N/A'}<br/>
-          <strong>MAC:</strong> ${device.mac || 'N/A'}<br/>
-          <strong>Время:</strong> ${device.detected_at || 'N/A'}
-        </div>
-      `);
-      marker.addTo(markersLayer);
-    }
   });
 }
 
