@@ -1084,6 +1084,6 @@ async function initLists(){
   } else {
     console.log('API key not available, skipping notification manager initialization');
   }
-  initLists()
+  initLists();
 })();
 
