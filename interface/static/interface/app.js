@@ -280,6 +280,13 @@ function ensureDrawTools(){
 
 const markerById = new Map();
 
+function createDeviceIcon(device) {
+  return L.divIcon({
+    className: `device-marker ${device.is_alert ? 'alert' : 'normal'}`,
+    iconSize: [16, 16]
+  });
+}
+
 function renderMarkers(rows){
   markersLayer.clearLayers();
   markerById.clear();
@@ -288,21 +295,21 @@ function renderMarkers(rows){
     const lon = Number(d.longitude);
     if (Number.isFinite(lat) && Number.isFinite(lon)) {
       const m = L.marker([lat, lon], {
-        icon: L.divIcon({
-          className: '',
-          html:  `<div class="device-marker ${d.is_alert ? 'alert' : 'normal'}"></div>`,
-          iconSize: [16, 16]
-        })
+        icon: createDeviceIcon(d)
       })
         .bindPopup(`
-          <b>${d.device_id ?? '—'}</b><br/>
-          ${d.location ?? '—'}<br/>
-          ${d.network_type ?? '—'}<br/>
-          Signal: ${d.signal_strength ?? '—'}
-        `.trim())
-        .on('click', () => selectRow(d.device_id, false));
+          <div class="popup-title">Найденное устройство</div>
+          <div class="popup-info">
+            <strong>MAC:</strong> ${d.device_id || 'N/A'}<br/>
+            <strong>Тип устройства:</strong> ${d.network_type || 'N/A'}<br/>
+            <strong>Время:</strong> ${d.detected_at || 'N/A'}
+          </div>
+        `.trim()).on('click', () => selectRow(d.device_id, false));
+
       m.addTo(markersLayer);
       if (d.device_id) markerById.set(d.device_id, m);
+    } else {
+      console.warn("Неверные координаты: ", d)
     }
   });
 }
@@ -347,20 +354,28 @@ function renderTable(){
     tr.classList.toggle('active', tr.dataset.id === state.selectedId);
   });
 
-  // Footer таблицы
+  updateTableFooter();
+  updatePaginationControls();
+}
+
+// Обновляет информацию сколько записей выведено из скольки
+function updateTableFooter() {
   const start = state.total ? (state.page - 1) * state.pageSize + 1 : 0;
   const end   = Math.min(state.page * state.pageSize, state.total);
   showing.textContent = `Отображено ${start} до ${end} из ${state.total} записей`;
+}
 
-  // Кнопки переключения страниц
+// Обновление кнопок перелистывания страниц
+function updatePaginationControls(){
+   // Кнопки переключения страниц
   const totalPages = Math.max(1, Math.ceil(state.total / state.pageSize));
 
   const prev = document.getElementById('prevPage');
-  prev.textContent = 'Предыдущая'; prev.disabled = state.page===1;
+  prev.disabled = state.page === 1;
   prev.onclick = ()=>{ state.page = Math.max(1, state.page-1); renderTable(); };
 
   const next = document.getElementById('nextPage');
-  next.textContent = 'Следующая'; next.disabled = state.page===totalPages;
+  next.disabled = state.page === totalPages;
   next.onclick = ()=>{ state.page = Math.min(totalPages, state.page+1); renderTable(); };
 }
 
@@ -374,9 +389,6 @@ function selectRow(id, fly=false){
 // Загрузка с API
 function buildQuery(){
   const qs = new URLSearchParams();
-  // Функционал для этого не реализован на апи
-  // qs.set('page', state.page);
-  // qs.set('page_size', state.pageSize);
   const f = state.filters;
 
   if (f.apiKeys.length > 0) qs.set("user_api", f.apiKeys.join(","));
@@ -441,13 +453,7 @@ async function reload(){
     state.rows = rows;
     state.total = total;
 
-    if (state.selectedPolygonData !== null) {
-      setFindingMarkers(rows);
-      state.selectedPolygonData = null;
-    } else {
-      renderMarkers(rows);
-    }
-
+    renderMarkers(rows);
     renderPolygons(polygons, state.colorForPolygon);
     renderTable();
     selectRow(rows.length ? rows[0].device_id : null)
@@ -566,30 +572,6 @@ function renderPolygons(rows, colors){
       });
       poly.addTo(polygonsLayer);
     } catch(e){ console.warn('polygon render error', e); }
-  });
-}
-
-function setFindingMarkers(data){
-  markersLayer.clearLayers();
-  data.forEach(device => {
-    console.debug("Device: ", device);
-    if (device.location) {
-      const marker = L.marker([device.latitude, device.longitude], {
-        icon: L.divIcon({
-          className: 'search-result-marker',
-          html: '🔍',
-          iconSize: [20, 20]
-        })
-      }).bindPopup(`
-        <div class="popup-title">Найденное устройство</div>
-        <div class="popup-info">
-          <strong>Device ID:</strong> ${device.device_id || 'N/A'}<br/>
-          <strong>MAC:</strong> ${device.mac || 'N/A'}<br/>
-          <strong>Время:</strong> ${device.detected_at || 'N/A'}
-        </div>
-      `);
-      marker.addTo(markersLayer);
-    }
   });
 }
 
@@ -1102,6 +1084,6 @@ async function initLists(){
   } else {
     console.log('API key not available, skipping notification manager initialization');
   }
-  initLists()
+  initLists();
 })();
 
