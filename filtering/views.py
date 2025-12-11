@@ -12,6 +12,7 @@ from elasticsearch.exceptions import NotFoundError
 
 from .serializers import DeviceSearchRequestSerializer, SearchQuerySerializer
 from .models import SearchQuery
+from users.models import APIKey, User
 from api.auth import APIKeyAuthentication
 from api.permissions import HasAPIKey
 
@@ -26,10 +27,9 @@ ES_PASSWORD = getenv("ES_PASSWORD")
 
 ES_INDEX = getattr(settings, "ES_INDEX", "way")
 ES_LOCATION_FIELD = getattr(settings, "ES_LOCATION_FIELD", "location")
-ES_TIMESTAMP_FIELD = getattr(settings, "ES_TIMESTAMP_FIELD", "timestamp")
+ES_TIMESTAMP_FIELD = getattr(settings, "ES_TIMESTAMP_FIELD", "detected_at")
 
 es = None
-
 
 
 def get_es():
@@ -61,10 +61,78 @@ def get_es():
         return None
 
 
+def _get_search_user(request):
+    """
+    Определяем, для какого Django-пользователя сохранять фильтрацию.
+
+    1) Если есть request.user и он аутентифицирован -> используем его.
+    2) Если используется API-ключ:
+         - request.auth это либо объект APIKey, либо сам UUID ключа
+         - ищем через User.api_keys (ManyToMany).
+    """
+    user = getattr(request, "user", None)
+    if user is not None and getattr(user, "is_authenticated", False):
+        return user
+
+    auth = getattr(request, "auth", None)
+
+    api_key_obj = None
+
+    # Вариант 1: APIKeyAuthentication кладёт в request.auth САМ объект APIKey
+    if isinstance(auth, APIKey):
+        api_key_obj = auth
+
+    # Вариант 2: в request.auth лежит строка/UUID ключа
+    elif auth:
+        try:
+            api_key_obj = APIKey.objects.get(key=auth)
+        except APIKey.DoesNotExist:
+            api_key_obj = None
+
+    if api_key_obj is None:
+        return None
+
+    # Ищем пользователя, к которому привязан этот APIKey через ManyToMany api_keys
+    user = User.objects.filter(api_keys=api_key_obj).first()
+    return user
+
+
+def _save_last_search_query(request, items, polygons):
+    user = _get_search_user(request)
+    if user is None:
+        return
+
+    params = {
+        "query_params": request.query_params.dict(),
+        "polygons": polygons or [],
+    }
+
+    monitored_macs = [
+        row.get("device_id")
+        for row in items
+        if isinstance(row, dict) and row.get("device_id")
+    ]
+
+    # ВАЖНО: сначала удаляем все прошлые фильтрации этого пользователя
+    SearchQuery.objects.filter(user=user).delete()
+
+    # Потом создаём одну новую
+    SearchQuery.objects.create(
+        user=user,
+        params=params,
+        results=items,
+        monitored_macs=monitored_macs,
+    )
+
+
 def _geo_filters_from_polygons(polygons):
     """
-    Строим список geo-фильтров. Если поле geo_point — используем geo_polygon.
-    Если geo_shape — используем geo_shape with polygon.
+    На вход ожидаем polygons в формате тела запроса:
+    {"polygons":[{"points":[[lon,lat], ...]}, ...]}
+
+    Возвращаем список ES-фильтров:
+      - один geo_polygon, если полигон один
+      - bool.should из нескольких geo_polygon, если полигонов >1
     """
     geo_filters = []
     if not polygons:
@@ -156,7 +224,7 @@ def _build_es_filters_from_query(query_params):
     """Ровно как у тебя было, но игнорим служебные size; polygons здесь не используется вообще."""
     must_filters = []
     for field, value in query_params.items():
-        if field in ("size",):   # важно: polygons тут не ожидаем
+        if field in ("size",):
             continue
         if "__" in field:
             field_name, op = field.split("__", 1)
@@ -170,47 +238,111 @@ def _build_es_filters_from_query(query_params):
     return must_filters
 
 
-def _run_search_and_optional_polygon_postfilter(request, rings):
-    """Общий метод: дергаем ES по query-парам, затем (если есть rings) — сужаем по полигонам."""
+def _run_search_with_optional_polygons(request, polygons=None):
+    """
+    Выполняет запрос к Elasticsearch с учётом:
+      - обычных фильтров из query-параметров;
+      - (опционально) гео-фильтра по полигонам из body;
+    и возвращает ТОЛЬКО уникальные устройства (MAC), где по каждому MAC берётся
+    САМАЯ ПОЗДНЯЯ запись (по ES_TIMESTAMP_FIELD).
+
+    GET /api/filtering/  -> polygons=None
+    POST /api/filtering/ -> polygons из тела {"polygons":[{"points":[[lon,lat], ...]}, ...]}
+    """
     es = get_es()
     if es is None:
-        return Response({"error": "Elasticsearch is not configured"}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+        return Response({"error": "Elasticsearch is not configured"},
+                        status=status.HTTP_503_SERVICE_UNAVAILABLE)
 
+    # обычные фильтры из query-параметров
     must_filters = _build_es_filters_from_query(request.query_params)
-    query = {"query": {"bool": {"filter": must_filters}}} if must_filters else {"query": {"match_all": {}}}
-    size = min(max(int(request.query_params.get("size", 300)), 1), 10000)
+
+    # гео-фильтры из polygons (формат как в теле запроса)
+    geo_filters = _geo_filters_from_polygons(polygons or [])
+
+    filters = []
+    if must_filters:
+        filters.extend(must_filters)
+    if geo_filters:
+        filters.extend(geo_filters)
+
+    if filters:
+        query = {"bool": {"filter": filters}}
+    else:
+        query = {"match_all": {}}
+
+    # Параметр size теперь трактуем как: "сколько УНИКАЛЬНЫХ MAC'ов вернуть максимум"
+    uniq_size = min(
+        max(int(request.query_params.get("size", 300)), 1),
+        10000
+    )
+
+    body = {
+        "size": 0,  # документы в hits нам не нужны, работаем только через агрегации
+        "query": query,
+        "aggs": {
+            "by_device": {
+                "terms": {
+                    # поле с MAC адресом устройства
+                    # если у тебя device_id это keyword-поле, оставь так;
+                    # если text+keyword, нужно "device_id.keyword"
+                    "field": "device_id",
+                    "size": uniq_size
+                },
+                "aggs": {
+                    "latest": {
+                        "top_hits": {
+                            "size": 1,
+                            "sort": [
+                                {
+                                    ES_TIMESTAMP_FIELD: {
+                                        "order": "desc"
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        }
+    }
 
     try:
-        res = es.search(index=ES_INDEX, body=query, size=size)
+        res = es.search(index=ES_INDEX, body=body)
     except NotFoundError:
-        return Response([], status=status.HTTP_200_OK)
+        items = []
+        # даже если пусто — можно сохранить пустую фильтрацию
+        _save_last_search_query(request, items, polygons)
+        return Response(items, status=status.HTTP_200_OK)
     except Exception as e:
-        return Response({"error": f"Elasticsearch query failed: {e}"}, status=status.HTTP_502_BAD_GATEWAY)
+        return Response({"error": f"Elasticsearch query failed: {e}"},
+                        status=status.HTTP_502_BAD_GATEWAY)
 
-    items = [h["_source"] for h in res["hits"]["hits"]]
+    # Достаём по одному _source из каждого бакета (последняя запись по MAC)
+    buckets = (
+        res.get("aggregations", {})
+        .get("by_device", {})
+        .get("buckets", [])
+    )
 
-    # пост-фильтр по полигонам (если даны)
-    if rings:
-        filtered = []
-        for row in items:
-            loc = row.get(ES_LOCATION_FIELD)
-            if isinstance(loc, (list, tuple)) and len(loc) == 2:
-                lon, lat = float(loc[0]), float(loc[1])
-            else:
-                lon, lat = row.get("longitude"), row.get("latitude")
-                if lon is None or lat is None:
-                    continue
-                lon, lat = float(lon), float(lat)
-            if _point_in_any_polygon(lon, lat, rings):
-                filtered.append(row)
-        items = filtered
+    items = []
+    for b in buckets:
+        hits = b.get("latest", {}).get("hits", {}).get("hits", [])
+        if not hits:
+            continue
+        items.append(hits[0]["_source"])
+
+    # Сохраняем последнюю фильтрацию пользователя
+    _save_last_search_query(request, items, polygons)
 
     return Response(items, status=status.HTTP_200_OK)
 
 
 class FilteringViewSet(viewsets.ViewSet):
     """
-    Список/поиск + расширенная ручка /search с полигонами и мониторингом MAC.
+    Фильтрация устройств по запросу:
+      - GET /api/filtering/ — без полигонов;
+      - POST /api/filtering/ — с полигонами в теле запроса.
     """
     authentication_classes = [APIKeyAuthentication]
     permission_classes = [HasAPIKey]
@@ -218,119 +350,11 @@ class FilteringViewSet(viewsets.ViewSet):
     # GET /api/filtering/  (без полигонов, чисто как раньше)
     def list(self, request, *args, **kwargs):
         # polygons здесь НЕ поддерживаем
-        rings = []  # принципиально пусто
-        return _run_search_and_optional_polygon_postfilter(request, rings)
+        return _run_search_with_optional_polygons(request, polygons=None)
 
-    # NEW: POST /api/filtering/  (полигоны в body, остальные фильтры — в query)
+    #POST /api/filtering/  (полигоны в body, остальные фильтры — в query)
     def create(self, request, *args, **kwargs):
-        rings = _parse_polygons_from_body(request)  # только из тела!
-        return _run_search_and_optional_polygon_postfilter(request, rings)
-
-    """
-    # РАСШИРЕННЫЙ поиск
-    @action(detail=False, methods=["POST"], url_path="search")
-    def search_devices(self, request):
-        es = get_es()
-        if es is None:
-            return Response({"error": "Elasticsearch is not configured"}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
-
-        s = DeviceSearchRequestSerializer(data=request.data)
-        s.is_valid(raise_exception=True)
-        params = s.validated_data
-
-        must = []
-        should = []
-        filters = []
-
-        # Базовые списки
-        if params["api_keys"]:
-            must.append({"terms": {"api_key": params["api_keys"]}})
-        if params["devices"]:
-            must.append({"terms": {"device_id": params["devices"]}})
-        if params["folders"]:
-            must.append({"terms": {"folder_id": params["folders"]}})
-
-        # Время
-        time_range = {}
-        if params.get("time_from"):
-            time_range["gte"] = params["time_from"].isoformat()
-        if params.get("time_to"):
-            time_range["lte"] = params["time_to"].isoformat()
-        if time_range:
-            filters.append({"range": {ES_TIMESTAMP_FIELD: time_range}})
-
-        # Тип устройства
-        if params.get("device_type"):
-            filters.append({"term": {"device_type": params["device_type"]}})
-
-        # Флаги
-        if params.get("is_alarm") is not None:
-            filters.append({"term": {"is_alarm": params["is_alarm"]}})
-        if params.get("is_ignored") is not None:
-            filters.append({"term": {"is_ignored": params["is_ignored"]}})
-
-        # Имя (точно/префикс)
-        if params.get("name"):
-            # точный match + префикс — через should
-            should.append({"term": {"name.keyword": params["name"]}})
-            should.append({"match_phrase_prefix": {"name": params["name"]}})
-
-        # MAC фильтр (обычный)
-        if params["macs"]:
-            filters.append({"terms": {"mac": [m.lower() for m in params["macs"]]}})
-
-        # Полигоны
-        polygon_filters = _geo_filters_from_polygons(params.get("polygons", []))
-        filters.extend(polygon_filters)
-
-        bool_query = {"filter": filters}
-        if must:
-            bool_query["must"] = must
-        if should:
-            bool_query["should"] = should
-            bool_query["minimum_should_match"] = 1
-
-        body = {"query": {"bool": bool_query}}
-
-        size = int(params.get("limit", 300))
-        size = min(max(size, 1), 10000)
-
-        try:
-            res = es.search(index=ES_INDEX, body=body, size=size)
-            hits = [h["_source"] for h in res["hits"]["hits"]]
-        except NotFoundError:
-            hits = []
-        except Exception as e:
-            return Response({"error": f"Elasticsearch query failed: {e}"}, status=status.HTTP_502_BAD_GATEWAY)
-
-        # Мониторинг MAC в полигонах (в разрезе monitor_macs)
-        monitoring = {}
-        monitor_list = [m.lower() for m in params.get("monitor_macs", [])]
-        if monitor_list and polygon_filters:
-            # Берём только совпавшие с полигонами хиты и группируем по MAC из monitor_list
-            for row in hits:
-                mac = (row.get("mac") or "").lower()
-                if mac in monitor_list:
-                    monitoring.setdefault(mac, []).append(row)
-
-        # Сохранение запроса/результатов (первые 300)
-        saved = None
-        if params.get("save_query", True) and request.user.is_authenticated:
-            saved = SearchQuery.objects.create(
-                user=request.user,
-                params=params,
-                results=hits[:300],
-                monitored_macs=monitor_list,
-                export_status=SearchQuery.FileStatus.PENDING,
-                paid=getattr(request.user, "paid", False) if hasattr(request.user, "paid") else False,
-            )
-
-        payload = {
-            "count": len(hits),
-            "items": hits,
-            "monitoring": monitoring,   # map: mac -> [items...]
-            "saved_query": SearchQuerySerializer(saved).data if saved else None,
-            "es_query": body,           # удобно для отладки фронту/бэку
-        }
-        return Response(payload, status=status.HTTP_200_OK)
-        """
+        # ждём формата: {"polygons":[{"points":[[lon,lat], ...]}, ...]}
+        data = request.data if isinstance(request.data, dict) else {}
+        polygons = data.get("polygons") or []
+        return _run_search_with_optional_polygons(request, polygons=polygons)
