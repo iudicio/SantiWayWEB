@@ -178,73 +178,7 @@ Headers:
 
 ### Ключ всегда подтягивается из Api-Key, который вы используете в Headers
 
-# 4. Запросы к Api для получений APK файлов
-Отправляем POST запрос на эндпоинт ```http://localhost/api/apk/build/```:
-
-Headers:
-
-```Authorization: Api-Key <your_api_key>``` <- Ваш Api-Key, который Вы создали
-
-```Content-Type: application/json```
-
-## Response:
-
-### 202 Accepted - задача успешно создана
-
-```
-{
-    "status": "Задача на сборку APK принята",
-    "apk_build_id": "uuid-строка",
-    "created_at": "2024-01-01T12:00:00Z",
-    "build_status": "pending"
-}
-```
-
-### 409 Conflict - сборка уже выполняется
-
-```
-{
-    "error": "Build already in progress",
-    "apk_build_id": "uuid-строка",
-    "status": "pending"
-}
-```
-
-### 401 Unauthorized - неверный или отсутствующий API ключ
-
-Приложение начинает собираться
-
-## Для получения статуса сборки отправляем GET запрос на эндпоинт ```http://localhost/api/apk/build/```
-
-Headers:
-
-```Authorization: Api-Key <your_api_key>``` <- Ваш Api-Key, который Вы создали
-
-## Response:
-### 200 OK
-
-```
-{
-    "apk_build_id": "uuid-строка",
-    "status": "pending|success|failed",
-    "created_at": "2024-01-01T12:00:00Z",
-    "completed_at": "2024-01-01T12:30:00Z"
-}
-```
-
-### 404 Not Found - сборки не найдены
-
-### 401 Unauthorized - неверный API ключ
-
-## Для того, чтобы скачать собранный файл, отправляем GET запрос на эндпоинт ```http://localhost/api/apk/build/?action=download```
-
-### Чтобы проверить скачается ли он, можно отправить такой запрос в cmd:
-
-```curl -H "Authorization: Api-Key <Твой Api-Key>" -L "http://localhost/api/apk/build/?action=download" -o app.apk```
-
-### Ключ всегда подтягивается из Api-Key, который вы используете в Headers
-
-# 5. Фильтрация
+# 4. Фильтрация
 
 ### POST ```localhost/api/filtering/```
 
@@ -347,54 +281,49 @@ POST /api/filtering/
 
 ## Общие параметры фильтрации (query)
 
-5.1. Служебные
-
-    |Парамет|Тип|Описание|
-    |---|---|---|
-    |size|integer|Количество записей, максимум 10000 (по умолчанию 300)|
-    |detected_at__gte, detected_at__lte|string|Альтернативное поле времени, если у устройства используется detected_at.|
-
-
-5.2. Идентификаторы и связи
-
-    |Параметр|Тип|Пример|Описание|
-    |---|---|---|---|
-    |device_id-string|list (через запятую)|device_id=001A2B3C4D5E,AA:BB:CC:DD:EE:FF|Уникальный идентификатор устройства.
-    |user_api|string|user_api=8e9b2e50-0a3a-4f6e-9c17-0c6d5e1b8b2c|API-ключ пользователя, к которому привязано устройство.
-    |folder_name|string|folder_name=Warehouse/Back%20Yard|Имя папки/зоны, заданное пользователем.
+4.1. Служебные
+| Параметр                           | Тип     | Описание                                                                |
+| ---------------------------------- | ------- | ----------------------------------------------------------------------- |
+| size                               | integer | Количество записей, максимум 10000 (по умолчанию 300)                   |
+| detected_at__gte, detected_at__lte | string  | Альтернативное поле времени, если у устройства используется detected_at.|
 
 
-5.3. Сетевые параметры
+4.2. Идентификаторы и связи
+| Параметр         | Тип                  | Пример                                        | Описание                                                |
+| ---------------- | ---------------------| --------------------------------------------- | ------------------------------------------------------- |
+| device_id-string | list (через запятую) | device_id=001A2B3C4D5E,AA:BB:CC:DD:EE:FF      | Уникальный идентификатор устройства.                    |
+| user_api         | string               | user_api=8e9b2e50-0a3a-4f6e-9c17-0c6d5e1b8b2c | API-ключ пользователя, к которому привязано устройство. |
+| folder_name      | string               | folder_name=Warehouse/Back%20Yard             | Имя папки/зоны, заданное пользователем.                 |
 
-   |Параметр| Тип     | Пример                   |Описание|
-   |---|---------|--------------------------|---|
-   |network_type|string / list|network_type=WiFi,LTE|Тип сети, где зафиксировано устройство.
-   |signal_strength| integer |signal_strength=-62|Уровень сигнала (в dBm).
-   |signal_strength__gte / __lte| integer | signal_strength__lte=-70 |Диапазон уровня сигнала.
+
+4.3. Сетевые параметры
+|Параметр| Тип     | Пример                   |Описание|
+|---|---------|--------------------------|---|
+|network_type|string / list|network_type=WiFi,LTE|Тип сети, где зафиксировано устройство.|
+|signal_strength| integer |signal_strength=-62|Уровень сигнала (в dBm).|
+|signal_strength__gte / __lte| integer | signal_strength__lte=-70 |Диапазон уровня сигнала.|
 
 
-5.4. Атрибуты устройства
-
-    |Параметр|Тип|Пример|Описание|
-    |---|---|---|---|
-    |user_phone_mac|string|user_phone_mac=F45C89AABBCC|MAC телефона пользователя, если логируется.
+4.4. Атрибуты устройства
+|Параметр|Тип|Пример|Описание|
+|---|---|---|---|
+|user_phone_mac|string|user_phone_mac=F45C89AABBCC|MAC телефона пользователя, если логируется.|
 
 
 5.5. Логические флаги
+|Параметр|Тип|Пример|Описание|
+|---|---|---|---|
+|is_alert|boolean|is_alert=true|Устройство срабатывало на тревогу.|
+|is_ignored|boolean|is_ignored=false|Игнорируется пользователем или нет.|
 
-    |Параметр|Тип|Пример|Описание|
-    |---|---|---|---|
-    |is_alert|boolean|is_alert=true|Устройство срабатывало на тревогу.
-    |is_ignored|boolean|is_ignored=false|Игнорируется пользователем или нет.
 
-
-5.6. Пример
+4.6. Пример
 
     Получение всех записей в этот промежуток времени:
     
     ```/api/filtering/?detected_at__gte=2025-09-22T16:10:44Z&detected_at__lte=2025-09-22T22:10:44Z```
 
-# 6. Отправка списка устройств в Elasticsearch
+# 5. Отправка списка устройств в Elasticsearch
 
 Авторизированный (по Api-Key) ```POST``` запрос на ```http://localhost/api/devices/``` со списком обнаруженных устройств
 
@@ -721,7 +650,7 @@ else:
     print("Data:", r.json())
 ```
 
-# 8. Мониторинг полигонов
+# 9. Мониторинг полигонов
 > Все endpoints требуют API ключ: `Authorization: Api-Key YOUR_KEY`
 
 ### Список полигонов
