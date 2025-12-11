@@ -88,19 +88,21 @@ services:
       retries: 10
     restart: unless-stopped
 
-#  redis:
-#    image: redis:7-alpine
-#    container_name: santi_redis
-#    networks: [appnet]
-#    command: redis-server --appendonly yes
-#    volumes:
-#      - redis_data:/data
-#    healthcheck:
-#      test: ["CMD", "redis-cli", "ping"]
-#      interval: 10s
-#      timeout: 5s
-#      retries: 5
-#    restart: unless-stopped
+  redis:
+    image: redis:7-alpine
+    container_name: santi_redis
+    networks: [appnet]
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes --requirepass strongpassword
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "strongpassword", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
 
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.18.1
@@ -178,6 +180,51 @@ services:
     depends_on:
       clickhouse:
         condition: service_healthy
+    restart: unless-stopped
+
+  # ML Anomaly Detection Backend (FastAPI)
+  ml_backend:
+    build:
+      context: ./anomaly_detection
+      dockerfile: Dockerfile
+    container_name: anomaly_ml_backend
+    networks: [appnet]
+    ports:
+      - "8001:8000"  # External: 8001, Internal: 8000
+    environment:
+      CLICKHOUSE_HOST: clickhouse
+      CLICKHOUSE_PORT: 8123
+      CLICKHOUSE_DATABASE: anomaly_ml
+      API_HOST: 0.0.0.0
+      API_PORT: 8000
+    volumes:
+      - ./anomaly_detection/backend:/app/backend
+      - ./anomaly_detection/models:/app/models
+      - ./anomaly_detection/ml:/app/ml
+    command: python -m uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ML Dashboard Frontend (Streamlit)
+  ml_frontend:
+    image: python:3.10-slim
+    container_name: anomaly_ml_frontend
+    networks: [appnet]
+    ports:
+      - "8501:8501"
+    depends_on:
+      - ml_backend
+    volumes:
+      - ./anomaly_detection/frontend:/app
+      - ./anomaly_detection/requirements.txt:/app/requirements.txt
+    working_dir: /app
+    environment:
+      BACKEND_URL: http://anomaly_ml_backend:8000
+    command: >
+      bash -c "pip install streamlit plotly pydeck requests pandas &&
+               streamlit run app.py --server.port=8501 --server.address=0.0.0.0"
     restart: unless-stopped
 
 
