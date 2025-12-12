@@ -1,0 +1,52 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: anomaly_ml_backend
+    ports:
+      - "8001:8000"  # External: 8001, Internal: 8000 (avoid conflict with Django)
+    environment:
+      # Connect to production ClickHouse from main docker-compose
+      CLICKHOUSE_HOST: ${CLICKHOUSE_HOST:-clickhouse}
+      CLICKHOUSE_PORT: ${CLICKHOUSE_PORT:-8123}
+      CLICKHOUSE_DATABASE: anomaly_ml  # ML database with materialized views
+      API_HOST: 0.0.0.0
+      API_PORT: 8000
+    volumes:
+      - ./backend:/app/backend
+      - ./models:/app/models
+      - ./ml:/app/ml
+    command: python -m uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload
+    networks:
+      - appnet  # Connect to main app network
+    restart: unless-stopped
+
+  frontend:
+    image: python:3.10-slim
+    container_name: anomaly_ml_frontend
+    ports:
+      - "8501:8501"
+    depends_on:
+      - backend
+    volumes:
+      - ./frontend:/app
+      - ./requirements.txt:/app/requirements.txt
+    working_dir: /app
+    environment:
+      BACKEND_URL: http://anomaly_ml_backend:8000  # Internal backend URL
+    command: >
+      bash -c "pip install streamlit plotly pydeck requests pandas &&
+               streamlit run app.py --server.port=8501 --server.address=0.0.0.0"
+    networks:
+      - appnet  # Connect to main app network
+    restart: unless-stopped
+
+networks:
+  appnet:
+    external: true
+    name: app-network  # Same network as Django/PostgreSQL/ClickHouse
+
+

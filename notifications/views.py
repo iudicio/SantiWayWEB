@@ -133,3 +133,47 @@ def github_webhook(request):
     except Exception as e:
         logger.error(f"❌ Ошибка обработки вебхука: {e}")
         return JsonResponse({'error': str(e)}, status=500)
+
+
+@csrf_exempt
+@require_POST
+def send_ml_notification(request):
+    """
+    API endpoint для приема уведомлений от ML backend
+    ML backend отправляет аномалии сюда, Django рассылает через WebSocket
+    """
+    try:
+        from channels.layers import get_channel_layer
+        from asgiref.sync import async_to_sync
+        import re
+
+        payload_data = json.loads(request.body)
+        api_key = payload_data.get('api_key')
+        payload = payload_data.get('payload')
+
+        if not api_key or not payload:
+            return JsonResponse({'error': 'Missing api_key or payload'}, status=400)
+
+        # Формируем имя группы
+        def sanitize_group(name: str) -> str:
+            return re.sub(r"[^0-9A-Za-z._-]", "_", name)[:99]
+
+        group_name = sanitize_group(f"api_{api_key}")
+
+        # Отправляем через channel layer
+        channel_layer = get_channel_layer()
+        async_to_sync(channel_layer.group_send)(
+            group_name,
+            {
+                'type': 'notify_message',
+                'payload': payload,
+            }
+        )
+
+        logger.info(f"ML notification forwarded to WebSocket group: {group_name}")
+
+        return JsonResponse({'status': 'success', 'group': group_name}, status=200)
+
+    except Exception as e:
+        logger.error(f"Ошибка отправки ML уведомления: {e}")
+        return JsonResponse({'error': str(e)}, status=500)
