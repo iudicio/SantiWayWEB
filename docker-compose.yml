@@ -88,21 +88,21 @@ services:
       retries: 10
     restart: unless-stopped
 
-  redis:
-    image: redis:7-alpine
-    container_name: santi_redis
-    networks: [appnet]
-    ports:
-      - "6379:6379"
-    command: redis-server --appendonly yes --requirepass strongpassword
-    volumes:
-      - redis_data:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "-a", "strongpassword", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    restart: unless-stopped
+#  redis:
+#    image: redis:7-alpine
+#    container_name: santi_redis
+#    networks: [appnet]
+#    ports:
+#      - "6379:6379"
+#    command: redis-server --appendonly yes --requirepass strongpassword
+#    volumes:
+#      - redis_data:/data
+#    healthcheck:
+#      test: ["CMD", "redis-cli", "-a", "strongpassword", "ping"]
+#      interval: 10s
+#      timeout: 5s
+#      retries: 5
+#    restart: unless-stopped
 
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.18.1
@@ -233,7 +233,7 @@ volumes:
   pg_data:
   es_data:
   ch_data:
-  redis_data:
+#  redis_data:
   static_volume:
   media_volume:
 
