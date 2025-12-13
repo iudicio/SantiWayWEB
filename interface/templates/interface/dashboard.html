@@ -32,9 +32,7 @@
     const API_FILTERING = "{% url 'api:filtering-list' %}"
   </script>
 
-  <script src="{% static 'interface/get-devices.js' %}"></script>
-  <script type="module" src="{% static 'interface/custom-elements.js' %}"></script>
-  <script type="module" src="{% static 'interface/app.js' %}?v=3"></script>
+  <script type="module" src="{% static 'interface/js/app.js' %}?v=3"></script>
   <script src="{% static '/js/background.js' %}"></script>
   <title>Locator</title>
 </head>
@@ -201,7 +199,7 @@
 
             <div class="table-settings" style="position: relative;">
               <button id="columnsToggle" class="settings-btn" type="button" aria-expanded="false" aria-controls="columnsMenu">
-                <img src="{% static 'interface/settings.png' %}" alt="Настройки столбцов" />
+                <img src="{% static 'interface/img/settings.png' %}" alt="Настройки столбцов" />
               </button>
 
               <div id="columnsMenu" class="columns-menu hidden" role="menu" aria-hidden="true"></div>
