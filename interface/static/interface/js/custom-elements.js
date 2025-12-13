@@ -67,6 +67,13 @@ function initCustomSelects() {
       }
     });
 
+    select.addEventListener("change", () => {
+      const selectedOption = select.options[select.selectedIndex];
+      if (selectedOption) {
+        display.textContent = selectedOption.text;
+      }
+    });
+
     // Скрываем нативный select (CSS уже задан) и помечаем чтобы не оборачивать повторно
     select.style.display = "none";
     select.dataset.wrapped = "true";
@@ -479,6 +486,25 @@ export class CascadeController {
   // Получает все выбранные чекбоксы
   getSelected(containerId) {
     return getCheckboxes(containerId, {onlyChecked: true}).map(cb => cb.value);
+  }
+
+  // Выставляет выбранные чекбоксы
+  async select(levelId, values = []) {
+    const level = this.structure.find(l => l.id === levelId);
+    if (!level) return;
+
+    const container = document.getElementById(level.containerId);
+    if (!container) return;
+
+    const checkboxes = getCheckboxes(level.containerId);
+
+    values.forEach(value => {
+      const cb = checkboxes.find(cb => cb.value === value);
+      if (cb && !cb.checked) {
+        cb.checked = true;
+        cb.dispatchEvent(new Event("change", { bubbles: true }));
+      }
+    });
   }
 }
 

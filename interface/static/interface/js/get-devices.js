@@ -1,4 +1,5 @@
 
+// Универсальная функция для запросов устройств и папок
 async function postUserInfo(body){
   try {
     const response = await fetch(API_USER_INFO, {
@@ -23,7 +24,7 @@ async function postUserInfo(body){
 }
 
 // Возвращает apiKey и его имя
-async function getApiKeys(){
+export async function getApiKeys(){
     const apiKeysResponse = await fetch("/api/api-key/", {
       method: "GET",
     });
@@ -32,14 +33,14 @@ async function getApiKeys(){
     return apiKeys
 }
 
-async function getDevices(apiKeys){
+export async function getDevices(apiKeys){
   if (!Array.isArray(apiKeys)) apiKeys = [apiKeys];
   const devices = await postUserInfo({api_keys: apiKeys});
   console.log("Количество полученных устройств: ", devices.length);
   return devices;
 }
 
-async function getFolders(apiKeys, devices) {
+export async function getFolders(apiKeys, devices) {
   if (!Array.isArray(apiKeys)) apiKeys = apiKeys ? [apiKeys] : [];
   if (!Array.isArray(devices)) devices = devices ? [devices] : [];
 

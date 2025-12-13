@@ -1,9 +1,15 @@
 import {
   fillCollapsibleList,
   CascadeController,
-  getCheckboxesValues,
   syncRowTdDataCols
 } from "./custom-elements.js";
+import {getApiKeys, getDevices, getFolders} from "./get-devices.js";
+import {
+  getFilters,
+  setFilters,
+  getFiltersFromLocalStorage,
+  saveFiltersToLocalStorage,
+} from "./filtering.js";
 
 const API_BASE = (window.APP_CONFIG && window.APP_CONFIG.API_BASE) || '/api';
 const API_KEY = (window.APP_CONFIG && window.APP_CONFIG.API_KEY) || '';
@@ -84,6 +90,7 @@ const state = {
 };
 
 let polygons;
+let cascade;
 
 
 // Цвета полигонов в зависимости от статуса
@@ -474,24 +481,10 @@ async function reload(){
 }
 
 // Фильтры/события
-document.getElementById('btnApplyFilters').addEventListener('click', ()=> {setFiltersState();});
+document.getElementById('btnApplyFilters').addEventListener('click', ()=> {applyFilters();});
 
-function setFiltersState(){
-  state.filters.apiKeys = getCheckboxesValues("apiList");
-  state.filters.devices = getCheckboxesValues("deviceList");
-  state.filters.folders = getCheckboxesValues("folderList");
-
-  state.filters.network = document.getElementById('f-network').value;
-  state.filters.mac = normalize(document.getElementById('f-mac').value);
-  state.filters.name = normalize(document.getElementById('f-name').value);
-
-  const timeStart = document.getElementById("time-start").value;
-  const timeEnd = document.getElementById("time-end").value;
-  state.filters.timeStart = timeStart ? new Date(timeStart).toISOString() : null
-  state.filters.timeEnd =  timeEnd ? new Date(timeEnd).toISOString() : null
-
-  state.filters.alert = document.getElementById('f-alert').checked;
-  state.filters.ignore = document.getElementById('f-ignore').checked;
+function applyFilters(){
+  state.filters = getFilters();
   state.page = 1;
   reload();
 }
@@ -1067,8 +1060,29 @@ async function initLists(){
   cascade.init();
 }
 
+// Инициализация параметров фильтров
+async function initFilters() {
+  const saved = getFiltersFromLocalStorage();
+  if (!saved) return;
+
+  // Проставление чекбоксов для апи ключей
+  if (saved.apiKeys?.length) {
+    await cascade.select("api", saved.apiKeys);
+  }
+  // для девайсов
+  if (saved.devices?.length) {
+    await cascade.select("device", saved.devices);
+  }
+  // для папок
+  if (saved.folders?.length) {
+    await cascade.select("folder", saved.folders);
+  }
+  // Остальные фильтры не каскадные
+  setFilters(saved);
+}
+
 // Инициализация
-;(function init(){
+;(async function init(){
   console.log('Initializing app...');
   document.getElementById('pageSize').value = String(state.pageSize);
   console.log('Calling ensureDrawTools...');
@@ -1084,6 +1098,12 @@ async function initLists(){
   } else {
     console.log('API key not available, skipping notification manager initialization');
   }
-  initLists();
+  await initLists();
+  await initFilters();
 })();
+
+// Сохранение фильтров перед выходом/перезагрузкой и тп.
+window.addEventListener("beforeunload", ()=>{
+  saveFiltersToLocalStorage(getFilters());
+})
 
