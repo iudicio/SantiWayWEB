@@ -3,6 +3,7 @@ import logging
 
 from celery import Celery
 from rest_framework import viewsets, status
+from rest_framework.authentication import get_authorization_header
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.conf import settings
@@ -287,18 +288,18 @@ def _run_search_with_optional_polygons(request, polygons=None):
                     # если у тебя device_id это keyword-поле, оставь так;
                     # если text+keyword, нужно "device_id.keyword"
                     "field": "device_id",
-                    "size": uniq_size
+                    "size": uniq_size,
+                    "order": {"max_ts": "desc"},
                 },
                 "aggs": {
+                    "max_ts": {
+                        "max": {"field": ES_TIMESTAMP_FIELD}
+                    },
                     "latest": {
                         "top_hits": {
                             "size": 1,
                             "sort": [
-                                {
-                                    ES_TIMESTAMP_FIELD: {
-                                        "order": "desc"
-                                    }
-                                }
+                                {ES_TIMESTAMP_FIELD: {"order": "desc"}}
                             ]
                         }
                     }
@@ -338,11 +339,36 @@ def _run_search_with_optional_polygons(request, polygons=None):
     return Response(items, status=status.HTTP_200_OK)
 
 
+def _get_api_key_from_request(request) -> str | None:
+    # Authorization: Api-Key <uuid>
+    api_key_value = get_authorization_header(request)
+    if api_key_value:
+        parts = api_key_value.split()
+        if len(parts) == 2 and parts[0].lower() == b"api-key":
+            return parts[1].decode()
+    return None
+
+
+def _get_user_by_api_key(request):
+    key_str = _get_api_key_from_request(request)
+    if not key_str:
+        return None
+
+    try:
+        api_key_obj = APIKey.objects.get(key=key_str)
+    except APIKey.DoesNotExist:
+        return None
+
+    # user связан с api_key через ManyToMany User.api_keys
+    return User.objects.filter(api_keys=api_key_obj).first()
+
+
 class FilteringViewSet(viewsets.ViewSet):
     """
     Фильтрация устройств по запросу:
       - GET /api/filtering/ — без полигонов;
       - POST /api/filtering/ — с полигонами в теле запроса.
+      - GET api/filtering/last — получить последний выполненный запрос и его параметры.
     """
     authentication_classes = [APIKeyAuthentication]
     permission_classes = [HasAPIKey]
@@ -358,3 +384,24 @@ class FilteringViewSet(viewsets.ViewSet):
         data = request.data if isinstance(request.data, dict) else {}
         polygons = data.get("polygons") or []
         return _run_search_with_optional_polygons(request, polygons=polygons)
+
+    @action(detail=False, methods=["get"], url_path="last")
+    def last(self, request, *args, **kwargs):
+        user = _get_user_by_api_key(request)
+        if user is None:
+            return Response({"error": "Неправильный API-ключ или пользователь не найден"}, status=status.HTTP_401_UNAUTHORIZED)
+
+        sq = SearchQuery.objects.filter(user=user).order_by("-created_at").first()
+        if not sq:
+            return Response({"params": {}, "results": [], "monitored_macs": []}, status=status.HTTP_200_OK)
+
+        return Response(
+            {
+                "id": sq.id,
+                "created_at": sq.created_at,
+                "params": sq.params,
+                "results": sq.results,  # если тяжело — можно убрать
+                "monitored_macs": sq.monitored_macs,  # удобно для мониторинга
+            },
+            status=status.HTTP_200_OK
+        )
