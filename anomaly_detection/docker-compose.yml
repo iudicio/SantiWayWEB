@@ -1,52 +1,106 @@
 version: '3.8'
 
 services:
+  # FastAPI ML Backend
   backend:
     build:
       context: .
       dockerfile: Dockerfile
     container_name: anomaly_ml_backend
+    hostname: ml-backend
+
+    # Порты
     ports:
-      - "8001:8000"  # External: 8001, Internal: 8000 (avoid conflict with Django)
+      - "8001:8000"  # External: 8001, Internal: 8000
+
+    # Переменные окружения
+    env_file:
+      - .env
+
     environment:
-      # Connect to production ClickHouse from main docker-compose
+      # ClickHouse connection
       CLICKHOUSE_HOST: ${CLICKHOUSE_HOST:-clickhouse}
       CLICKHOUSE_PORT: ${CLICKHOUSE_PORT:-8123}
-      CLICKHOUSE_DATABASE: anomaly_ml  # ML database with materialized views
-      API_HOST: 0.0.0.0
-      API_PORT: 8000
+      CLICKHOUSE_DATABASE: ${CLICKHOUSE_DATABASE:-anomaly_ml}
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER:-default}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-}
+
+      # API settings
+      API_HOST: ${API_HOST:-0.0.0.0}
+      API_PORT: ${API_PORT:-8000}
+      API_RELOAD: ${API_RELOAD:-True}
+
+      # Django integration
+      DJANGO_NOTIFICATION_URL: ${DJANGO_NOTIFICATION_URL:-http://web:8000}
+
+      # Security
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost,http://localhost:3000,http://localhost:8000}
+      VALID_API_KEYS: ${VALID_API_KEYS:-}
+
+      # Model
+      MODEL_PATH: ${MODEL_PATH:-models/tcn_model.pt}
+      DEVICE: ${DEVICE:-cpu}
+
+    # Volume mounts для hot reload (DEV ONLY)
     volumes:
       - ./backend:/app/backend
       - ./models:/app/models
+      - ./data:/app/data
       - ./ml:/app/ml
-    command: python -m uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload
-    networks:
-      - appnet  # Connect to main app network
+
+    # Custom command с reload для dev
+    command: uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload
+
+    # Restart policy
     restart: unless-stopped
 
+    # Health check
+    healthcheck:
+      test: ["CMD-SHELL", "python -c 'import requests; requests.get(\"http://localhost:8000/anomalies/health\", timeout=5)' || exit 1"]
+      interval: 30s
+      timeout: 10s
+      start_period: 40s
+      retries: 3
+
+    # Networking
+    networks:
+      - appnet
+
+  # Streamlit ML Dashboard
   frontend:
     image: python:3.10-slim
     container_name: anomaly_ml_frontend
+    hostname: ml-frontend
+
     ports:
       - "8501:8501"
-    depends_on:
-      - backend
+
     volumes:
       - ./frontend:/app
       - ./requirements.txt:/app/requirements.txt
+
     working_dir: /app
+
     environment:
-      BACKEND_URL: http://anomaly_ml_backend:8000  # Internal backend URL
+      BACKEND_URL: http://anomaly_ml_backend:8000
+
     command: >
-      bash -c "pip install streamlit plotly pydeck requests pandas &&
+      bash -c "pip install --no-cache-dir streamlit plotly pydeck requests pandas &&
                streamlit run app.py --server.port=8501 --server.address=0.0.0.0"
-    networks:
-      - appnet  # Connect to main app network
+
+    depends_on:
+      backend:
+        condition: service_healthy
+
     restart: unless-stopped
 
+    networks:
+      - appnet
+
+# Сети
 networks:
   appnet:
     external: true
-    name: app-network  # Same network as Django/PostgreSQL/ClickHouse
+    name: app-network  # Подключение к основной сети проекта
 
 
