@@ -5,7 +5,7 @@ from typing import List, Dict, Any
 from pathlib import Path
 from backend.services.clickhouse_client import ClickHouseClient
 from backend.services.feature_engineer import FeatureEngineer
-from backend.services.model_tcn import TCN_Autoencoder
+from backend.services.model_tcn_advanced import TCN_Autoencoder_Advanced
 from backend.services.data_validator import DataValidator
 from backend.utils.config import settings
 from loguru import logger
@@ -16,7 +16,7 @@ class AnomalyDetector:
     def __init__(
         self,
         ch_client: ClickHouseClient,
-        model: TCN_Autoencoder | None = None,
+        model: TCN_Autoencoder_Advanced | None = None,
     ):
         self.ch = ch_client
         self.device = settings.DEVICE
@@ -50,8 +50,8 @@ class AnomalyDetector:
                 logger.warning(f"Failed to load normalization stats: {e}")
         return None, None
 
-    def _load_model(self) -> TCN_Autoencoder:
-        """Загрузка модели с правильным количеством признаков"""
+    def _load_model(self) -> TCN_Autoencoder_Advanced:
+        """Загрузка Advanced модели с Multi-Head Attention"""
 
         metadata_path = Path('models/model_metadata.json')
         if metadata_path.exists():
@@ -59,16 +59,26 @@ class AnomalyDetector:
                 with open(metadata_path, 'r', encoding='utf-8') as f:
                     metadata = json.load(f)
                 input_channels = metadata.get('input_channels', settings.INPUT_CHANNELS)
+                use_attention = metadata.get('use_attention', True)
             except Exception:
                 input_channels = settings.INPUT_CHANNELS
+                use_attention = True
         else:
             input_channels = settings.INPUT_CHANNELS
+            use_attention = True
 
-        model = TCN_Autoencoder(
+        model = TCN_Autoencoder_Advanced(
             input_channels=input_channels,
-            hidden_channels=[64, 128, 256],
-            kernel_size=3,
-            dropout=0.2,
+            hidden_channels=[128, 256, 512, 1024],  
+            kernel_size=5,  
+            dropout=0.3,
+            use_attention=use_attention, 
+            num_attention_heads=8,  
+        )
+
+        logger.info(
+            f"Using ADVANCED TCN model: channels={[128,256,512,1024]}, "
+            f"attention={'ON' if use_attention else 'OFF'}, input_features={input_channels}"
         )
 
         model_path = Path(settings.MODEL_PATH)

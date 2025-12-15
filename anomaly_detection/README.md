@@ -1,20 +1,28 @@
 # Anomaly Detection System
 
-ML-система обнаружения аномалий в активности устройств. Работает на production данных из ClickHouse, отправляет уведомления через WebSocket.
-
-**Production-Ready:** SQL Injection защита, Rate Limiting, API Key Auth, Connection Pooling, Retry Logic
-
----
-
-### 1. Запуск через Docker
+### 1. Запуск через Docker 
 
 ```bash
-# Из корня проекта SantiWay
-docker-compose up ml_backend ml_frontend -d
+# Шаг 1: Запустить основной проект 
+cd /path/to/SantiWayWEB
+docker-compose up -d
+
+# Шаг 2: Запустить ML сервис 
+cd anomaly_detection
+docker-compose up -d
 
 # Проверка
-curl http://localhost/ml/health
+curl http://localhost:8001/anomalies/health    # Прямой доступ
+curl http://localhost/ml/health                # Через Nginx
 # Frontend: http://localhost:8501
+```
+
+**Production настройки** (в .env):
+```bash
+# Для production отключить hot reload и установи API ключи
+API_RELOAD=False
+VALID_API_KEYS=your_strong_api_key_here
+ALLOWED_ORIGINS=https://yourdomain.com
 ```
 
 ### 2. Создать ClickHouse views (ПЕРВЫЙ ЗАПУСК)
@@ -37,14 +45,33 @@ docker exec -i santi_clickhouse clickhouse-client --multiquery < anomaly_detecti
 
 ### 3. Обучить модель
 
+#### Базовая модель (TCN Autoencoder)
+
 ```bash
 cd anomaly_detection
 pip install -r requirements.txt
 python ml/train_model.py
 ```
 
-Обучается на **30 днях production данных** из `santi.way_data`.
-Результат: `models/tcn_model.pt` + метаданные (98 features).
+
+#### **Advanced модель (TCN + Multi-Head Attention) - РЕКОМЕНДУЕТСЯ**
+
+```bash
+# Обучить Advanced модель с Multi-Head Attention
+python ml/train_advanced_model.py \
+  --days 10 \
+  --epochs 100 \
+  --use-extended \ 
+  --use-attention \
+  --device auto
+
+# Опции:
+# --days 10           - кол-во дней данных для обучения
+# --epochs 100        - количество эпох (default: 50)
+# --use-extended      - использовать расширенные фичи (98 вместо 20)
+# --use-attention     - включить Multi-Head Attention (8 голов)
+# --device auto       - устройство (auto | cuda | mps | cpu)
+```
 
 ### 4. Проверить работу
 
@@ -298,13 +325,14 @@ python ml/train_model.py
 - `models/tcn_model.pt` (~200MB)
 - `models/model_metadata.json` (thresholds, normalization, 98 features)
 
-### Advanced модель
+### Advanced модель (используется по умолчанию)
 
 ```bash
-python ml/train_advanced_model.py --days 30 --epochs 50 --use-attention
+# TCN + Multi-Head Attention (8 heads) + hidden channels [128, 256, 512, 1024]
+python ml/train_advanced_model.py --days 30 --epochs 100 --use-extended --use-attention
 ```
 
-TCN + Multi-Head Attention + больше hidden channels для лучшей точности.
+Точнее базовой, но требует GPU и больше данных.
 
 ---
 
@@ -344,11 +372,27 @@ API_RELOAD=True
 DJANGO_URL=http://web:8000
 ```
 
-### Docker Compose
+### Docker Compose (NEW Architecture)
 
-Сервисы в главном `docker-compose.yml`:
-- `ml_backend` (port 8001, exposed через nginx /ml/)
-- `ml_frontend` (port 8501, Streamlit dashboard)
+**ML сервис изолирован в отдельном docker-compose:**
+
+```
+ SantiWayWEB/
+├── docker-compose.yml              # Основной проект (Django, PostgreSQL, ClickHouse)
+└── anomaly_detection/
+    ├── docker-compose.yml          # ML сервис (optimized multi-stage)
+    ├── Dockerfile                  # Multi-stage build (800MB)
+    ├── .dockerignore               # Оптимизация сборки
+    └── .env.example                # Конфигурация
+```
+
+**Сервисы:**
+- `backend` (anomaly_ml_backend) - FastAPI ML Backend (port 8001)
+- `frontend` (anomaly_ml_frontend) - Streamlit Dashboard (port 8501)
+
+**Networking:**
+- Оба подключены к `app-network` для связи с Django/ClickHouse
+- ML Backend доступен через Nginx на `/ml/`
 
 ---
 
@@ -712,24 +756,27 @@ API_RELOAD=True
 
 **Common Commands:**
 ```bash
-# Запуск
-docker-compose up ml_backend ml_frontend -d
+# Запуск ML сервиса
+cd anomaly_detection
+docker-compose up -d
 
-# Обучение
+# Обучение модели
 python ml/train_model.py
 
-# Детекция + уведомления (Header-based Auth)
+# API тесты
+curl http://localhost/ml/health
+curl http://localhost/ml/anomalies/stats
+
+# Детекция + уведомления (требует API Key)
 curl -X POST "http://localhost/ml/anomalies/detect-and-notify?hours=24" \
   -H "X-API-Key: YOUR_SECRET_KEY"
 
-# Health check
-curl http://localhost/ml/health
-
-# Metrics
-curl http://localhost/ml/metrics
-
-# Logs
+# Мониторинг
 docker logs anomaly_ml_backend -f
+docker stats anomaly_ml_backend
+
+# Остановка
+docker-compose down
 ```
 
 ---

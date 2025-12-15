@@ -26,7 +26,7 @@ class ModelManager:
 
         metadata = self.load_metadata()
         input_channels = metadata.get('input_channels', settings.INPUT_CHANNELS)
-        model_type = metadata.get('model_type', 'tcn_basic')
+        model_type = metadata.get('model_type', 'tcn_advanced')
 
         if settings.INPUT_CHANNELS != input_channels:
             logger.warning(
