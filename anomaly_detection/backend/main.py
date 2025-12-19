@@ -35,6 +35,9 @@ async def lifespan(app: FastAPI):
 
     await ch_client.connect()
 
+    logger.info("Initializing ClickHouse schema...")
+    await ch_client.initialize_schema()
+
     manager = ModelManager(settings.MODEL_PATH, settings.DEVICE)
     model = manager.load()
 
