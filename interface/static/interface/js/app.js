@@ -5,10 +5,8 @@ import {
 } from "./custom-elements.js";
 import {getApiKeys, getDevices, getFolders} from "./get-devices.js";
 import {
-  getFilters,
-  setFilters,
-  getFiltersFromLocalStorage,
-  saveFiltersToLocalStorage,
+  getFilters, setFilters,
+  getFiltersFromBack, translateFiltersFromBack,
 } from "./filtering.js";
 
 const API_BASE = (window.APP_CONFIG && window.APP_CONFIG.API_BASE) || '/api';
@@ -1046,7 +1044,7 @@ async function initLists(){
   const apiKeys = await getApiKeys();
   fillCollapsibleList("apiList", apiKeys);
 
-  const cascade = new CascadeController([
+  cascade = new CascadeController([
     { id: "api", parent: null, containerId: "apiList" },
     { id: "device", parent: "api", containerId: "deviceList" },
     { id: "folder", parent: "device", containerId: "folderList" },
@@ -1062,7 +1060,13 @@ async function initLists(){
 
 // Инициализация параметров фильтров
 async function initFilters() {
-  const saved = getFiltersFromLocalStorage();
+  const data = await getFiltersFromBack(state.apiKey);
+  if (!data?.params?.query_params || !Object.keys(data.params.query_params).length) {
+    console.log("Filters empty");
+    return;
+  }
+  const saved = translateFiltersFromBack(data.params?.query_params);
+  console.log("Filters:", saved);
   if (!saved) return;
 
   // Проставление чекбоксов для апи ключей
@@ -1078,6 +1082,7 @@ async function initFilters() {
     await cascade.select("folder", saved.folders);
   }
   // Остальные фильтры не каскадные
+  state.filters = saved;
   setFilters(saved);
 }
 
@@ -1101,9 +1106,3 @@ async function initFilters() {
   await initLists();
   await initFilters();
 })();
-
-// Сохранение фильтров перед выходом/перезагрузкой и тп.
-window.addEventListener("beforeunload", ()=>{
-  saveFiltersToLocalStorage(getFilters());
-})
-
