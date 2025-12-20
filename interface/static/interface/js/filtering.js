@@ -61,7 +61,7 @@ export function setFilters(filters) {
 
 export async function getFiltersFromBack(apiKey) {
   try {
-    const res = await fetch(`${API_FILTERING}last`, {
+    const res = await fetch(`${API_FILTERING}last/`, {
       method: "GET",
       headers: {
         "Authorization": `Api-Key ${apiKey}`,
