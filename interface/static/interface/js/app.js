@@ -99,6 +99,14 @@ const POLYGON_COLORS = {
   STOPPED: "#9ca3af"    // Остановлен
 };
 
+const InitFiltersStatus = {
+  NO_API_KEY: "no_api_key",
+  NO_SAVED_FILTERS: "no_saved_filters",
+  RESTORED_WITH_RESULTS: "restored_with_results",
+  RESTORED_EMPTY_RESULTS: "restored_empty_results",
+};
+
+
 if (!state.apiKey){alert('Для корректной работы сайта создайте API-ключ в профиле и перезагрузите эту страницу');}
 
 function normalize(v){ return String(v ?? '').trim(); }
@@ -443,6 +451,10 @@ async function fetchDevices() {
     return { rows: data.items, total: Number(data.total) || data.items.length };
   }
   return { rows: Array.isArray(data) ? data : [], total: Array.isArray(data) ? data.length : 0 };
+}
+
+function renderAll({rows, polygons}) {
+
 }
 
 async function reload(){
@@ -1061,13 +1073,23 @@ async function initLists(){
 // Инициализация параметров фильтров
 async function initFilters() {
   const data = await getFiltersFromBack(state.apiKey);
-  if (!data?.params?.query_params || !Object.keys(data.params.query_params).length) {
-    console.log("Filters empty");
-    return;
+
+  if (!data) {
+    // fetch упал, 403 или сеть
+    return InitFiltersStatus.NO_API_KEY;
   }
-  const saved = translateFiltersFromBack(data.params?.query_params);
-  console.log("Filters:", saved);
-  if (!saved) return;
+
+  // Если есть сохранённый поиск
+  if (!data.id) {
+    return InitFiltersStatus.NO_SAVED_FILTERS
+  }
+  state.rows = data.results || [];
+  state.total = state.rows.length;
+
+  const saved = translateFiltersFromBack(data.params?.query_params || {});
+  if (!saved) {
+    return InitFiltersStatus.NO_SAVED_FILTERS;
+  }
 
   // Проставление чекбоксов для апи ключей
   if (saved.apiKeys?.length) {
@@ -1084,16 +1106,49 @@ async function initFilters() {
   // Остальные фильтры не каскадные
   state.filters = saved;
   setFilters(saved);
+
+  return state.total > 0
+    ? InitFiltersStatus.RESTORED_WITH_RESULTS
+    : InitFiltersStatus.RESTORED_EMPTY_RESULTS;
 }
 
 // Инициализация
 ;(async function init(){
   console.log('Initializing app...');
-  document.getElementById('pageSize').value = String(state.pageSize);
   console.log('Calling ensureDrawTools...');
   ensureDrawTools();
   console.log('Calling reload...');
-  reload();
+
+  await initLists();
+  // UI-реакции
+  const filtersStatus = await initFilters();
+  switch (filtersStatus) {
+    case InitFiltersStatus.NO_API_KEY:
+      notifications.warning("Создайте API-ключ для работы с дашбордом");
+      break;
+
+    case InitFiltersStatus.RESTORED_EMPTY_RESULTS:
+      notifications.warning("По сохранённым фильтрам ничего не найдено");
+      break;
+
+    case InitFiltersStatus.RESTORED_WITH_RESULTS:
+      notifications.info("Выведена последняя фильтрация");
+      break;
+
+    default:
+      console.log("Стандартный запрос");
+      ({ rows: state.rows, total: state.total } = await fetchDevices());
+  }
+
+  polygons = await fetchPolygons();
+  // Шлем на сервер запросы только при загрузке страницы в первый раз
+  state.colorForPolygon = await getAllPolygonsColor(polygons);
+
+  renderMarkers(state.rows);
+  renderPolygons(polygons, state.colorForPolygon);
+  renderTable();
+  selectRow(state.total ? state.rows[0].device_id : null)
+
   console.log('App initialized');
 
   // Инициализируем менеджер уведомлений
@@ -1103,6 +1158,4 @@ async function initFilters() {
   } else {
     console.log('API key not available, skipping notification manager initialization');
   }
-  await initLists();
-  await initFilters();
 })();
