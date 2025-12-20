@@ -1,6 +1,5 @@
 import {getCheckboxesValues} from "./custom-elements.js";
 
-const STORAGE_KEY = "dashboard.filters";
 
 function normalize(v){ return String(v ?? '').trim(); }
 function timeParse(id){
@@ -14,6 +13,15 @@ function toDatetimeLocalValue(date) {
   const pad = n => String(n).padStart(2, "0");
   return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}` +
          `T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function parseCSV(value) {
+  if (!value) return [];
+  return value.split(",").map(v => v.trim()).filter(Boolean);
+}
+
+function parseBool(value) {
+  return value === "true";
 }
 
 // Возвращает значения всех фильтров на странице
@@ -51,24 +59,48 @@ export function setFilters(filters) {
   document.getElementById("f-network").dispatchEvent(new Event("change", { bubbles: true }));
 }
 
-export function getFiltersFromBack() {
-//   Тут будет fetch
-}
-
-// Сохранение полей фильтров в localStorage
-export function saveFiltersToLocalStorage(filters) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(filters));
-}
-
-// Получение полей фильтров из LocalStorage
-export function getFiltersFromLocalStorage() {
+export async function getFiltersFromBack(apiKey) {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : null;
-  } catch (e) {
-    console.error('Не удалось прочитать фильтры из localStorage', e);
+    const res = await fetch(`${API_FILTERING}last`, {
+      method: "GET",
+      headers: {
+        "Authorization": `Api-Key ${apiKey}`,
+        "Accept": "application/json",
+      },
+    });
+
+    if (res.status === 401) {
+      console.warn("API key invalid or user not found");
+      return null;
+    }
+
+    if (!res.ok) {
+      console.error("Failed to load filters:", res.status);
+      return null;
+    }
+
+    return await res.json();
+  } catch (err) {
+    console.error("Network error while loading filters", err);
     return null;
   }
 }
 
 
+export function translateFiltersFromBack(raw = {}) {
+  return {
+    apiKeys: parseCSV(raw.user_api),
+    devices: parseCSV(raw.user_phone_mac),
+    folders: parseCSV(raw.folder_name),
+
+    network: raw.network_type || "any",
+    mac: raw.device_id || '',
+    name: raw.name || '',
+
+    timeStart: raw.detected_at__gte || null,
+    timeEnd: raw.detected_at__lte || null,
+
+    alert: parseBool(raw.is_alert),
+    ignore: parseBool(raw.is_ignored)
+  }
+}
