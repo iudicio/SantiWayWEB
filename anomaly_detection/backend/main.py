@@ -13,7 +13,7 @@ from pathlib import Path
 
 from backend.services.clickhouse_client import ch_client
 from backend.services.model_manager import ModelManager
-from backend.services.notification_service import get_notification_service
+from backend.services.websocket_notification_service import get_websocket_notification_service
 from backend.services.metrics import (
     MetricsCollector,
     get_metrics,
@@ -55,25 +55,16 @@ async def lifespan(app: FastAPI):
                 threshold_99=metadata.get('thresholds', {}).get('99', settings.ANOMALY_THRESHOLD_99)
             )
 
-    logger.info("Checking Django notification service availability...")
-    notification_service = get_notification_service()
-    is_django_available = await notification_service.health_check()
-
-    if not is_django_available:
-        logger.error(
-            "Django notification service is NOT available. "
-            "WebSocket notifications will not work. "
-            "Check DJANGO_NOTIFICATION_URL in .env and ensure Django is running."
-        )
-        logger.warning("Starting API in degraded mode (notifications disabled)")
-    else:
-        logger.info("Django notification service is available")
+    logger.info("Starting WebSocket notification service...")
+    notification_service = get_websocket_notification_service()
+    await notification_service.start()
 
     logger.info("API ready!")
 
     yield
 
     logger.info("Shutting down...")
+    await notification_service.stop()
     await ch_client.disconnect()
 
 app = FastAPI(

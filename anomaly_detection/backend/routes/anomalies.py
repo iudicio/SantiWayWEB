@@ -5,7 +5,7 @@ from typing import List, Optional
 from datetime import datetime
 from backend.services.clickhouse_client import ch_client
 from backend.services.anomaly_detector import AnomalyDetector
-from backend.services.notification_service import notify_anomalies_for_user
+from backend.services.websocket_notification_service import notify_anomalies_for_user_ws
 from backend.services.feature_engineer import FeatureEngineer
 from backend.services.data_validator import DataValidator
 from loguru import logger
@@ -218,7 +218,7 @@ async def detect_and_notify_anomalies(
         saved_count = await detector.save_anomalies(all_anomalies)
         logger.info(f"Saved {saved_count} anomalies to database")
 
-        notified_count = await notify_anomalies_for_user(api_key, all_anomalies)
+        notified_count = await notify_anomalies_for_user_ws(api_key, all_anomalies)
         logger.info(f"Sent {notified_count} notifications via WebSocket")
 
         types_stats = {}
