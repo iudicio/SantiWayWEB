@@ -1,0 +1,39 @@
+networks:
+  appnet:
+    external: true
+    name: app-network
+
+services:
+  clickhouse:
+    image: clickhouse/clickhouse-server:latest
+    container_name: santi_clickhouse
+    networks: [appnet]
+    ports:
+      - "8123:8123"
+      - "9000:9000"
+    volumes:
+      - ch_data:/var/lib/clickhouse
+      - ./clickhouse-users/10-default-networks.xml:/etc/clickhouse-server/users.d/10-default-networks.xml:ro
+    healthcheck:
+      test: ["CMD", "clickhouse-client", "--query", "SELECT 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  clickhouse-init:
+    image: clickhouse/clickhouse-server:latest
+    container_name: santi_clickhouse_init
+    networks: [appnet]
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+    volumes:
+      - ./init.sh:/init.sh:ro
+      - ./schema.sql:/schema.sql:ro
+    env_file: .env
+    entrypoint: ["/bin/bash", "/init.sh"]
+    restart: "no"
+
+volumes:
+  ch_data:
