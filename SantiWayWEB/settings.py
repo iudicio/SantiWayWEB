@@ -225,6 +225,10 @@ CELERY_RESULT_BACKEND = 'rpc://'
 CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
+
+STATICFILES_DIRS = [
+    BASE_DIR / "static",
+]
 CELERY_TIMEZONE = TIME_ZONE
 
 # Default primary key field type
