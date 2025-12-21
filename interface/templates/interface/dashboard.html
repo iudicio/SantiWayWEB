@@ -4,6 +4,7 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <link rel="icon" href="{% static '/favicon.ico' %}">
 
   <!--  Карта leaflet-->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
@@ -32,9 +33,7 @@
     const API_FILTERING = "{% url 'api:filtering-list' %}"
   </script>
 
-  <script src="{% static 'interface/get-devices.js' %}"></script>
-  <script type="module" src="{% static 'interface/custom-elements.js' %}"></script>
-  <script type="module" src="{% static 'interface/app.js' %}?v=3"></script>
+  <script type="module" src="{% static 'interface/js/app.js' %}?v=3"></script>
   <script src="{% static '/js/background.js' %}"></script>
   <title>Locator</title>
 </head>
@@ -201,7 +200,7 @@
 
             <div class="table-settings" style="position: relative;">
               <button id="columnsToggle" class="settings-btn" type="button" aria-expanded="false" aria-controls="columnsMenu">
-                <img src="{% static 'interface/settings.png' %}" alt="Настройки столбцов" />
+                <img src="{% static 'interface/img/settings.png' %}" alt="Настройки столбцов" />
               </button>
 
               <div id="columnsMenu" class="columns-menu hidden" role="menu" aria-hidden="true"></div>
@@ -242,9 +241,8 @@
           </div>
           <div id="pagination"></div>
           <div class="pagination-controls">
-            <button class="page-btn" id="prevPage">&laquo; Назад</button>
-            <span id="pageNumbers" class="page-numbers"></span>
-            <button class="page-btn" id="nextPage">Вперед &raquo;</button>
+            <button class="page-btn" id="prevPage">Предыдущая</button>
+            <button class="page-btn" id="nextPage">Следующая</button>
           </div>
         </div>
       </div>

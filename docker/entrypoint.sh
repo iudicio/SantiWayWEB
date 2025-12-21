@@ -24,12 +24,6 @@ python manage.py migrate --noinput
 # Статика
 python manage.py collectstatic --noinput
 
-# Копируем глобальную статику (корневую ./static) в STATIC_ROOT
-if [ -d "/app/static" ]; then
-    echo "Copying global static files into STATIC_ROOT..."
-    cp -r /app/static/* /app/staticfiles/
-fi
-
 if [ -n "${DJANGO_SUPERUSER_EMAIL}" ] && [ -n "${DJANGO_SUPERUSER_PASSWORD}" ]; then
 python - <<'PY'
 import os, django

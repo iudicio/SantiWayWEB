@@ -28,7 +28,7 @@ ES_PASSWORD = getenv("ES_PASSWORD")
 
 ES_INDEX = getattr(settings, "ES_INDEX", "way")
 ES_LOCATION_FIELD = getattr(settings, "ES_LOCATION_FIELD", "location")
-ES_TIMESTAMP_FIELD = getattr(settings, "ES_TIMESTAMP_FIELD", "timestamp")
+ES_TIMESTAMP_FIELD = getattr(settings, "ES_TIMESTAMP_FIELD", "detected_at")
 
 es = None
 
