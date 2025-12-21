@@ -69,7 +69,7 @@ export async function getFiltersFromBack(apiKey) {
       },
     });
 
-    if (res.status === 401) {
+    if (res.status === 403) {
       console.warn("API key invalid or user not found");
       return null;
     }
