@@ -1,6 +1,6 @@
 from typing import List, Dict, Any, Optional
 from os import getenv
-from datetime import datetime
+from datetime import datetime,timezone
 import clickhouse_connect
 from clickhouse_connect.driver import Client
 
@@ -25,37 +25,31 @@ except Exception as e:
     CH_CLIENT = None
 
 
-def parse_datetime(dt_value: Any) -> str:
-    """
-    Парсит дату в формат ClickHouse DateTime (YYYY-MM-DD HH:MM:SS).
-
-    Поддерживает:
-    - ISO 8601 строки: "2025-12-04T10:30:00Z" или "2025-12-04T10:30:00+00:00"
-    - datetime объекты
-    - Обычные строки: "2025-12-04 10:30:00"
-
-    Args:
-        dt_value: Значение даты (строка или datetime)
-
-    Returns:
-        Строка в формате "YYYY-MM-DD HH:MM:SS"
-    """
+def parse_datetime(dt_value: Any) -> datetime:
+    # Уже datetime
     if isinstance(dt_value, datetime):
-        return dt_value.strftime('%Y-%m-%d %H:%M:%S')
+        return dt_value if dt_value.tzinfo is None else dt_value.astimezone(timezone.utc).replace(tzinfo=None)
 
+    # Строка
     if isinstance(dt_value, str):
-        dt_str = dt_value.replace('Z', '+00:00')
+        s = dt_value.strip().replace("Z", "+00:00")
 
+        # ISO: 2025-12-04T10:30:00+00:00
         try:
-            if 'T' in dt_str:
-                dt = datetime.fromisoformat(dt_str)
-                return dt.strftime('%Y-%m-%d %H:%M:%S')
-            else:
-                return dt_str
-        except (ValueError, AttributeError):
-            return "1970-01-01 00:00:00"
+            dt = datetime.fromisoformat(s)
+            if dt.tzinfo is not None:
+                dt = dt.astimezone(timezone.utc).replace(tzinfo=None)
+            return dt
+        except ValueError:
+            pass
 
-    return "1970-01-01 00:00:00"
+        # Обычный формат: 2025-12-04 10:30:00
+        try:
+            return datetime.strptime(s, "%Y-%m-%d %H:%M:%S")
+        except ValueError:
+            return datetime(1970, 1, 1)
+
+    return datetime(1970, 1, 1)
 
 
 def validate_document(doc: Dict[str, Any]) -> Optional[str]:
