@@ -392,6 +392,11 @@ function updatePaginationControls(){
   next.onclick = ()=>{ state.page = Math.min(totalPages, state.page+1); renderTable(); };
 }
 
+function addPlaceholderRow(text){
+  const colspan = document.querySelectorAll("#devicesTable thead th").length;
+  tbody.innerHTML = `<tr><td colspan="${colspan}">${text}</td></tr>`;
+}
+
 function selectRow(id, fly=false){
   state.selectedId = id || null;
   document.getElementById('selected-id').textContent = id || '—';
@@ -522,6 +527,9 @@ async function fetchPolygons(){
       'Authorization': `Api-Key ${state.apiKey}`
     }
   });
+  if (res.status === 403) {
+    return [];
+  }
   if(!res.ok) throw new Error(`API ${res.status}`);
   return await res.json();
 }
@@ -580,7 +588,7 @@ function renderPolygons(rows, colors){
 
 window.searchDevicesInPolygon = async function(polygonId) {
   state.selectedPolygonData = polygons.find(p => p.id === polygonId) ?? null;
-  setFiltersState();
+  applyFilters();
 };
 
 window.startMonitoring = async function startMonitoring(polygonId) {
@@ -1117,7 +1125,6 @@ async function initFilters() {
   console.log('Initializing app...');
   console.log('Calling ensureDrawTools...');
   ensureDrawTools();
-  console.log('Calling reload...');
 
   await initLists();
   // UI-реакции
@@ -1146,8 +1153,27 @@ async function initFilters() {
 
   renderMarkers(state.rows);
   renderPolygons(polygons, state.colorForPolygon);
+  selectRow(state.total !== 0 ? state.rows[0].device_id : null)
   renderTable();
-  selectRow(state.total ? state.rows[0].device_id : null)
+
+  if (filtersStatus === InitFiltersStatus.NO_API_KEY) {
+    addPlaceholderRow("Невозможно сделать запрос без Api-Key");
+  } else if (filtersStatus === InitFiltersStatus.RESTORED_EMPTY_RESULTS) {
+    addPlaceholderRow("Устройства с текущими фильтрами не обнаружены");
+  } else if (state.total === 0){
+    addPlaceholderRow("Нет данных для отображения");
+  }
+
+  const uniqueMacs = new Set(state.rows.map(d => d.device_id)).size
+
+  console.log("Уникальных MAC:", uniqueMacs);
+  console.log("Всего записей:", state.total);
+
+  if (state.total !== uniqueMacs) {
+    console.error("❌ API вернул дубликаты MAC!");
+  } else {
+    console.log("✅ API агрегирует по MAC корректно");
+  }
 
   console.log('App initialized');
 
