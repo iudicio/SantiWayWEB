@@ -489,22 +489,31 @@ export class CascadeController {
   }
 
   // Выставляет выбранные чекбоксы
-  async select(levelId, values = []) {
+  async select(levelId, values = [], timeout = 5000) { // timeout в мс
     const level = this.structure.find(l => l.id === levelId);
     if (!level) return;
 
     const container = document.getElementById(level.containerId);
     if (!container) return;
 
-    const checkboxes = getCheckboxes(level.containerId);
+    for (const value of values) {
+      let cb;
+      const start = Date.now();
+      // Проверка что checkbox появился
+      while (!(cb = getCheckboxes(level.containerId).find(c => c.value === value))) {
+        if (Date.now() - start > timeout) {
+          console.warn(`Checkbox "${value}" не появился в DOM за ${timeout}ms`);
+          break;
+        }
+        await new Promise(resolve => setTimeout(resolve, 50));
+      }
 
-    values.forEach(value => {
-      const cb = checkboxes.find(cb => cb.value === value);
       if (cb && !cb.checked) {
         cb.checked = true;
         cb.dispatchEvent(new Event("change", { bubbles: true }));
+        await this.handleChange(level);
       }
-    });
+    }
   }
 }
 

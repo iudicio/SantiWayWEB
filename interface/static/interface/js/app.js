@@ -1099,12 +1099,15 @@ async function initFilters() {
     return InitFiltersStatus.NO_SAVED_FILTERS;
   }
 
+  console.log("Saved:", saved);
+
   // Проставление чекбоксов для апи ключей
   if (saved.apiKeys?.length) {
     await cascade.select("api", saved.apiKeys);
   }
   // для девайсов
   if (saved.devices?.length) {
+    console.log("devices");
     await cascade.select("device", saved.devices);
   }
   // для папок
