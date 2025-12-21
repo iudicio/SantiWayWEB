@@ -1,5 +1,6 @@
 import re
 import uuid
+import logging
 from urllib.parse import parse_qs
 
 from channels.generic.websocket import AsyncJsonWebsocketConsumer
@@ -11,6 +12,7 @@ from users.models import APIKey
 from .models import WSConnection, Notification
 
 
+logger = logging.getLogger(__name__)
 GROUP_PREFIX_API = "api_"
 
 
@@ -35,6 +37,7 @@ class NotificationConsumer(AsyncJsonWebsocketConsumer):
 
         group = _sanitize_group(f"{GROUP_PREFIX_API}{api_key_str}")
         self.api_key_str = api_key_str
+        self.api_key_obj = api_key_obj  # Сохраняем для использования в pending notifications
         self.group_name = group
 
         client_ip = self.scope["client"][0] if self.scope.get("client") else None
@@ -64,6 +67,17 @@ class NotificationConsumer(AsyncJsonWebsocketConsumer):
             "device_id": device_id,
         })
 
+        pending_notifications = await self._get_pending_notifications(api_key_obj.id)
+        if pending_notifications:
+            logger.info(f"Sending {len(pending_notifications)} pending notifications to {api_key_str[-6:]}...")
+            for notif in pending_notifications:
+                try:
+                    await self.send_json(notif['payload'])
+                    await self._mark_notification_sent(notif['id'])
+                except Exception as e:
+                    logger.error(f"Failed to send pending notification {notif['id']}: {e}")
+                    break
+
     async def disconnect(self, code):
         if getattr(self, "group_name", None):
             await self.channel_layer.group_discard(self.group_name, self.channel_name)
@@ -82,7 +96,16 @@ class NotificationConsumer(AsyncJsonWebsocketConsumer):
                 await self._mark_delivered(str(notif_id))
 
     async def notify_message(self, event):
+        """
+        Отправляет уведомление подключенному клиенту.
+
+        Помечает уведомление как SENT при фактической отправке через WebSocket.
+        """
         await self.send_json(event.get("payload", {}))
+
+        notification_id = event.get("notification_id")
+        if notification_id:
+            await self._mark_notification_sent(notification_id)
 
     # ---- DB helpers ----
     @database_sync_to_async
@@ -183,3 +206,237 @@ class NotificationConsumer(AsyncJsonWebsocketConsumer):
             status=Notification.Status.DELIVERED,
             delivered_at=timezone.now(),
         )
+
+    @database_sync_to_async
+    def _get_pending_notifications(self, api_key_id):
+        """Получить неотправленные уведомления для данного API ключа"""
+        notifications = Notification.objects.filter(
+            api_key_id=api_key_id,
+            status=Notification.Status.QUEUED
+        ).order_by('created_at')[:50]  # Макс 50 pending уведомлений
+
+        return [{'id': str(n.id), 'payload': n.payload} for n in notifications]
+
+    @database_sync_to_async
+    def _mark_notification_sent(self, notif_id: str):
+        """
+        Помечает уведомление как отправленное (SENT).
+
+        Обновляет статус только если текущий статус QUEUED.
+        Предотвращает регрессию статуса DELIVERED -> SENT.
+
+        Args:
+            notif_id: UUID уведомления
+        """
+        Notification.objects.filter(
+            id=notif_id,
+            status=Notification.Status.QUEUED
+        ).update(
+            status=Notification.Status.SENT,
+            sent_at=timezone.now()
+        )
+
+
+class MLNotificationConsumer(AsyncJsonWebsocketConsumer):
+    """
+    WebSocket consumer для приема уведомлений от ML backend
+    Endpoint: ws://host/ws/ml-notifications/?api_key=INTERNAL_ML_KEY
+    """
+
+    async def connect(self):
+        """
+        Обработка подключения ML backend через WebSocket.
+
+        Аутентификация по ml_key из query параметров.
+        """
+        qs = parse_qs(self.scope["query_string"].decode())
+        ml_key = qs.get("ml_key", [None])[0]
+
+        from django.conf import settings
+        expected_key = getattr(settings, 'ML_BACKEND_KEY', 'ml-secret-key-change-me')
+
+        if ml_key != expected_key:
+            logger.warning(f"ML backend authentication failed from {self.scope.get('client')}")
+            await self.close(code=4003)
+            return
+
+        self.ml_authenticated = True
+        await self.accept()
+
+        client_info = self.scope.get('client', ['unknown', 'unknown'])
+        logger.info(f"ML backend connected from {client_info[0]}:{client_info[1]}")
+
+        await self.send_json({
+            "type": "system.connected",
+            "ts": timezone.now().isoformat(),
+            "message": "ML backend connected"
+        })
+
+    async def disconnect(self, code):
+        """
+        Обработка отключения ML backend.
+
+        Args:
+            code: Код закрытия WebSocket соединения
+        """
+        logger.info(f"ML backend disconnected with code {code}")
+
+    async def receive_json(self, content, **kwargs):
+        """
+        Прием сообщений от ML backend
+
+        Expected format:
+        {
+            "type": "anomaly",
+            "api_key": "user-api-key",
+            "payload": {...}
+        }
+        """
+        msg_type = content.get("type")
+
+        if msg_type == "anomaly":
+            await self._handle_anomaly(content)
+        elif msg_type == "ping":
+            await self.send_json({"type": "pong", "ts": timezone.now().isoformat()})
+        else:
+            await self.send_json({"type": "error", "message": f"Unknown message type: {msg_type}"})
+
+    async def _handle_anomaly(self, content):
+        """
+        Обработка аномалии от ML и рассылка через WebSocket клиентам.
+
+        Логика:
+        - Если есть активные клиенты: отправляет через channel layer и помечает SENT
+        - Если нет активных клиентов: оставляет QUEUED для отправки при подключении
+        """
+        try:
+            from channels.layers import get_channel_layer
+            import uuid as uuid_lib
+
+            api_key_str = content.get('api_key')
+            payload = content.get('payload')
+
+            if not api_key_str or not payload:
+                await self.send_json({
+                    "type": "error",
+                    "message": "Missing api_key or payload"
+                })
+                return
+
+            api_key_obj = await self._get_apikey(api_key_str)
+            if not api_key_obj:
+                await self.send_json({
+                    "type": "error",
+                    "message": "Invalid API key"
+                })
+                return
+
+            notification = await self._save_notification(api_key_obj, payload)
+
+            has_active_clients = await self._has_active_connections(api_key_obj.id)
+
+            if has_active_clients:
+                group_name = _sanitize_group(f"api_{api_key_str}")
+                channel_layer = get_channel_layer()
+                await channel_layer.group_send(
+                    group_name,
+                    {
+                        'type': 'notify_message',
+                        'payload': payload,
+                        'notification_id': str(notification.id),
+                    }
+                )
+
+                status = "sent"
+                logger.info(
+                    f"Anomaly notification dispatched to channel layer: "
+                    f"api_key={api_key_str[-6:]}... type={payload.get('type', 'unknown')}"
+                )
+            else:
+                status = "queued"
+                logger.info(
+                    f"Anomaly notification queued (no active clients): "
+                    f"api_key={api_key_str[-6:]}... type={payload.get('type', 'unknown')}"
+                )
+
+            await self.send_json({
+                "type": "ack",
+                "notification_id": str(notification.id),
+                "status": status
+            })
+
+        except Exception as e:
+            await self.send_json({
+                "type": "error",
+                "message": str(e)
+            })
+
+    # DB helpers
+    @database_sync_to_async
+    def _get_apikey(self, api_key_str: str):
+        try:
+            key_uuid = uuid.UUID(api_key_str)
+        except Exception:
+            return None
+        return APIKey.objects.filter(key=key_uuid).first()
+
+    @database_sync_to_async
+    def _save_notification(self, api_key_obj, payload):
+        import uuid as uuid_lib
+
+        notif_id = payload.get('notif_id')
+        if notif_id:
+            try:
+                notif_id = uuid_lib.UUID(notif_id)
+            except (ValueError, AttributeError):
+                notif_id = uuid_lib.uuid4()
+        else:
+            notif_id = uuid_lib.uuid4()
+
+        notif = Notification.objects.create(
+            id=notif_id,
+            api_key=api_key_obj,
+            payload=payload,
+            status=Notification.Status.QUEUED,
+            title=payload.get('title', ''),
+            text=payload.get('text', ''),
+            notif_type=payload.get('severity', 'INFO').upper(),
+            coords=payload.get('coords', {}),
+            recorded_at=timezone.now(),
+        )
+        return notif
+
+    @database_sync_to_async
+    def _mark_notification_sent(self, notif_id: str):
+        """
+        Помечает уведомление как отправленное (SENT).
+
+        Обновляет статус только если текущий статус QUEUED.
+        Предотвращает регрессию статуса DELIVERED -> SENT.
+
+        Args:
+            notif_id: UUID уведомления
+        """
+        Notification.objects.filter(
+            id=notif_id,
+            status=Notification.Status.QUEUED
+        ).update(
+            status=Notification.Status.SENT,
+            sent_at=timezone.now()
+        )
+
+    @database_sync_to_async
+    def _has_active_connections(self, api_key_id):
+        """
+        Проверяет наличие активных WebSocket подключений для API ключа.
+
+        Args:
+            api_key_id: ID API ключа
+
+        Returns:
+            bool: True если есть хотя бы одно активное подключение
+        """
+        return WSConnection.objects.filter(
+            api_key_id=api_key_id,
+            is_connected=True
+        ).exists()

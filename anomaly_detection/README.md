@@ -196,7 +196,7 @@ ALLOWED_ORIGINS=http://localhost,http://localhost:3000
 |----------|---------|---------|----------|
 | ClickHouse Connect | 5 | 2s → 30s | Connection/Timeout/OSError |
 | ClickHouse Query | 3 | 1s → 10s | Connection/Timeout/OSError |
-| HTTP to Django | 3 | 1s → 10s | HTTPError/Timeout |
+| WebSocket to Django | Auto-reconnect | 1s → 60s | Connection/Timeout |
 
 ---
 
@@ -244,9 +244,9 @@ ALLOWED_ORIGINS=http://localhost,http://localhost:3000
 
 ```
 ML Backend (FastAPI)
-    ↓ HTTP POST with Retry Logic
-Django /notifications/api/send/
-    ↓ Channels
+    ↓ WebSocket (постоянное соединение)
+Django /ws/ml-notifications/
+    ↓ Channels + Redis
 WebSocket Clients (ws://host/ws/notifications/?api_key=KEY)
 ```
 
@@ -369,7 +369,8 @@ API_PORT=8000
 API_RELOAD=True
 
 # Django (для WebSocket notifications)
-DJANGO_URL=http://web:8000
+DJANGO_NOTIFICATION_URL=http://web:8000
+ML_BACKEND_KEY=ml-secret-key-change-me
 ```
 
 ### Docker Compose (NEW Architecture)
@@ -408,12 +409,12 @@ anomaly_detection/
 │   │   ├── explain.py              # SHAP explainability
 │   │   └── comparison.py           # Сравнение устройств
 │   ├── services/
-│   │   ├── anomaly_detector.py     # 4 типа детекторов
-│   │   ├── feature_engineer.py     # 98 признаков
-│   │   ├── model_tcn.py            # TCN Autoencoder
-│   │   ├── clickhouse_client.py    # Async Pool + Retry + SQL Injection Protection
-│   │   ├── notification_service.py # WebSocket + Retry Logic
-│   │   └── data_validator.py       # Data quality validation
+│   │   ├── anomaly_detector.py              # 4 типа детекторов
+│   │   ├── feature_engineer.py              # 98 признаков
+│   │   ├── model_tcn.py                     # TCN Autoencoder
+│   │   ├── clickhouse_client.py             # Async Pool + Retry + SQL Injection Protection
+│   │   ├── websocket_notification_service.py # WebSocket клиент с auto-reconnect
+│   │   └── data_validator.py                # Data quality validation
 │   └── utils/
 │       └── config.py               # Settings (CORS, API Keys, etc.)
 ├── ml/
@@ -575,7 +576,7 @@ INPUT_CHANNELS=98
 DEVICE=cpu
 
 # Django
-DJANGO_URL=http://web:8000
+DJANGO_NOTIFICATION_URL=http://web:8000
 ```
 
 ### Monitoring & Alerting

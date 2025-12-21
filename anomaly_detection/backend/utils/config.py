@@ -25,6 +25,7 @@ class Settings(BaseSettings):
     API_RELOAD: bool = True
 
     DJANGO_NOTIFICATION_URL: str = "http://web:8000"
+    ML_BACKEND_KEY: str = "ml-secret-key-change-me"
 
     ALLOWED_ORIGINS: str = "http://localhost,http://localhost:8000,http://localhost:3000"
 
