@@ -1,0 +1,16 @@
+networks:
+  appnet:
+    external: true
+    name: app-network
+
+services:
+  chwriter:
+    build: .
+    container_name: ch-writer
+    networks: [appnet]
+    env_file:
+      - .env
+    restart: unless-stopped
+    # на всякий — явно фиксируем единственную реплику (compose всё равно поднимет одну)
+    deploy:
+      replicas: 1

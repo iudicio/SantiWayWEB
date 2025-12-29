@@ -1,9 +1,13 @@
 import {
   fillCollapsibleList,
   CascadeController,
-  getCheckboxesValues,
   syncRowTdDataCols
 } from "./custom-elements.js";
+import {getApiKeys, getDevices, getFolders} from "./get-devices.js";
+import {
+  getFilters, setFilters,
+  getFiltersFromBack, translateFiltersFromBack,
+} from "./filtering.js";
 
 const API_BASE = (window.APP_CONFIG && window.APP_CONFIG.API_BASE) || '/api';
 const API_KEY = (window.APP_CONFIG && window.APP_CONFIG.API_KEY) || '';
@@ -84,6 +88,7 @@ const state = {
 };
 
 let polygons;
+let cascade;
 
 
 // Цвета полигонов в зависимости от статуса
@@ -93,6 +98,14 @@ const POLYGON_COLORS = {
   COMPLETED: "#22c55e", // Завершен
   STOPPED: "#9ca3af"    // Остановлен
 };
+
+const InitFiltersStatus = {
+  NO_API_KEY: "no_api_key",
+  NO_SAVED_FILTERS: "no_saved_filters",
+  RESTORED_WITH_RESULTS: "restored_with_results",
+  RESTORED_EMPTY_RESULTS: "restored_empty_results",
+};
+
 
 if (!state.apiKey){alert('Для корректной работы сайта создайте API-ключ в профиле и перезагрузите эту страницу');}
 
@@ -379,6 +392,11 @@ function updatePaginationControls(){
   next.onclick = ()=>{ state.page = Math.min(totalPages, state.page+1); renderTable(); };
 }
 
+function addPlaceholderRow(text){
+  const colspan = document.querySelectorAll("#devicesTable thead th").length;
+  tbody.innerHTML = `<tr><td colspan="${colspan}">${text}</td></tr>`;
+}
+
 function selectRow(id, fly=false){
   state.selectedId = id || null;
   document.getElementById('selected-id').textContent = id || '—';
@@ -440,6 +458,10 @@ async function fetchDevices() {
   return { rows: Array.isArray(data) ? data : [], total: Array.isArray(data) ? data.length : 0 };
 }
 
+function renderAll({rows, polygons}) {
+
+}
+
 async function reload(){
   try{
     const { rows, total } = await fetchDevices();
@@ -474,24 +496,10 @@ async function reload(){
 }
 
 // Фильтры/события
-document.getElementById('btnApplyFilters').addEventListener('click', ()=> {setFiltersState();});
+document.getElementById('btnApplyFilters').addEventListener('click', ()=> {applyFilters();});
 
-function setFiltersState(){
-  state.filters.apiKeys = getCheckboxesValues("apiList");
-  state.filters.devices = getCheckboxesValues("deviceList");
-  state.filters.folders = getCheckboxesValues("folderList");
-
-  state.filters.network = document.getElementById('f-network').value;
-  state.filters.mac = normalize(document.getElementById('f-mac').value);
-  state.filters.name = normalize(document.getElementById('f-name').value);
-
-  const timeStart = document.getElementById("time-start").value;
-  const timeEnd = document.getElementById("time-end").value;
-  state.filters.timeStart = timeStart ? new Date(timeStart).toISOString() : null
-  state.filters.timeEnd =  timeEnd ? new Date(timeEnd).toISOString() : null
-
-  state.filters.alert = document.getElementById('f-alert').checked;
-  state.filters.ignore = document.getElementById('f-ignore').checked;
+function applyFilters(){
+  state.filters = getFilters();
   state.page = 1;
   reload();
 }
@@ -519,6 +527,9 @@ async function fetchPolygons(){
       'Authorization': `Api-Key ${state.apiKey}`
     }
   });
+  if (res.status === 403) {
+    return [];
+  }
   if(!res.ok) throw new Error(`API ${res.status}`);
   return await res.json();
 }
@@ -577,7 +588,7 @@ function renderPolygons(rows, colors){
 
 window.searchDevicesInPolygon = async function(polygonId) {
   state.selectedPolygonData = polygons.find(p => p.id === polygonId) ?? null;
-  setFiltersState();
+  applyFilters();
 };
 
 window.startMonitoring = async function startMonitoring(polygonId) {
@@ -1053,7 +1064,7 @@ async function initLists(){
   const apiKeys = await getApiKeys();
   fillCollapsibleList("apiList", apiKeys);
 
-  const cascade = new CascadeController([
+  cascade = new CascadeController([
     { id: "api", parent: null, containerId: "apiList" },
     { id: "device", parent: "api", containerId: "deviceList" },
     { id: "folder", parent: "device", containerId: "folderList" },
@@ -1067,14 +1078,106 @@ async function initLists(){
   cascade.init();
 }
 
+// Инициализация параметров фильтров
+async function initFilters() {
+  const data = await getFiltersFromBack(state.apiKey);
+
+  if (!data) {
+    // fetch упал, 403 или сеть
+    return InitFiltersStatus.NO_API_KEY;
+  }
+
+  // Если есть сохранённый поиск
+  if (!data.id) {
+    return InitFiltersStatus.NO_SAVED_FILTERS
+  }
+  state.rows = data.results || [];
+  state.total = state.rows.length;
+
+  const saved = translateFiltersFromBack(data.params?.query_params || {});
+  if (!saved) {
+    return InitFiltersStatus.NO_SAVED_FILTERS;
+  }
+
+  console.log("Saved:", saved);
+
+  // Проставление чекбоксов для апи ключей
+  if (saved.apiKeys?.length) {
+    await cascade.select("api", saved.apiKeys);
+  }
+  // для девайсов
+  if (saved.devices?.length) {
+    console.log("devices");
+    await cascade.select("device", saved.devices);
+  }
+  // для папок
+  if (saved.folders?.length) {
+    await cascade.select("folder", saved.folders);
+  }
+  // Остальные фильтры не каскадные
+  state.filters = saved;
+  setFilters(saved);
+
+  return state.total > 0
+    ? InitFiltersStatus.RESTORED_WITH_RESULTS
+    : InitFiltersStatus.RESTORED_EMPTY_RESULTS;
+}
+
 // Инициализация
-;(function init(){
+;(async function init(){
   console.log('Initializing app...');
-  document.getElementById('pageSize').value = String(state.pageSize);
   console.log('Calling ensureDrawTools...');
   ensureDrawTools();
-  console.log('Calling reload...');
-  reload();
+
+  await initLists();
+  // UI-реакции
+  const filtersStatus = await initFilters();
+  switch (filtersStatus) {
+    case InitFiltersStatus.NO_API_KEY:
+      notifications.warning("Создайте API-ключ для работы с дашбордом");
+      break;
+
+    case InitFiltersStatus.RESTORED_EMPTY_RESULTS:
+      notifications.warning("По сохранённым фильтрам ничего не найдено");
+      break;
+
+    case InitFiltersStatus.RESTORED_WITH_RESULTS:
+      notifications.info("Выведена последняя фильтрация");
+      break;
+
+    default:
+      console.log("Стандартный запрос");
+      ({ rows: state.rows, total: state.total } = await fetchDevices());
+  }
+
+  polygons = await fetchPolygons();
+  // Шлем на сервер запросы только при загрузке страницы в первый раз
+  state.colorForPolygon = await getAllPolygonsColor(polygons);
+
+  renderMarkers(state.rows);
+  renderPolygons(polygons, state.colorForPolygon);
+  selectRow(state.total !== 0 ? state.rows[0].device_id : null)
+  renderTable();
+
+  if (filtersStatus === InitFiltersStatus.NO_API_KEY) {
+    addPlaceholderRow("Невозможно сделать запрос без Api-Key");
+  } else if (filtersStatus === InitFiltersStatus.RESTORED_EMPTY_RESULTS) {
+    addPlaceholderRow("Устройства с текущими фильтрами не обнаружены");
+  } else if (state.total === 0){
+    addPlaceholderRow("Нет данных для отображения");
+  }
+
+  const uniqueMacs = new Set(state.rows.map(d => d.device_id)).size
+
+  console.log("Уникальных MAC:", uniqueMacs);
+  console.log("Всего записей:", state.total);
+
+  if (state.total !== uniqueMacs) {
+    console.error("❌ API вернул дубликаты MAC!");
+  } else {
+    console.log("✅ API агрегирует по MAC корректно");
+  }
+
   console.log('App initialized');
 
   // Инициализируем менеджер уведомлений
@@ -1084,6 +1187,4 @@ async function initLists(){
   } else {
     console.log('API key not available, skipping notification manager initialization');
   }
-  initLists();
 })();
-
