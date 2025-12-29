@@ -16,8 +16,13 @@ class Settings(BaseSettings):
 
     CLICKHOUSE_HOST: str = "localhost"
     CLICKHOUSE_PORT: int = 8123
+<<<<<<<< HEAD:microservices/anomaly_detection/backend/utils/config.py
     CLICKHOUSE_USER: str = "detector"
     CLICKHOUSE_PASSWORD: str = "detectorpassword"
+========
+    CLICKHOUSE_USER: str = "default"
+    CLICKHOUSE_PASSWORD: str = ""
+>>>>>>>> c5efd4bef1c6f79dc0dbfc4eceff06e02aece988:anomaly_detection/backend/utils/config.py
     CLICKHOUSE_DATABASE: str = "anomaly_ml"
 
     API_HOST: str = "0.0.0.0"

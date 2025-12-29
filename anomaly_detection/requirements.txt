@@ -5,6 +5,10 @@ pydantic>=2.10.0
 pydantic-settings>=2.1.0
 
 # ClickHouse (async driver for connection pooling)
+<<<<<<<< HEAD:microservices/anomaly_detection/requirements.txt
+========
+asynch>=0.2.3
+>>>>>>>> c5efd4bef1c6f79dc0dbfc4eceff06e02aece988:anomaly_detection/requirements.txt
 clickhouse-connect>=0.6.23  # Kept for compatibility
 
 # ML
