@@ -1,26 +1,28 @@
 /* ============================
- Генератор случайных устройств
+ Генератор тестовых устройств
 
- Для генерации необходимо необходимо:
-    1. Подннять Vendor, ESWriter, RabbitMQ
-    2. В dashboard.html вставить сразу после определения <script>... const API_... = ...;</script>
-      <script type="module" src="{% static 'interface/jsTestGenerators/generateFakeDataTest.js' %}"></script>
-    3. В app.js в самом начале добавить: 
-      import { fakeGen } from "./jsTestGenerators/generateFakeDataTest.js";
-    4. В функцию init() в app.js добавить в самый конец (после вызова initList()) 
-    (25 - число генерируемых устройств), устройства будут генерироваться в пределах МСК:
-      if (state.apiKey){
-        fakeGen(state.apiKey,  25);
-      } else alert("Для генерации нужен api ключ, создай в профиле");
-    5. Пересобрать корневой докер
-    6. После первой загрузки сайта, если все хорошо, то в консоли будет: 
-      Status: 202 generateFakeDataTest.js:100
-      {"status":"queued"} generateFakeDataTest.js:101
-    7. После этого нужно убрать вызов функции fakeGen из app.js дабы не генерировать при каждой загрузке страницы новые утсройства
-    8. Пересобрать докер, чтобы увидеть созаддыне устройства и не генерировать новые.
-    9. Обновлять страницу желательно через Ctrl+F5, чтобы исключить вероятность подгрузки данных из кэша
- ============================
-*/ 
+ Режимы:
+ 1) UNIQUE      — каждое устройство с уникальным MAC
+ 2) DUPLICATES  — несколько записей с одним MAC
+                 (проверка "последнего появления")
+
+ Использование:
+ fakeGen(apiKey, {
+   mode: FAKE_GEN_MODE.UNIQUE,
+   count: 50
+ });
+
+ fakeGen(apiKey, {
+   mode: FAKE_GEN_MODE.DUPLICATES,
+   uniqueMacs: 10,
+   recordsPerMac: [2, 3, 4, 6]
+ });
+ ============================ */
+
+export const FAKE_GEN_MODE = {
+  UNIQUE: "unique",
+  DUPLICATES: "duplicates",
+};
 
 function randomMac() {
   return Array.from({ length: 6 }, () =>
@@ -66,20 +68,18 @@ const moscowBounds = {
   east: 37.855     // Восточная граница
 };
 
-function generateDevice(userApi) {
+function generateDeviceBase(mac, userApi, detectedAt) {
   const folder = randomChoice(folders);
-  const mac = randomMac();
-  const detectedAt = new Date(Date.now() - Math.random() * 7 * 24 * 3600 * 1000).toISOString(); // последние 7 дней
 
   return {
     device_id: mac,
     latitude: randomFloat(moscowBounds.south, moscowBounds.north),
     longitude: randomFloat(moscowBounds.west, moscowBounds.east),
-    signal_strength: Math.floor(Math.random() * 56 - 95), // -95..-40 dBm
+    signal_strength: Math.floor(Math.random() * 56 - 95),
     network_type: randomChoice(networks),
     is_ignored: randomBool(0.2),
     is_alert: randomBool(0.3),
-    user_api: userApi,          // <- теперь корректно передаётся
+    user_api: userApi,
     user_phone_mac: mac,
     detected_at: detectedAt,
     folder_name: folder.name,
@@ -87,14 +87,44 @@ function generateDevice(userApi) {
   };
 }
 
-// Генерация списка устройств
-function generateDevices(count = 5, userApi) {
-  return Array.from({ length: count }, () => generateDevice(userApi));
+function generateUniqueDevices(count, userApi) {
+  return Array.from({ length: count }, () => {
+    const mac = randomMac();
+    const detectedAt = new Date(
+      Date.now() - Math.random() * 7 * 24 * 3600 * 1000
+    ).toISOString();
+
+    return generateDeviceBase(mac, userApi, detectedAt);
+  });
 }
 
-// ============================
-// Отправка на сервер
-// ============================
+function generateDuplicateDevices(
+  uniqueMacsCount,
+  recordsPerMac,
+  userApi
+) {
+  const devices = [];
+
+  for (let i = 0; i < uniqueMacsCount; i++) {
+    const mac = randomMac();
+    const recordsCount =
+      typeof recordsPerMac === "number"
+        ? recordsPerMac
+        : randomChoice(recordsPerMac);
+
+    for (let j = 0; j < recordsCount; j++) {
+      const detectedAt = new Date(
+        Date.now() - (recordsCount - j) * 15 * 60 * 1000
+      ).toISOString();
+
+      devices.push(
+        generateDeviceBase(mac, userApi, detectedAt)
+      );
+    }
+  }
+
+  return devices;
+}
 
 async function sendDevices(devices, apiKey) {
   const url = "/api/devices/";
@@ -117,13 +147,36 @@ async function sendDevices(devices, apiKey) {
   }
 }
 
-// ============================
-// Обёртка для генерации и отправки
-// ============================
+export async function fakeGen(
+  apiKey,
+  {
+    mode = FAKE_GEN_MODE.UNIQUE,
+    count = 25,
+    uniqueMacs = 5,
+    recordsPerMac = 4,
+  } = {}
+) {
+  let devices = [];
 
-export async function fakeGen(apiKey, devicesCount = 3) {
-  const devices = generateDevices(devicesCount, apiKey);
-  console.log(devices);
+  if (mode === FAKE_GEN_MODE.DUPLICATES) {
+    devices = generateDuplicateDevices(
+      uniqueMacs,
+      recordsPerMac,
+      apiKey
+    );
+  } else {
+    devices = generateUniqueDevices(count, apiKey);
+  }
+
+  console.log(
+    `[FakeGen] mode=${mode}, records=${devices.length}`
+  );
+  console.table(
+    devices.map(d => ({
+      mac: d.device_id,
+      detected_at: d.detected_at,
+    }))
+  );
 
   await sendDevices(devices, apiKey);
 }
