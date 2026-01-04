@@ -1,0 +1,101 @@
+alertmanager:
+  enabled: true
+  config:
+    global:
+      resolve_timeout: 5m
+    route:
+      group_by: ['alertname', 'namespace']
+      group_wait: 30s
+      group_interval: 5m
+      repeat_interval: 4h
+      receiver: 'telegram'
+      routes:
+        - match:
+            alertname: Watchdog
+          receiver: 'null'
+        - match:
+            severity: critical
+          receiver: 'telegram'
+          group_wait: 10s
+        - match:
+            severity: warning
+          receiver: 'telegram'
+    receivers:
+      - name: 'null'
+      - name: 'telegram'
+        telegram_configs:
+          - bot_token: '6271064681:AAE9cC5uz4EG316sqQcJim8599c4NSJecOA'
+            chat_id: 800705686
+            parse_mode: 'HTML'
+            message: |
+              {{ if eq .Status "firing" }}🔥 <b>ALERT</b>{{ else }}✅ <b>RESOLVED</b>{{ end }}
+              
+              {{ range .Alerts }}
+              <b>{{ .Labels.alertname }}</b>
+              Severity: {{ .Labels.severity }}
+              Namespace: {{ .Labels.namespace }}
+              Pod: {{ .Labels.pod }}
+              
+              {{ .Annotations.summary }}
+              
+              {{ if .Annotations.action }}<b>Action:</b>
+              <code>{{ .Annotations.action }}</code>{{ end }}
+              {{ end }}
+
+prometheus:
+  enabled: true
+  prometheusSpec:
+    retention: 15d
+    retentionSize: "10GB"
+    resources:
+      requests:
+        memory: 400Mi
+        cpu: 200m
+      limits:
+        memory: 2Gi
+        cpu: 1000m
+    ruleSelectorNilUsesHelmValues: false
+
+grafana:
+  enabled: true
+  adminUser: admin
+
+kubeStateMetrics:
+  enabled: true
+
+nodeExporter:
+  enabled: true
+
+defaultRules:
+  create: true
+  rules:
+    alertmanager: true
+    general: true
+    k8s: true
+    kubelet: true
+    kubernetesApps: true
+    kubernetesResources: true
+    kubeStateMetrics: true
+    node: true
+    prometheus: true
+    etcd: false
+    kubeApiserverAvailability: false
+    kubeApiserverBurnrate: false
+    kubeApiserverHistogram: false
+    kubeApiserverSlos: false
+    kubeControllerManager: false
+    kubeProxy: false
+    kubernetesSystem: false
+    kubeSchedulerAlerting: false
+    kubeSchedulerRecording: false
+
+kubeApiServer:
+  enabled: false
+kubeControllerManager:
+  enabled: false
+kubeScheduler:
+  enabled: false
+kubeProxy:
+  enabled: false
+kubeEtcd:
+  enabled: false

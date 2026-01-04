@@ -1,0 +1,15 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: monitoring
+
+resources:
+  - namespace.yaml
+  - prometheus/prometheus-rules.yaml
+  # Uncomment after ArgoCD setup:
+  # - argocd/argocd-application.yaml
+
+commonLabels:
+  project: santiway
+  component: monitoring
+  managed-by: kustomize

@@ -1,0 +1,151 @@
+# PrometheusRule
+#   kubectl get prometheusrules -n monitoring
+#   kubectl describe prometheusrule pod-health-alerts -n monitoring
+
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: pod-health-alerts
+  namespace: monitoring
+  labels:
+    release: prometheus
+    app: kube-prometheus-stack
+    team: santiway
+    component: monitoring
+spec:
+  groups:
+    - name: pod.restart.alerts
+      interval: 30s
+      rules:
+        - alert: PodRestartedMultipleTimes
+          expr: |
+            increase(
+              kube_pod_container_status_restarts_total{
+                namespace="santiway"
+              }[10m]
+            ) >= 3
+          for: 1m
+          labels:
+            severity: critical
+            team: santiway
+            alert_type: pod_restart
+          annotations:
+            summary: |
+              Pod {{ $labels.namespace }}/{{ $labels.pod }} restarted {{ $value | printf "%.0f" }} times in last 10 minutes
+            description: |
+              Container {{ $labels.container }} in pod {{ $labels.pod }} (namespace: {{ $labels.namespace }}) 
+              restarted {{ $value | printf "%.0f" }} times in the last 10 minutes.
+              This exceeds the threshold of 3 restarts and requires attention.
+            runbook_url: https://github.com/your-org/your-repo/blob/main/docs/runbooks/pod-restart.md
+            action: |
+              1. Check logs: kubectl logs {{ $labels.pod }} -n {{ $labels.namespace }} --previous
+              2. Check events: kubectl describe pod {{ $labels.pod }} -n {{ $labels.namespace }}
+              3. Check resources: kubectl top pod {{ $labels.pod }} -n {{ $labels.namespace }}
+
+        - alert: PodInCrashLoopBackOff
+          expr: |
+            kube_pod_container_status_waiting_reason{
+              reason="CrashLoopBackOff",
+              namespace="santiway"
+            } == 1
+          for: 2m
+          labels:
+            severity: critical
+            team: santiway
+            alert_type: crashloop
+          annotations:
+            summary: |
+              Pod {{ $labels.namespace }}/{{ $labels.pod }} in CrashLoopBackOff
+            description: |
+              Container {{ $labels.container }} in pod {{ $labels.pod }} is in status 
+              CrashLoopBackOff for more than 2 minutes. Kubernetes cannot start the container.
+            action: |
+              1. Check logs: kubectl logs {{ $labels.pod }} -n {{ $labels.namespace }} --previous
+              2. Check config: kubectl describe pod {{ $labels.pod }} -n {{ $labels.namespace }}
+              3. Check image and startup command
+
+        - alert: PodNotReady
+          expr: |
+            kube_pod_status_ready{
+              condition="true",
+              namespace="santiway"
+            } == 0
+          for: 5m
+          labels:
+            severity: warning
+            team: santiway
+            alert_type: pod_not_ready
+          annotations:
+            summary: |
+              Pod {{ $labels.namespace }}/{{ $labels.pod }} not ready for 5 minutes
+            description: |
+              Pod {{ $labels.pod }} in namespace {{ $labels.namespace }} is not passing readiness probe 
+              for more than 5 minutes. It is not receiving traffic from Service.
+            action: |
+              1. Check readiness probe: kubectl describe pod {{ $labels.pod }} -n {{ $labels.namespace }}
+              2. Check dependencies (DB, Redis, etc.)
+
+        - alert: DeploymentReplicasMismatch
+          expr: |
+            kube_deployment_status_replicas_available{namespace="santiway"} 
+            < 
+            kube_deployment_spec_replicas{namespace="santiway"}
+          for: 5m
+          labels:
+            severity: warning
+            team: santiway
+            alert_type: deployment_replicas
+          annotations:
+            summary: |
+              Deployment {{ $labels.namespace }}/{{ $labels.deployment }} has insufficient replicas
+            description: |
+              Deployment {{ $labels.deployment }} has fewer available replicas than specified in spec.
+              This may indicate problems with pod startup.
+            action: |
+              1. Check deployment status: kubectl get deployment {{ $labels.deployment }} -n {{ $labels.namespace }}
+              2. Check pods: kubectl get pods -l app={{ $labels.deployment }} -n {{ $labels.namespace }}
+
+    - name: pod.resources.alerts
+      rules:
+        - alert: PodMemoryNearLimit
+          expr: |
+            (
+              container_memory_working_set_bytes{namespace="santiway", container!=""}
+              / 
+              container_spec_memory_limit_bytes{namespace="santiway", container!=""}
+            ) > 0.9
+          for: 5m
+          labels:
+            severity: warning
+            team: santiway
+            alert_type: memory
+          annotations:
+            summary: |
+              Pod {{ $labels.namespace }}/{{ $labels.pod }} uses > 90% of memory
+            description: |
+              Container {{ $labels.container }} uses {{ $value | humanizePercentage }} 
+              of the memory limit. Possible OOMKill.
+
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: pod-recording-rules
+  namespace: monitoring
+  labels:
+    release: prometheus
+    app: kube-prometheus-stack
+    team: santiway
+    component: monitoring
+spec:
+  groups:
+    - name: pod.recording.rules
+      interval: 30s
+      rules:
+        - record: santiway:pod_restarts:increase10m
+          expr: |
+            increase(kube_pod_container_status_restarts_total{namespace="santiway"}[10m])
+        
+        - record: santiway:pods_crashloopbackoff:count
+          expr: |
+            count(kube_pod_container_status_waiting_reason{reason="CrashLoopBackOff", namespace="santiway"} == 1) or vector(0)

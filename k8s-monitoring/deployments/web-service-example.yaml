@@ -1,0 +1,116 @@
+# Пример Deployment для веб-сервиса с HTTP probes
+# Использовать для сервисов с REST API / HTTP endpoints
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web-service
+  namespace: production
+  labels:
+    app: web-service
+    monitoring: enabled
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: web-service
+  template:
+    metadata:
+      labels:
+        app: web-service
+      annotations:
+        # Prometheus автоматически подхватит метрики
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+        prometheus.io/path: "/metrics"
+    spec:
+      containers:
+        - name: web-service
+          image: your-registry/web-service:latest
+          ports:
+            - containerPort: 8080
+              name: http
+          
+          # ======================
+          # LIVENESS PROBE (HTTP)
+          # ======================
+          # Проверяет: жив ли контейнер?
+          # Действие при провале: перезапуск контейнера
+          livenessProbe:
+            httpGet:
+              path: /health/live      # Легковесный endpoint
+              port: http
+              scheme: HTTP
+            initialDelaySeconds: 15   # Ждём 15 сек после старта
+            periodSeconds: 10         # Проверяем каждые 10 сек
+            timeoutSeconds: 5         # Таймаут запроса 5 сек
+            failureThreshold: 3       # 3 провала → рестарт
+            successThreshold: 1       # 1 успех → считаем живым
+          
+          # ======================
+          # READINESS PROBE (HTTP)
+          # ======================
+          # Проверяет: готов ли принимать трафик?
+          # Действие при провале: убрать из балансировки (Service)
+          readinessProbe:
+            httpGet:
+              path: /health/ready     # Может проверять DB, cache, etc.
+              port: http
+              scheme: HTTP
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+            successThreshold: 1
+          
+          # ======================
+          # STARTUP PROBE (HTTP)
+          # ======================
+          # Для приложений с долгим стартом (миграции БД, прогрев кеша)
+          # Пока startup probe не прошёл — liveness/readiness не проверяются
+          startupProbe:
+            httpGet:
+              path: /health/live
+              port: http
+            initialDelaySeconds: 0
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 30      # 30 * 5 = 150 сек на старт
+            successThreshold: 1
+          
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+
+---
+# Минимальный health endpoint в приложении должен возвращать:
+# GET /health/live  → 200 OK (просто "жив")
+# GET /health/ready → 200 OK (готов к работе, DB connected, etc.)
+#
+# Пример на Python (FastAPI):
+# @app.get("/health/live")
+# async def liveness():
+#     return {"status": "alive"}
+#
+# @app.get("/health/ready")
+# async def readiness():
+#     # Проверяем подключения к зависимостям
+#     await check_database()
+#     await check_redis()
+#     return {"status": "ready"}
+
+
+

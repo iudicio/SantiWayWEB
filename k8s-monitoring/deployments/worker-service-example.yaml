@@ -1,0 +1,123 @@
+# Пример Deployment для фонового воркера (без HTTP API)
+# Использовать для: очередей, крон-задач, процессоров событий
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: background-worker
+  namespace: production
+  labels:
+    app: background-worker
+    monitoring: enabled
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: background-worker
+  template:
+    metadata:
+      labels:
+        app: background-worker
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9090"
+        prometheus.io/path: "/metrics"
+    spec:
+      containers:
+        - name: worker
+          image: your-registry/background-worker:latest
+          
+          # ======================
+          # LIVENESS PROBE (EXEC)
+          # ======================
+          # Для воркеров без HTTP — используем exec
+          # Скрипт должен возвращать exit code 0 = жив, != 0 = мёртв
+          livenessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  # Вариант 1: Проверяем файл heartbeat (воркер обновляет его)
+                  # Файл должен быть обновлён не позже чем 60 секунд назад
+                  if [ -f /tmp/worker-heartbeat ]; then
+                    LAST_BEAT=$(stat -c %Y /tmp/worker-heartbeat 2>/dev/null || stat -f %m /tmp/worker-heartbeat)
+                    NOW=$(date +%s)
+                    DIFF=$((NOW - LAST_BEAT))
+                    if [ $DIFF -lt 60 ]; then
+                      exit 0  # Жив
+                    fi
+                  fi
+                  exit 1  # Мёртв
+            initialDelaySeconds: 30
+            periodSeconds: 15
+            timeoutSeconds: 10
+            failureThreshold: 3
+            successThreshold: 1
+          
+          # ======================
+          # READINESS PROBE (EXEC)
+          # ======================
+          readinessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  # Проверяем что воркер подключён к очереди
+                  # Пример: проверка PID файла или lock файла
+                  test -f /tmp/worker.pid && kill -0 $(cat /tmp/worker.pid) 2>/dev/null
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+            successThreshold: 1
+          
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "200m"
+            limits:
+              memory: "1Gi"
+              cpu: "1000m"
+          
+          volumeMounts:
+            - name: tmp-volume
+              mountPath: /tmp
+      
+      volumes:
+        - name: tmp-volume
+          emptyDir: {}
+
+---
+# ======================
+# АЛЬТЕРНАТИВА: TCP PROBE
+# ======================
+# Если воркер открывает какой-то порт (например, для metrics)
+# можно использовать TCP probe вместо exec
+#
+# livenessProbe:
+#   tcpSocket:
+#     port: 9090
+#   initialDelaySeconds: 15
+#   periodSeconds: 10
+#   failureThreshold: 3
+
+---
+# ======================
+# ПРИМЕР КОДА ВОРКЕРА (Python)
+# ======================
+# import time
+# import threading
+#
+# def heartbeat_writer():
+#     """Фоновый поток, обновляющий heartbeat файл"""
+#     while True:
+#         with open('/tmp/worker-heartbeat', 'w') as f:
+#             f.write(str(time.time()))
+#         time.sleep(10)
+#
+# # Запуск в отдельном потоке
+# threading.Thread(target=heartbeat_writer, daemon=True).start()
+
+
+

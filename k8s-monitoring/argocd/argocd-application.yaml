@@ -1,0 +1,106 @@
+# Main services (production)
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: santiway-production
+  namespace: argocd
+  labels:
+    team: santiway
+    environment: production
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/iudicio/SantiWayWEB.git
+    targetRevision: main
+    path: k8s
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: santiway
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+      allowEmpty: false
+    syncOptions:
+      - CreateNamespace=true
+      - PrunePropagationPolicy=foreground
+      - PruneLast=true
+      - ApplyOutOfSyncOnly=true
+      - ServerSideApply=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+  ignoreDifferences:
+    - group: apps
+      kind: Deployment
+      jsonPointers:
+        - /spec/replicas
+
+---
+# Dev environment
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: santiway-dev
+  namespace: argocd
+  labels:
+    team: santiway
+    environment: dev
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/iudicio/SantiWayWEB.git
+    targetRevision: dev
+    path: k8s
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: santiway-dev
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+    retry:
+      limit: 3
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 1m
+
+---
+# Monitoring stack
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: santiway-monitoring
+  namespace: argocd
+  labels:
+    team: santiway
+    component: monitoring
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/iudicio/SantiWayWEB.git
+    targetRevision: main
+    path: k8s-monitoring
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
