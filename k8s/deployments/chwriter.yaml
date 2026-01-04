@@ -1,0 +1,82 @@
+# ClickHouse Writer Microservice
+# Оригинал: docker-compose.yml -> chwriter
+# Тип: Celery worker → Exec probe
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: chwriter
+  namespace: santiway
+  labels:
+    app: chwriter
+    component: microservice
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: chwriter
+  template:
+    metadata:
+      labels:
+        app: chwriter
+    spec:
+      containers:
+        - name: chwriter
+          image: chwriter:latest
+          imagePullPolicy: Never  # локальный образ
+          
+          # ========================================
+          # LIVENESS PROBE (EXEC)
+          # ========================================
+          # Для Celery worker — проверяем через inspect ping
+          livenessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - celery -A celery_app inspect ping --timeout 10 || exit 1
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            timeoutSeconds: 15
+            failureThreshold: 3
+          
+          # ========================================
+          # READINESS PROBE (EXEC)
+          # ========================================
+          readinessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - celery -A celery_app inspect ping --timeout 5 || exit 1
+            initialDelaySeconds: 15
+            periodSeconds: 15
+            timeoutSeconds: 10
+            failureThreshold: 3
+          
+          env:
+            - name: CELERY_BROKER_URL
+              valueFrom:
+                secretKeyRef:
+                  name: santiway-secrets
+                  key: CELERY_BROKER_URL
+            - name: CELERY_CONSUMER_NAME
+              value: "chWriter"
+            - name: CELERY_C_QUEUE_NAME
+              value: "chWriter_queue"
+            - name: CLICKHOUSE_HOST
+              value: "clickhouse"
+            - name: CLICKHOUSE_PORT
+              value: "8123"
+            - name: CLICKHOUSE_DATABASE
+              value: "santi"
+            - name: CELERY_LOG_LEVEL
+              value: "info"
+          
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+

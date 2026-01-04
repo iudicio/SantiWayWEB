@@ -1,0 +1,52 @@
+# Kustomization для деплоя всех ресурсов
+# 
+# Использование:
+#   kubectl apply -k k8s/
+#   kubectl delete -k k8s/
+#
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: santiway
+
+# Порядок важен: сначала namespace, потом config, потом storage, потом deployments
+resources:
+  # Namespace
+  - namespace.yaml
+  
+  # ConfigMaps и Secrets
+  - config.yaml
+  
+  # Storage (PVC)
+  - storage.yaml
+  
+  # Stateful сервисы (базы данных, message brokers)
+  - deployments/postgres.yaml
+  - deployments/rabbitmq.yaml
+  - deployments/redis.yaml
+  - deployments/elasticsearch.yaml
+  - deployments/clickhouse.yaml
+  
+  # Application сервисы
+  - deployments/web.yaml
+  - deployments/celery-worker.yaml
+  - deployments/chwriter.yaml
+  - deployments/django-cron.yaml
+  - deployments/nginx.yaml
+  
+  # Health check job (опционально, запускается вручную или через ArgoCD hook)
+  # - jobs/startup-health-check.yaml
+
+# Общие labels для всех ресурсов
+commonLabels:
+  project: santiway
+  managed-by: kustomize
+
+# Общие annotations
+commonAnnotations:
+  app.kubernetes.io/part-of: santiway-platform
+
+# Можно добавить patches для разных окружений
+# patches:
+#   - path: overlays/production/increase-replicas.yaml
+

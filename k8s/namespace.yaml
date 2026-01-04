@@ -1,0 +1,8 @@
+# Namespace для проекта
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: santiway
+  labels:
+    monitoring: enabled
+

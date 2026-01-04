@@ -1,0 +1,79 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: celery-worker
+  namespace: santiway
+  labels:
+    app: celery-worker
+    component: worker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: celery-worker
+  template:
+    metadata:
+      labels:
+        app: celery-worker
+    spec:
+      containers:
+        - name: celery-worker
+          image: santiway-web:latest
+          imagePullPolicy: Never
+          command:
+            - celery
+            - -A
+            - SantiWayWEB.celery_app
+            - worker
+            - --loglevel=info
+            - -Q
+            - apkget
+            - -n
+            - apkget@%h
+          
+          # Simple liveness - check if celery process exists
+          livenessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - ps aux | grep -v grep | grep -q "celery.*worker"
+            initialDelaySeconds: 60
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 3
+          
+          # Readiness - same check
+          readinessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - ps aux | grep -v grep | grep -q "celery.*worker"
+            initialDelaySeconds: 30
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 3
+          
+          envFrom:
+            - configMapRef:
+                name: santiway-config
+            - secretRef:
+                name: santiway-secrets
+          
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "200m"
+            limits:
+              memory: "1Gi"
+              cpu: "1000m"
+          
+          volumeMounts:
+            - name: media
+              mountPath: /app/media
+      
+      volumes:
+        - name: media
+          persistentVolumeClaim:
+            claimName: media-pvc

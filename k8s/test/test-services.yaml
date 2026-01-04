@@ -1,0 +1,165 @@
+# Тестовые сервисы для проверки мониторинга
+# Не требуют сборки образов — используют готовые из Docker Hub
+
+---
+# Namespace
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: santiway
+
+---
+# Тестовый веб-сервис (nginx с health endpoint)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web-test
+  namespace: santiway
+  labels:
+    app: web-test
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: web-test
+  template:
+    metadata:
+      labels:
+        app: web-test
+    spec:
+      containers:
+        - name: nginx
+          image: nginx:alpine
+          ports:
+            - containerPort: 80
+          
+          # HTTP Liveness Probe
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            failureThreshold: 3
+          
+          # HTTP Readiness Probe
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 3
+            periodSeconds: 5
+            failureThreshold: 3
+          
+          resources:
+            requests:
+              memory: "32Mi"
+              cpu: "25m"
+            limits:
+              memory: "64Mi"
+              cpu: "50m"
+
+---
+# Service для web-test
+apiVersion: v1
+kind: Service
+metadata:
+  name: web-test
+  namespace: santiway
+spec:
+  selector:
+    app: web-test
+  ports:
+    - port: 80
+      targetPort: 80
+
+---
+# Тестовый воркер (имитация Celery)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: worker-test
+  namespace: santiway
+  labels:
+    app: worker-test
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: worker-test
+  template:
+    metadata:
+      labels:
+        app: worker-test
+    spec:
+      containers:
+        - name: worker
+          image: busybox:latest
+          command:
+            - /bin/sh
+            - -c
+            - |
+              echo "Worker started"
+              while true; do
+                echo "$(date) - Processing tasks..."
+                echo "heartbeat" > /tmp/heartbeat
+                sleep 10
+              done
+          
+          # Exec Liveness Probe
+          livenessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - test -f /tmp/heartbeat
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            failureThreshold: 3
+          
+          resources:
+            requests:
+              memory: "16Mi"
+              cpu: "10m"
+            limits:
+              memory: "32Mi"
+              cpu: "25m"
+
+---
+# Тестовый падающий под (для проверки алертов)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: crasher-test
+  namespace: santiway
+  labels:
+    app: crasher-test
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: crasher-test
+  template:
+    metadata:
+      labels:
+        app: crasher-test
+    spec:
+      containers:
+        - name: crasher
+          image: busybox:latest
+          command:
+            - /bin/sh
+            - -c
+            - |
+              echo "Starting... will crash in 5 seconds"
+              sleep 5
+              echo "Crashing!"
+              exit 1
+          resources:
+            requests:
+              memory: "16Mi"
+              cpu: "10m"
+            limits:
+              memory: "32Mi"
+              cpu: "25m"
+

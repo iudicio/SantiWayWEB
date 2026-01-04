@@ -1,0 +1,116 @@
+# Django Web Service
+# Оригинал: docker-compose.yml -> web
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web
+  namespace: santiway
+  labels:
+    app: web
+    component: backend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: web
+  template:
+    metadata:
+      labels:
+        app: web
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8000"
+        prometheus.io/path: "/metrics"
+    spec:
+      containers:
+        - name: web
+          image: santiway-web:latest
+          imagePullPolicy: Never  # Использовать локальный образ
+          ports:
+            - containerPort: 8000
+              name: http
+          
+          # ========================================
+          # LIVENESS PROBE — жив ли процесс?
+          # ========================================
+          # Django должен иметь endpoint /health/live/
+          # Простейший вариант — добавить в urls.py:
+          #   path('health/live/', lambda r: HttpResponse('ok'))
+          livenessProbe:
+            httpGet:
+              path: /health/live/
+              port: http
+            initialDelaySeconds: 30   # Django долго стартует
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          
+          # ========================================
+          # READINESS PROBE — готов принимать трафик?
+          # ========================================
+          # Проверяет что Django + DB + ES готовы
+          readinessProbe:
+            httpGet:
+              path: /health/ready/
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 5
+            failureThreshold: 3
+          
+          # ========================================
+          # STARTUP PROBE — для долгого старта
+          # ========================================
+          startupProbe:
+            httpGet:
+              path: /health/live/
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 10
+            failureThreshold: 30
+          
+          # Переменные окружения
+          envFrom:
+            - configMapRef:
+                name: santiway-config
+            - secretRef:
+                name: santiway-secrets
+          
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "200m"
+            limits:
+              memory: "1Gi"
+              cpu: "1000m"
+          
+          volumeMounts:
+            - name: static
+              mountPath: /app/staticfiles
+            - name: media
+              mountPath: /app/media
+      
+      volumes:
+        - name: static
+          persistentVolumeClaim:
+            claimName: static-pvc
+        - name: media
+          persistentVolumeClaim:
+            claimName: media-pvc
+
+---
+# Service для web
+apiVersion: v1
+kind: Service
+metadata:
+  name: web
+  namespace: santiway
+spec:
+  selector:
+    app: web
+  ports:
+    - port: 8000
+      targetPort: http
+      name: http
+

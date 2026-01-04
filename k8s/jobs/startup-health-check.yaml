@@ -1,0 +1,190 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: startup-health-check
+  namespace: santiway
+  labels:
+    app: health-check
+    team: santiway
+  annotations:
+    argocd.argoproj.io/hook: PostSync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+spec:
+  ttlSecondsAfterFinished: 3600
+  backoffLimit: 0
+  template:
+    metadata:
+      labels:
+        app: health-check
+    spec:
+      restartPolicy: Never
+      serviceAccountName: health-checker
+      containers:
+        - name: health-checker
+          image: bitnami/kubectl:latest
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "50m"
+            limits:
+              memory: "128Mi"
+              cpu: "100m"
+          command:
+            - /bin/bash
+            - -c
+            - |
+              set -euo pipefail
+              
+              NAMESPACE="santiway"
+              RESTART_THRESHOLD=3
+              FAILED=0
+              WARNINGS=0
+              
+              echo ""
+              echo "========================================"
+              echo "  STARTUP HEALTH CHECK"
+              echo "  Namespace: $NAMESPACE"
+              echo "  Time: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+              echo "  Restart threshold: $RESTART_THRESHOLD"
+              echo "========================================"
+              echo ""
+              
+              # Check Deployments
+              echo "--- DEPLOYMENTS ---"
+              for DEP in $(kubectl get deployments -n $NAMESPACE -o jsonpath='{.items[*].metadata.name}' 2>/dev/null); do
+                READY=$(kubectl get deployment $DEP -n $NAMESPACE -o jsonpath='{.status.readyReplicas}' 2>/dev/null || echo "0")
+                DESIRED=$(kubectl get deployment $DEP -n $NAMESPACE -o jsonpath='{.spec.replicas}' 2>/dev/null || echo "0")
+                READY=${READY:-0}
+                
+                if [ "$READY" = "$DESIRED" ]; then
+                  echo "[OK] $DEP: $READY/$DESIRED ready"
+                else
+                  echo "[FAILED] $DEP: $READY/$DESIRED ready"
+                  FAILED=$((FAILED + 1))
+                fi
+              done
+              echo ""
+              
+              # Check StatefulSets
+              echo "--- STATEFULSETS ---"
+              STS_LIST=$(kubectl get statefulsets -n $NAMESPACE -o jsonpath='{.items[*].metadata.name}' 2>/dev/null || echo "")
+              if [ -z "$STS_LIST" ]; then
+                echo "No StatefulSets found"
+              else
+                for STS in $STS_LIST; do
+                  READY=$(kubectl get statefulset $STS -n $NAMESPACE -o jsonpath='{.status.readyReplicas}' 2>/dev/null || echo "0")
+                  DESIRED=$(kubectl get statefulset $STS -n $NAMESPACE -o jsonpath='{.spec.replicas}' 2>/dev/null || echo "0")
+                  READY=${READY:-0}
+                  
+                  if [ "$READY" = "$DESIRED" ]; then
+                    echo "[OK] $STS: $READY/$DESIRED ready"
+                  else
+                    echo "[FAILED] $STS: $READY/$DESIRED ready"
+                    FAILED=$((FAILED + 1))
+                  fi
+                done
+              fi
+              echo ""
+              
+              # Check pods for restarts >= threshold
+              echo "--- PODS & RESTARTS ---"
+              PODS_JSON=$(kubectl get pods -n $NAMESPACE -o json 2>/dev/null)
+              POD_COUNT=$(echo "$PODS_JSON" | jq '.items | length')
+              
+              for i in $(seq 0 $((POD_COUNT - 1))); do
+                POD_NAME=$(echo "$PODS_JSON" | jq -r ".items[$i].metadata.name")
+                POD_STATUS=$(echo "$PODS_JSON" | jq -r ".items[$i].status.phase")
+                TOTAL_RESTARTS=0
+                
+                CONTAINERS=$(echo "$PODS_JSON" | jq -r ".items[$i].status.containerStatuses // [] | length")
+                if [ "$CONTAINERS" != "0" ] && [ -n "$CONTAINERS" ]; then
+                  for j in $(seq 0 $((CONTAINERS - 1))); do
+                    RESTARTS=$(echo "$PODS_JSON" | jq -r ".items[$i].status.containerStatuses[$j].restartCount" || echo "0")
+                    TOTAL_RESTARTS=$((TOTAL_RESTARTS + ${RESTARTS:-0}))
+                  done
+                fi
+                
+                if [ "$TOTAL_RESTARTS" -ge "$RESTART_THRESHOLD" ]; then
+                  echo ""
+                  echo "[ALERT] Pod '$POD_NAME' restarted $TOTAL_RESTARTS times (threshold: $RESTART_THRESHOLD)"
+                  echo "  Recent events:"
+                  kubectl get events -n $NAMESPACE --field-selector involvedObject.name=$POD_NAME \
+                    --sort-by='.lastTimestamp' 2>/dev/null | tail -3 | sed 's/^/    /'
+                  WARNINGS=$((WARNINGS + 1))
+                elif [ "$POD_STATUS" = "Running" ]; then
+                  echo "[OK] $POD_NAME: $POD_STATUS, restarts: $TOTAL_RESTARTS"
+                else
+                  echo "[WARN] $POD_NAME: $POD_STATUS, restarts: $TOTAL_RESTARTS"
+                fi
+              done
+              echo ""
+              
+              # Check CrashLoopBackOff
+              echo "--- CRASHLOOPBACKOFF ---"
+              CRASHLOOP_PODS=$(echo "$PODS_JSON" | jq -r '
+                .items[] | 
+                select(.status.containerStatuses[]?.state.waiting.reason == "CrashLoopBackOff") | 
+                .metadata.name
+              ' 2>/dev/null || echo "")
+              
+              if [ -z "$CRASHLOOP_PODS" ]; then
+                echo "[OK] No pods in CrashLoopBackOff"
+              else
+                for POD in $CRASHLOOP_PODS; do
+                  echo "[FAILED] $POD is in CrashLoopBackOff"
+                  FAILED=$((FAILED + 1))
+                done
+              fi
+              echo ""
+              
+              # Summary
+              echo "========================================"
+              if [ $FAILED -eq 0 ] && [ $WARNINGS -eq 0 ]; then
+                echo "✅ ALL CHECKS PASSED"
+                exit 0
+              elif [ $FAILED -eq 0 ]; then
+                echo "⚠️  PASSED WITH $WARNINGS WARNING(S)"
+                exit 0
+              else
+                echo "❌ $FAILED CHECK(S) FAILED, $WARNINGS WARNING(S)"
+                exit 1
+              fi
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: health-checker
+  namespace: santiway
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: health-checker-role
+  namespace: santiway
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "pods/log", "services", "endpoints", "events"]
+    verbs: ["get", "list"]
+  - apiGroups: ["apps"]
+    resources: ["deployments", "statefulsets", "replicasets"]
+    verbs: ["get", "list"]
+  - apiGroups: ["batch"]
+    resources: ["jobs"]
+    verbs: ["get", "list"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: health-checker-binding
+  namespace: santiway
+subjects:
+  - kind: ServiceAccount
+    name: health-checker
+    namespace: santiway
+roleRef:
+  kind: Role
+  name: health-checker-role
+  apiGroup: rbac.authorization.k8s.io

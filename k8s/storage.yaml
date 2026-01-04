@@ -1,0 +1,30 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: static-pvc
+  namespace: santiway
+  labels:
+    app: santiway
+    type: static
+spec:
+  accessModes:
+    - ReadWriteOnce  # ReadWriteMany requires NFS/cloud storage
+  resources:
+    requests:
+      storage: 1Gi
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: media-pvc
+  namespace: santiway
+  labels:
+    app: santiway
+    type: media
+spec:
+  accessModes:
+    - ReadWriteOnce  # ReadWriteMany requires NFS/cloud storage
+  resources:
+    requests:
+      storage: 10Gi

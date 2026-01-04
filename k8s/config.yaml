@@ -1,0 +1,95 @@
+# ConfigMap — несекретные переменные окружения
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: santiway-config
+  namespace: santiway
+data:
+  # Django
+  DEBUG: "1"
+  ALLOWED_HOSTS: "*"
+  CSRF_TRUSTED_ORIGINS: "http://localhost:8080,http://127.0.0.1:8080"
+  DJANGO_SETTINGS_MODULE: "SantiWayWEB.settings"
+  DJANGO_SUPERUSER_EMAIL: "admin@example.com"
+  
+  # PostgreSQL
+  POSTGRES_DB: "santi"
+  POSTGRES_HOST: "postgres"
+  POSTGRES_PORT: "5432"
+  
+  # Elasticsearch
+  # ES_URL: "http://elasticsearch:9200"
+  ES_HEAP: "512m"
+  
+  # ClickHouse
+  CLICKHOUSE_HOST: "clickhouse"
+  CLICKHOUSE_PORT: "8123"
+  CLICKHOUSE_USER: "default"
+  CLICKHOUSE_DATABASE: "santi"
+  CLICKHOUSE_TABLE: "way_data"
+  
+  # Celery
+  CELERY_WORKER_NAME: "worker"
+  CELERY_QUEUE: "process_queue"
+  CELERY_LOG_LEVEL: "info"
+
+---
+# Secret
+apiVersion: v1
+kind: Secret
+metadata:
+  name: santiway-secrets
+  namespace: santiway
+type: Opaque
+stringData:
+  # Django
+  SECRET_KEY: "123dsada2e1e2dafaeq3e"
+  DJANGO_SUPERUSER_PASSWORD: "admin"
+  
+  # PostgreSQL
+  POSTGRES_USER: "santi"
+  POSTGRES_PASSWORD: "santi"
+  
+  # ClickHouse
+  CLICKHOUSE_PASSWORD: ""
+  
+  # RabbitMQ
+  RABBITMQ_USER: "celery"
+  RABBITMQ_PASSWORD: "celerypassword"
+  
+  # Celery
+  CELERY_BROKER_URL: "amqp://celery:celerypassword@rabbitmq:5672//"
+  CELERY_RESULT_BACKEND: "redis://:strongpassword@redis:6379/0"
+  
+  # Redis
+  REDIS_PASSWORD: "strongpassword"
+  
+  # GitHub Webhook
+  GITHUB_WEBHOOK_SECRET: "a1b2c3d4e5f67890abcdef1234567890abcdef1234567890abcdef1234567890abcd"
+
+---
+# ClickHouse Init Schema ConfigMap
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: clickhouse-init-schema
+  namespace: santiway
+data:
+  schema.sql: |
+    -- ClickHouse schema for SantiWay
+    CREATE DATABASE IF NOT EXISTS santi;
+    
+    CREATE TABLE IF NOT EXISTS santi.way_data (
+        id UUID DEFAULT generateUUIDv4(),
+        user_id UInt64,
+        timestamp DateTime DEFAULT now(),
+        latitude Float64,
+        longitude Float64,
+        accuracy Float32,
+        speed Float32,
+        bearing Float32,
+        altitude Float32,
+        created_at DateTime DEFAULT now()
+    ) ENGINE = MergeTree()
+    ORDER BY (user_id, timestamp)
+    PARTITION BY toYYYYMM(timestamp);

@@ -1,0 +1,95 @@
+# Overlay для локальной разработки (minikube/kind)
+# Использует локальные образы без pull из registry
+#
+# Деплой: kubectl apply -k k8s/overlays/local/
+#
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: santiway
+
+resources:
+  - ../../  # Базовые ресурсы из k8s/
+
+# Патчи для использования локальных образов
+patches:
+  # Web - использовать локальный образ
+  - patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/image
+        value: santiway-web:latest
+      - op: add
+        path: /spec/template/spec/containers/0/imagePullPolicy
+        value: Never
+    target:
+      kind: Deployment
+      name: web
+
+  # Celery Worker
+  - patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/image
+        value: santiway-web:latest
+      - op: add
+        path: /spec/template/spec/containers/0/imagePullPolicy
+        value: Never
+    target:
+      kind: Deployment
+      name: celery-worker
+
+  # Django Cron
+  - patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/image
+        value: santiway-web:latest
+      - op: add
+        path: /spec/template/spec/containers/0/imagePullPolicy
+        value: Never
+    target:
+      kind: Deployment
+      name: django-cron
+
+  # CHWriter
+  - patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/image
+        value: chwriter:latest
+      - op: add
+        path: /spec/template/spec/containers/0/imagePullPolicy
+        value: Never
+    target:
+      kind: Deployment
+      name: chwriter
+
+  # Уменьшить ресурсы для локальной разработки
+  - patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/requests/memory
+        value: "128Mi"
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/limits/memory
+        value: "512Mi"
+    target:
+      kind: Deployment
+
+  # Уменьшить replicas до 1
+  - patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 1
+    target:
+      kind: Deployment
+      name: web
+
+  - patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 1
+    target:
+      kind: Deployment
+      name: nginx
+
+# Labels для локального окружения
+commonLabels:
+  environment: local
+

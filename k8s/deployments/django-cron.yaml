@@ -1,0 +1,74 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: django-cron
+  namespace: santiway
+  labels:
+    app: django-cron
+    component: scheduler
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: django-cron
+  template:
+    metadata:
+      labels:
+        app: django-cron
+    spec:
+      containers:
+        - name: django-cron
+          image: santiway-web:latest
+          imagePullPolicy: Never
+          command:
+            - /bin/bash
+            - -c
+            - |
+              python manage.py crontab remove || true
+              python manage.py crontab add
+              touch /tmp/cron-heartbeat
+              cron -f &
+              CRON_PID=$!
+              # Heartbeat loop
+              while kill -0 $CRON_PID 2>/dev/null; do
+                touch /tmp/cron-heartbeat
+                sleep 30
+              done
+          
+          # Liveness - check heartbeat file age (less than 60 seconds old)
+          livenessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - test -f /tmp/cron-heartbeat && find /tmp/cron-heartbeat -mmin -1 | grep -q .
+            initialDelaySeconds: 60
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+          
+          # Readiness - just check file exists
+          readinessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - test -f /tmp/cron-heartbeat
+            initialDelaySeconds: 30
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 3
+          
+          envFrom:
+            - configMapRef:
+                name: santiway-config
+            - secretRef:
+                name: santiway-secrets
+          
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
